@@ -1,0 +1,25 @@
+title = "PiggyBack Gitleaks Config"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Global allowlist"
+paths = [
+    '''node_modules/''',
+    '''\.next/''',
+    '''\.env\.local$''',
+    '''\.env\.local\.personal$''',
+    '''\.env\.demo$''',
+    '''\.env\.local\.example$''',
+    '''\.env\.demo\.example$''',
+    '''pnpm-lock\.yaml$''',
+    '''package-lock\.json$''',
+]
+regexes = [
+    # Test keys used in unit tests
+    '''0123456789abcdef0123456789abcdef''',
+    # CI placeholder values
+    '''placeholder_32_character_key____''',
+    '''placeholder-anon-key''',
+]

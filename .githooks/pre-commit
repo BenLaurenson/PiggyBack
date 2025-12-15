@@ -1,0 +1,19 @@
+#!/bin/bash
+# Pre-commit hook: scan staged changes for secrets using gitleaks
+
+if command -v gitleaks &> /dev/null; then
+  gitleaks protect --staged --verbose --redact --config .gitleaks.toml
+  if [ $? -ne 0 ]; then
+    echo ""
+    echo "========================================="
+    echo "COMMIT BLOCKED: Secrets detected!"
+    echo "========================================="
+    echo ""
+    echo "If these are false positives, add them to .gitleaks.toml allowlist."
+    exit 1
+  fi
+else
+  echo "Warning: gitleaks not installed. Install with: brew install gitleaks"
+fi
+
+exit 0

@@ -1,0 +1,284 @@
+"use client";
+
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { Nunito, DM_Sans } from "next/font/google";
+import { createInvestment } from "@/app/actions/investments";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { ArrowLeft, Loader2, Plus } from "lucide-react";
+
+const nunito = Nunito({
+  subsets: ["latin"],
+  variable: "--font-nunito",
+  weight: ["600", "700", "800"]
+});
+
+const dmSans = DM_Sans({
+  subsets: ["latin"],
+  variable: "--font-dm-sans",
+  weight: ["400", "500"]
+});
+
+export default function AddInvestmentPage() {
+  const [assetType, setAssetType] = useState<"stock" | "etf" | "crypto" | "property" | "other">("stock");
+  const [name, setName] = useState("");
+  const [ticker, setTicker] = useState("");
+  const [quantity, setQuantity] = useState("");
+  const [purchaseValue, setPurchaseValue] = useState("");
+  const [currentValue, setCurrentValue] = useState("");
+  const [notes, setNotes] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const router = useRouter();
+
+  const qty = quantity ? parseFloat(quantity) : null;
+  const hasQty = qty !== null && qty > 0;
+  const purchasePriceNum = purchaseValue ? parseFloat(purchaseValue) : null;
+  const currentPriceNum = currentValue ? parseFloat(currentValue) : null;
+  const purchaseTotal = hasQty && purchasePriceNum ? purchasePriceNum * qty : purchasePriceNum;
+  const currentTotal = hasQty && currentPriceNum ? currentPriceNum * qty : currentPriceNum;
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
+
+    const qtyVal = quantity ? parseFloat(quantity) : undefined;
+    const hasQtyVal = qtyVal !== undefined && qtyVal > 0;
+    const currentPer = parseFloat(currentValue);
+    const currentCents = Math.round((hasQtyVal ? currentPer * qtyVal : currentPer) * 100);
+    const purchasePer = purchaseValue ? parseFloat(purchaseValue) : undefined;
+    const purchaseCents = purchasePer !== undefined
+      ? Math.round((hasQtyVal ? purchasePer * qtyVal : purchasePer) * 100)
+      : undefined;
+
+    const result = await createInvestment({
+      asset_type: assetType,
+      name,
+      ticker_symbol: ticker || undefined,
+      quantity: qtyVal,
+      purchase_value_cents: purchaseCents,
+      current_value_cents: currentCents,
+      notes: notes || undefined,
+    });
+
+    if (result.error) {
+      setError(result.error);
+      setLoading(false);
+      return;
+    }
+
+    router.push("/invest");
+    router.refresh();
+  };
+
+  return (
+    <div className={`p-4 md:p-6 max-w-2xl mx-auto ${nunito.variable} ${dmSans.variable}`}>
+      {/* Header */}
+      <div className="space-y-1 mb-6">
+        <Link href="/invest" className="text-sm font-[family-name:var(--font-dm-sans)] text-text-secondary hover:text-text-primary flex items-center gap-1 mb-2">
+          <ArrowLeft className="h-4 w-4" />
+          Back to Investing
+        </Link>
+        <h1 className="font-[family-name:var(--font-nunito)] text-3xl font-black text-text-primary">
+          Add Investment
+        </h1>
+        <p className="font-[family-name:var(--font-dm-sans)] text-text-secondary">
+          Track a new asset in your portfolio
+        </p>
+      </div>
+
+      <Card className="bg-surface-white-60 backdrop-blur-sm border-2 border-border-white-80 shadow-lg">
+        <CardContent className="pt-6">
+          <form onSubmit={handleSubmit} className="space-y-6">
+            {error && (
+              <div className="p-4 text-sm bg-error-light border-2 border-error-border rounded-xl text-error-text">
+                {error}
+              </div>
+            )}
+
+            {/* Asset Type */}
+            <div className="space-y-2">
+              <Label className="font-[family-name:var(--font-nunito)] font-bold text-text-primary">
+                Asset Type
+              </Label>
+              <Select value={assetType} onValueChange={(v: any) => setAssetType(v)}>
+                <SelectTrigger className="h-12 rounded-xl border-2 font-[family-name:var(--font-dm-sans)]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="stock">Stock</SelectItem>
+                  <SelectItem value="etf">ETF</SelectItem>
+                  <SelectItem value="crypto">Cryptocurrency</SelectItem>
+                  <SelectItem value="property">Property</SelectItem>
+                  <SelectItem value="other">Other</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Name */}
+            <div className="space-y-2">
+              <Label htmlFor="name" className="font-[family-name:var(--font-nunito)] font-bold text-text-primary">
+                Asset Name
+              </Label>
+              <Input
+                id="name"
+                placeholder="e.g., Vanguard VDHG, Bitcoin, etc."
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                required
+                disabled={loading}
+                className="h-12 rounded-xl border-2 font-[family-name:var(--font-dm-sans)]"
+              />
+            </div>
+
+            {/* Ticker Symbol */}
+            <div className="space-y-2">
+              <Label htmlFor="ticker" className="font-[family-name:var(--font-nunito)] font-bold text-text-primary">
+                Ticker Symbol (optional)
+              </Label>
+              <Input
+                id="ticker"
+                placeholder="e.g., VDHG, BTC"
+                value={ticker}
+                onChange={(e) => setTicker(e.target.value)}
+                disabled={loading}
+                className="h-12 rounded-xl border-2 font-[family-name:var(--font-dm-sans)]"
+              />
+            </div>
+
+            {/* Quantity */}
+            <div className="space-y-2">
+              <Label htmlFor="quantity" className="font-[family-name:var(--font-nunito)] font-bold text-text-primary">
+                Quantity (optional)
+              </Label>
+              <Input
+                id="quantity"
+                type="number"
+                step="any"
+                placeholder="Number of units"
+                value={quantity}
+                onChange={(e) => setQuantity(e.target.value)}
+                disabled={loading}
+                className="h-12 rounded-xl border-2 font-[family-name:var(--font-dm-sans)]"
+              />
+            </div>
+
+            {/* Purchase Price */}
+            <div className="space-y-2">
+              <Label htmlFor="purchaseValue" className="font-[family-name:var(--font-nunito)] font-bold text-text-primary">
+                {hasQty ? "Purchase Price per Unit (optional)" : "Purchase Value (optional)"}
+              </Label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary">$</span>
+                <Input
+                  id="purchaseValue"
+                  type="number"
+                  step="0.01"
+                  placeholder="0.00"
+                  value={purchaseValue}
+                  onChange={(e) => setPurchaseValue(e.target.value)}
+                  disabled={loading}
+                  className="pl-7 h-12 rounded-xl border-2 font-[family-name:var(--font-dm-sans)]"
+                />
+              </div>
+              {hasQty && purchaseTotal !== null ? (
+                <p className="font-[family-name:var(--font-dm-sans)] text-xs text-text-secondary">
+                  {qty.toLocaleString("en-AU")} units &times; ${purchasePriceNum?.toFixed(2)} = <span className="font-medium text-text-primary">${purchaseTotal.toLocaleString("en-AU", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span> total
+                </p>
+              ) : (
+                <p className="font-[family-name:var(--font-dm-sans)] text-xs text-text-secondary">
+                  What you originally paid{hasQty ? " per unit" : " for this asset"}
+                </p>
+              )}
+            </div>
+
+            {/* Current Price */}
+            <div className="space-y-2">
+              <Label htmlFor="currentValue" className="font-[family-name:var(--font-nunito)] font-bold text-text-primary">
+                {hasQty ? "Current Price per Unit" : "Current Value"}
+              </Label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary">$</span>
+                <Input
+                  id="currentValue"
+                  type="number"
+                  step="0.01"
+                  placeholder="0.00"
+                  value={currentValue}
+                  onChange={(e) => setCurrentValue(e.target.value)}
+                  required
+                  disabled={loading}
+                  className="pl-7 h-12 rounded-xl border-2 font-[family-name:var(--font-dm-sans)]"
+                />
+              </div>
+              {hasQty && currentTotal !== null && (
+                <p className="font-[family-name:var(--font-dm-sans)] text-xs text-text-secondary">
+                  {qty.toLocaleString("en-AU")} units &times; ${currentPriceNum?.toFixed(2)} = <span className="font-medium text-text-primary">${currentTotal.toLocaleString("en-AU", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span> total
+                </p>
+              )}
+            </div>
+
+            {/* Notes */}
+            <div className="space-y-2">
+              <Label htmlFor="notes" className="font-[family-name:var(--font-nunito)] font-bold text-text-primary">
+                Notes (optional)
+              </Label>
+              <Textarea
+                id="notes"
+                placeholder="Any additional details..."
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                disabled={loading}
+                className="rounded-xl border-2 font-[family-name:var(--font-dm-sans)]"
+                rows={3}
+              />
+            </div>
+
+            {/* Submit */}
+            <div className="flex gap-3 pt-4">
+              <Button
+                type="submit"
+                className="flex-1 h-12 rounded-xl font-[family-name:var(--font-nunito)] font-bold bg-brand-coral hover:bg-brand-coral-dark hover:scale-105 transition-all"
+                disabled={loading}
+              >
+                {loading ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Adding...
+                  </>
+                ) : (
+                  <>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add Investment
+                  </>
+                )}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => router.back()}
+                disabled={loading}
+                className="rounded-xl font-[family-name:var(--font-nunito)] font-bold border-2"
+              >
+                Cancel
+              </Button>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}

@@ -1,0 +1,99 @@
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+# dependencies
+/node_modules
+/.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+
+# testing
+/coverage
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+
+# next.js
+/.next/
+/out/
+
+# production
+/build
+
+# misc
+.DS_Store
+*.pem
+
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# env files
+.env*
+!.env.local.example
+!.env.demo.example
+
+# vercel
+.vercel
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+# local env overrides (redundant with .env* above, kept for clarity)
+.env.local
+.env*.local
+
+# supabase temp files
+supabase/.temp/
+
+# certificates & keys
+*.p12
+*.pfx
+*.cer
+*.crt
+*.key
+*.keystore
+*.jks
+id_rsa
+id_rsa.*
+id_ed25519
+id_ecdsa
+
+# secrets
+*.secret
+api_keys.*
+auth.json
+credentials.json
+*-credentials.json
+service-account*.json
+
+# cloud provider configs
+.aws/
+.gcp/
+.azure/
+kubeconfig
+.kube/
+
+# docker auth
+.docker/config.json
+
+# package manager auth
+.npmrc
+.pypirc
+
+# agent/dev tooling
+.ai/
+.ralph/
+.ralphrc
+.claude/
+.continue-here.md
+docs/plans/
+
+# gitleaks
+gitleaks-report.json

@@ -1,0 +1,36 @@
+# PiggyBack — Local Supabase Configuration
+# Used with `supabase start` for fully local development/deployment
+# See: https://supabase.com/docs/guides/local-development
+
+[project]
+id = "piggyback-local"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "private", "extensions"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[db]
+port = 54322
+major_version = 15
+
+[studio]
+enabled = true
+port = 54323
+
+[auth]
+enabled = true
+site_url = "http://localhost:3000"
+additional_redirect_urls = ["http://localhost:3000/**", "http://localhost:3005/**"]
+
+[auth.email]
+enable_signup = true
+enable_confirmations = false
+
+[storage]
+enabled = false
+
+[realtime]
+enabled = false
