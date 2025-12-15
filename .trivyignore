@@ -1,0 +1,16 @@
+# Base image bundled npm packages (usr/local/lib/node_modules/npm/)
+# These are part of the Node.js distribution, not application dependencies.
+# They cannot be fixed at the application level and pose no risk since
+# npm is not used at runtime in the production container.
+CVE-2026-26960  # node-tar: hardlink creation
+CVE-2026-24842  # node-tar: path traversal
+CVE-2026-23950  # node-tar: Unicode collision
+CVE-2026-23745  # node-tar: symlink poisoning
+CVE-2026-27904  # minimatch: ReDoS
+CVE-2026-27903  # minimatch: ReDoS
+CVE-2026-26996  # minimatch: DoS
+CVE-2025-64756  # glob: command injection
+CVE-2026-24001  # jsdiff: DoS
+CVE-2024-21538  # cross-spawn: ReDoS
+CVE-2025-5889   # brace-expansion: ReDoS
+CVE-2025-13465  # cross-spawn
