@@ -1,0 +1,163 @@
+# PiggyBack
+
+> Your finances on autopilot with Up Bank. Self-hosted on Vercel + Supabase.
+
+PiggyBack syncs transaction data in real-time via the UP Bank API and provides zero-based budgeting, recurring expense tracking, income pattern detection, savings goals, investment tracking, FIRE planning, and an AI-powered financial assistant.
+
+## Tech Stack
+
+- Framework: Next.js 16 (App Router, Turbopack), React 19
+- Styling: Tailwind CSS 4, shadcn/ui (Radix UI primitives)
+- Backend: Supabase (Postgres, Auth, Row Level Security)
+- Bank Integration: UP Bank API v1 (REST, webhooks)
+- AI: Vercel AI SDK with multi-provider support (Google, OpenAI, Anthropic)
+- Charts: Recharts
+- Animations: Framer Motion
+- Testing: Vitest (1090+ tests across 50 test files)
+- Language: TypeScript
+- Deployment: Vercel
+
+## Architecture
+
+- Server Components by default; Client Components only where interactivity is needed
+- Partnership-scoped data model for couples sharing finances
+- No global state library; React Server Components + context providers (Budget, BudgetLayout, BudgetSharing, Category, IncomeConfig, ConnectionStatus)
+- AES-256-GCM encryption for UP Bank API tokens at rest
+- Row Level Security on all user-facing tables with private schema helpers
+- Webhook + batch dual-path expense matching (AMOUNT_TOLERANCE_PERCENT = 10)
+- 4 Supabase client variants: browser, server, service-role, middleware
+- Pure-function budget engine as single source of truth for all budget math
+
+## Core Concepts
+
+### Partnership Model
+Every user belongs to a partnership. Couples link via shared 2Up joint accounts detected automatically. Budget, expenses, goals, and net worth are partnership-scoped. Individual data (accounts, transactions, API tokens) stays user-scoped.
+
+### Transaction Lifecycle
+1. User provides UP Bank personal access token (encrypted with AES-256-GCM)
+2. Initial sync fetches accounts, categories, and up to 1 year of transactions
+3. Webhook registered for real-time TRANSACTION_CREATED/SETTLED/DELETED events
+4. Post-processing: category inference, expense matching, income matching, balance updates
+
+### Budget System
+Zero-based budgeting with 5 methodology presets (zero-based, 50/30/20, envelope, pay-yourself-first, 80/20). Supports weekly, fortnightly, and monthly periods. Couple splitting at expense, category, or default level. Custom layout system with sections, columns, and density controls.
+
+### Recurring Expenses
+Defined in expense_definitions table with next_due_date tracking. Matched to transactions via merchant name similarity (Levenshtein distance) and amount tolerance (10%). Both webhook and batch matching advance next_due_date after match.
+
+### Income Tracking
+Supports recurring salary and one-off income types. Gap analysis detects frequency: 6-8 days (weekly), 13-15 (fortnightly), 28-32 (monthly), 56-65 (bi-monthly). Frequency converter normalizes amounts across periods.
+
+### Savings Goals
+Linked to UP Bank saver accounts with automatic contribution tracking. Visual progress with projected completion dates. Milestone notifications on percentage thresholds.
+
+### Investment Tracking
+Portfolio management for stocks, ETFs, crypto, and property. Live price updates via Yahoo Finance (ASX/US stocks) and CoinGecko (crypto). Target allocation tracking with rebalancing recommendations. Watchlist for tracking assets you don't own.
+
+### FIRE Planning
+Australian two-bucket strategy: super (compulsory superannuation) + investments. Four variants: Lean (essentials only), Regular (total spending), Fat (125% of total spending), Coast (enough invested to stop contributing). Spending classification into essential/discretionary categories. FIRE number = annual expenses x 25 (4% safe withdrawal rate).
+
+## Project Structure
+
+- src/app/(app)/ - 33 authenticated pages: home, budget, activity, analysis, goals, invest, plan, notifications, settings (10 sub-pages), dev
+- src/app/(auth)/ - 4 auth routes: login, signup, forgot-password, update-password
+- src/app/(onboarding)/ - Multi-step onboarding wizard
+- src/app/actions/ - 13 server action files with 48+ exported functions
+- src/app/api/ - 34 REST API routes
+- src/components/ - 125 React components across 18 feature domains
+- src/contexts/ - 6 React context providers
+- src/lib/ - 45 library files with core business logic
+- src/utils/supabase/ - 4 Supabase client variants
+- supabase/migrations/ - 1 consolidated initial schema migration
+
+## Database
+
+40 tables. Key tables:
+- profiles - User settings, extends auth.users
+- partnerships - Groups of users sharing a budget
+- partnership_members - Links users to partnerships
+- up_api_configs - Encrypted UP Bank API credentials
+- accounts - Synced bank accounts
+- transactions - Synced transactions (core table, 25+ columns)
+- categories - UP Bank category taxonomy
+- expense_definitions - Recurring expense configs with next_due_date
+- expense_matches - Links transactions to expense definitions
+- budget_assignments - Monthly zero-based budget allocations
+- savings_goals - Linked to optional saver accounts
+- goal_contributions - Savings history per goal (manual, webhook_sync, budget_allocation, initial)
+- investments - External investment/asset tracking
+- investment_contributions - Monthly investment contribution tracking
+- income_sources - Configured income sources
+- pay_schedules - Pay frequency and pattern detection
+- partner_link_requests - Consent-based partner linking via 2Up
+- notifications - In-app notification system
+
+## API Routes
+
+Budget: /api/budget/* (18 routes - expenses, methodology, zero-based, forecast, historical spending, layout, columns, sections, shares, splits, templates, summary, row-transactions, transaction-overrides, available-transactions, reset)
+Transactions: /api/transactions/* (3 routes - listing, recategorize, tags)
+AI: /api/ai/* (3 routes - chat, context, settings)
+UP Bank: /api/upbank/* (2 routes - webhook, sync)
+Expenses: /api/expenses/* (3 routes - recalculate-periods, backfill-all, rematch-all)
+Notifications: /api/notifications/* (2 routes - listing, action)
+Export: /api/export/transactions (CSV)
+Cron: /api/cron/notifications
+Debug: /api/debug/expenses (development only, requires DEBUG_SECRET)
+
+## Server Actions (src/app/actions/)
+
+budgets.ts - Budget methodology, period, and layout management
+checkup.ts - Annual financial checkup wizard
+expenses.ts - CRUD for recurring expense definitions, matching
+fire.ts - FIRE profile settings persistence
+goals.ts - Savings goal management, account linking, contribution tracking, milestone notifications
+income.ts - Income transaction marking and unlinking
+income-sources.ts - Income source CRUD, auto-detection
+investments.ts - Investment portfolio CRUD, price fetching, contribution logging
+onboarding.ts - Profile setup, onboarding completion
+partner.ts - Partner detection, link requests, merge
+transactions.ts - Recategorization, notes, auto-categorize
+upbank.ts - Token encryption/storage, webhook management
+watchlist.ts - Investment watchlist management
+
+## Environment Variables
+
+Public: NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY, NEXT_PUBLIC_APP_URL, NEXT_PUBLIC_DEMO_MODE
+Private: SUPABASE_SERVICE_ROLE_KEY, DEMO_USER_EMAIL, DEMO_USER_PASSWORD, ALPHA_VANTAGE_API_KEY, WEBHOOK_BASE_URL, UP_API_ENCRYPTION_KEY, DEBUG_SECRET
+
+## Key Library Files (src/lib/)
+
+- budget-engine.ts - Pure-function budget engine: calculateBudgetSummary() is single source of truth for all budget math
+- budget-zero-calculations.ts - Core TBB formula, split calculations, expense urgency, budget health scoring
+- budget-period-helpers.ts - Month-aligned period boundaries (weekly 1-7/8-14/15-21/22-end, fortnightly, monthly)
+- expense-projections.ts - Timeline generation, paid/unpaid separation, cash flow summary
+- match-expense-transactions.ts - Batch + webhook matching with merchant ILIKE and +/-10% amount tolerance
+- expense-matcher.ts - Confidence scoring (description 40pts + amount 40pts + timing 20pts), pattern detection
+- ai-tools.ts - 35 financial tools for AI chat (14 query, 4 financial health/planning, 1 power query, 4 analysis, 6 action, 6 write)
+- goal-calculations.ts - Pure goal functions: savings history aggregation, projected completion, status classification, suggested savings (W/F/M)
+- fire-calculations.ts - Pure FIRE functions: two-bucket, coast, year-by-year projections, recommendations
+- fire-gameplan.ts - FIRE game plan generation with priority recommendations
+- plan-health-calculations.ts - Financial health scoring and plan health ring calculations
+- up-api.ts - UP Bank API client with MAX_PAGES=100 pagination safety, account/transaction/webhook methods
+- token-encryption.ts - AES-256-GCM encrypt/decrypt for UP Bank API tokens
+- formula-evaluator.ts - Custom column formulas with safe evaluation ({assigned}, {spent}, MAX, MIN, etc.)
+- shared-budget-calculations.ts - My Budget vs Our Budget calculation with category/transaction share resolution
+- price-apis.ts - Yahoo Finance (stocks/ETFs) + CoinGecko (crypto) price fetching
+- portfolio-aggregation.ts - Portfolio timeline, performance metrics, allocation tracking
+- invest-calculations.ts - Investment page calculations, target allocation analysis
+- income-frequency-converter.ts - Normalize income amounts across weekly/fortnightly/monthly/bi-monthly
+- income-pattern-analysis.ts - Gap analysis to detect income frequency patterns
+- analysis-data.ts - Spending analysis data aggregation and anomaly detection
+- recurring-detector.ts - Automatic detection of recurring transactions
+
+## Documentation
+
+Full documentation: documentation/README.md
+- documentation/architecture/ - Overview, tech stack, data flow, deployment
+- documentation/database/ - Schema (40 tables), RLS policies
+- documentation/api-routes/ - REST endpoints, server actions
+- documentation/features/ - Budget, expenses, income, AI, FIRE, investments, UP Bank, library reference
+- documentation/components/ - 125 React components across 18 domains
+- documentation/settings/ - 10 settings sub-pages
+- documentation/onboarding/ - 7-step wizard
+- documentation/up-bank-api/ - External UP Bank API reference

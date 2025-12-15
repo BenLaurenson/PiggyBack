@@ -1,0 +1,23 @@
+{
+  "$schema": "https://unpkg.com/knip@5/schema.json",
+  "entry": [
+    "src/app/**/page.tsx",
+    "src/app/**/layout.tsx",
+    "src/app/**/loading.tsx",
+    "src/app/**/error.tsx",
+    "src/app/**/not-found.tsx",
+    "src/app/api/**/route.ts",
+    "e2e/**/*.spec.ts",
+    "e2e/**/*.ts"
+  ],
+  "project": ["src/**/*.{ts,tsx}", "e2e/**/*.ts"],
+  "ignoreDependencies": [
+    "postcss",
+    "shadcn",
+    "tw-animate-css"
+  ],
+  "ignoreExportsUsedInFile": {
+    "interface": true,
+    "type": true
+  }
+}
