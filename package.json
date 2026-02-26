@@ -73,7 +73,7 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "eslint": "^9",
+    "eslint": "^10",
     "eslint-config-next": "16.0.10",
     "jsdom": "^27.4.0",
     "knip": "^5.85.0",
