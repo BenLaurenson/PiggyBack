@@ -99,8 +99,8 @@ describe('expense match POST route', () => {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        expense_id: '00000000-0000-0000-0000-000000000001',
-        transaction_id: '00000000-0000-0000-0000-000000000002',
+        expense_id: '00000000-0000-4000-8000-000000000001',
+        transaction_id: '00000000-0000-4000-8000-000000000002',
         confidence: 0.95,
       }),
     });
@@ -153,6 +153,16 @@ describe('expense match POST route', () => {
       })),
     }));
 
+    // Mock transactions table — route verifies transaction belongs to partnership
+    const transactionChain: any = {};
+    ['select', 'eq', 'maybeSingle'].forEach(m => {
+      transactionChain[m] = vi.fn(() => transactionChain);
+    });
+    transactionChain.maybeSingle.mockResolvedValue({
+      data: { account_id: 'account-1', accounts: { user_id: 'user-123' } },
+      error: null,
+    });
+
     let expenseCallCount = 0;
     const mockSupabase = {
       auth: { getUser: mockGetUser },
@@ -166,6 +176,8 @@ describe('expense match POST route', () => {
             return membershipChain;
           case 'expense_matches':
             return insertChain;
+          case 'transactions':
+            return transactionChain;
           default: {
             const chain: any = {};
             ['select', 'eq', 'insert', 'update', 'maybeSingle'].forEach(m => {
@@ -186,8 +198,8 @@ describe('expense match POST route', () => {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        expense_id: '00000000-0000-0000-0000-000000000001',
-        transaction_id: '00000000-0000-0000-0000-000000000002',
+        expense_id: '00000000-0000-4000-8000-000000000001',
+        transaction_id: '00000000-0000-4000-8000-000000000002',
         confidence: 0.95,
       }),
     });

@@ -40,7 +40,7 @@ function createWebhookPayload(
       id: "event-123",
       attributes: {
         eventType,
-        createdAt: "2026-01-01T00:00:00Z",
+        createdAt: new Date().toISOString(),
       },
       relationships: {
         webhook: {
@@ -147,7 +147,7 @@ describe("webhook route", () => {
               foreignAmount: null,
               cardPurchaseMethod: null,
               settledAt: "2026-01-01T00:00:00Z",
-              createdAt: "2026-01-01T00:00:00Z",
+              createdAt: new Date().toISOString(),
             },
             relationships: {
               account: { data: { type: "accounts", id: "acc-123" } },
@@ -220,7 +220,7 @@ describe("webhook route", () => {
       expect(response.status).toBe(400);
     });
 
-    it("should return 404 when webhook not found", async () => {
+    it("should return 401 when webhook not found", async () => {
       mockMaybeSingle.mockResolvedValue({ data: null, error: null });
 
       const payload = createWebhookPayload("PING");
@@ -231,7 +231,7 @@ describe("webhook route", () => {
       );
       const response = await POST(createRequest(body, "invalid-sig"));
 
-      expect(response.status).toBe(404);
+      expect(response.status).toBe(401);
     });
 
     it("should return 401 for invalid signature", async () => {
@@ -346,9 +346,28 @@ describe("webhook route", () => {
 
       // Override from to handle different table queries
       mockFrom.mockImplementation((table: string) => {
+        if (table === "accounts") {
+          return {
+            select: vi.fn(() => ({
+              eq: vi.fn(() => ({
+                data: [{ id: "local-acc-1" }],
+                error: null,
+              })),
+            })),
+          };
+        }
         if (table === "transactions") {
           return {
-            select: mockSelect,
+            select: vi.fn(() => ({
+              eq: vi.fn(() => ({
+                in: vi.fn(() => ({
+                  maybeSingle: vi.fn(() => Promise.resolve({
+                    data: { id: "txn-123" },
+                    error: null,
+                  })),
+                })),
+              })),
+            })),
             update: mockUpdate,
           };
         }
@@ -824,7 +843,7 @@ describe("webhook route", () => {
                 })),
               })),
             })),
-            insert: mockSnapshotInsert,
+            upsert: mockSnapshotInsert,
           };
         }
         if (table === "transactions") {
