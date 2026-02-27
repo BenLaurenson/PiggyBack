@@ -14,7 +14,7 @@ export const getUserPartnershipId = cache(async (
     .from("partnership_members")
     .select("partnership_id")
     .eq("user_id", userId)
-    .order("created_at", { ascending: true })
+    .order("joined_at", { ascending: true })
     .limit(1)
     .maybeSingle();
 
