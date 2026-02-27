@@ -3,15 +3,21 @@ import { z } from "zod/v4";
 const envSchema = z.object({
   NEXT_PUBLIC_SUPABASE_URL: z.url(),
   NEXT_PUBLIC_SUPABASE_ANON_KEY: z.string().min(1),
-  SUPABASE_SERVICE_ROLE_KEY: z.string().min(1),
+  SUPABASE_SERVICE_ROLE_KEY: z.string().min(1).optional(),
   UP_API_ENCRYPTION_KEY: z
     .string()
     .length(64)
-    .regex(/^[0-9a-f]+$/i, "Must be a 64-character hex string"),
-  CRON_SECRET: z.string().min(1),
+    .regex(/^[0-9a-f]+$/i, "Must be a 64-character hex string")
+    .optional(),
+  CRON_SECRET: z.string().min(1).optional(),
 });
 
 export function validateEnv() {
+  // Skip strict validation in demo mode — demo doesn't need service keys
+  if (process.env.NEXT_PUBLIC_DEMO_MODE === "true") {
+    return;
+  }
+
   const result = envSchema.safeParse(process.env);
   if (!result.success) {
     console.error(
