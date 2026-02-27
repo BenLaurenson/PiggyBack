@@ -15,7 +15,7 @@ jobs:
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
 
-      - uses: actions/dependency-review-action@da24556b548a50705dd671f47852072ea4c105d9 # v4
+      - uses: actions/dependency-review-action@05fe4576374b728f0c523d6a13d64c25081e0803 # v4
         with:
           fail-on-severity: high
           comment-summary-in-pr: always
