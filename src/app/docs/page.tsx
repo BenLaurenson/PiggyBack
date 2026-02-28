@@ -124,7 +124,7 @@ const techStack = [
   },
   {
     layer: "Testing",
-    technology: "Vitest (722+ tests across 43 test files)",
+    technology: "Vitest (1120+ tests across 50 test files)",
   },
   { layer: "Charts", technology: "Recharts" },
   { layer: "Animations", technology: "Framer Motion" },

@@ -334,7 +334,7 @@ cp .env.local.example .env.local`}</CodeBlock>
             <CodeBlock title=".env.local">{`NEXT_PUBLIC_SUPABASE_URL=https://your-project-id.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your_anon_key_from_dashboard
 SUPABASE_SERVICE_ROLE_KEY=your_service_role_key_from_dashboard
-UP_API_ENCRYPTION_KEY=your_32_character_key
+UP_API_ENCRYPTION_KEY=your_64_character_hex_key
 NEXT_PUBLIC_APP_URL=http://localhost:3000`}</CodeBlock>
           </OptionCard>
 
@@ -342,16 +342,16 @@ NEXT_PUBLIC_APP_URL=http://localhost:3000`}</CodeBlock>
             <CodeBlock title=".env.local">{`NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your_anon_key_from_supabase_start
 SUPABASE_SERVICE_ROLE_KEY=your_service_role_key_from_supabase_start
-UP_API_ENCRYPTION_KEY=your_32_character_key
+UP_API_ENCRYPTION_KEY=your_64_character_hex_key
 NEXT_PUBLIC_APP_URL=http://localhost:3000`}</CodeBlock>
           </OptionCard>
 
           <h3 className="font-[family-name:var(--font-nunito)] font-bold text-sm text-text-primary">
             Generate Your Encryption Key
           </h3>
-          <CodeBlock title="terminal">{`node -e "console.log(require('crypto').randomBytes(16).toString('hex'))"`}</CodeBlock>
+          <CodeBlock title="terminal">{`node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`}</CodeBlock>
           <p className="font-[family-name:var(--font-dm-sans)] text-sm text-text-secondary">
-            This produces a 32-character hex string. Paste it as your{" "}
+            This produces a 64-character hex string (32 bytes for AES-256-GCM). Paste it as your{" "}
             <code className="bg-white/50 px-1 rounded">
               UP_API_ENCRYPTION_KEY
             </code>

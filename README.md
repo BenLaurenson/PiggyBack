@@ -83,7 +83,7 @@ Each user connects their own Up Bank account using a personal access token. All 
 | Banking API | [Up Bank API](https://developer.up.com.au/) |
 | Price APIs | [Yahoo Finance](https://finance.yahoo.com/) (stocks/ETFs), [CoinGecko](https://www.coingecko.com/) (crypto) |
 | AI | [Vercel AI SDK](https://sdk.vercel.ai/) with multi-provider support |
-| Testing | [Vitest](https://vitest.dev/) (1090+ tests across 50 test files) |
+| Testing | [Vitest](https://vitest.dev/) (1120+ tests across 50 test files) |
 | Charts | [Recharts](https://recharts.org/) |
 | Animations | [Framer Motion](https://www.framer.com/motion/) |
 | Deployment | [Vercel](https://vercel.com/) |
@@ -211,7 +211,7 @@ npm test          # Watch mode
 npm run test:run  # Single run
 ```
 
-The test suite covers 1090+ tests across 50 test files, including:
+The test suite covers 1120+ tests across 50 test files, including:
 
 - Budget calculations (zero-based, shared budgets, period helpers, income frequency)
 - Investment logic (price APIs, portfolio aggregation, FIRE calculations, invest calculations)
@@ -278,7 +278,9 @@ Every push and pull request is scanned by:
 | [Trivy](https://github.com/BenLaurenson/PiggyBack/blob/main/.github/workflows/trivy.yml) | Filesystem vulnerability scanning, Docker container scanning, and SBOM generation |
 | [Gitleaks](https://github.com/BenLaurenson/PiggyBack/blob/main/.github/workflows/secrets-scan.yml) | Secret detection in commits (also runs as a pre-commit hook) |
 | [Dependency Review](https://github.com/BenLaurenson/PiggyBack/blob/main/.github/workflows/dependency-review.yml) | Blocks PRs that introduce vulnerable or restrictively-licensed dependencies |
+| [Snyk](https://github.com/BenLaurenson/PiggyBack/blob/main/.github/workflows/snyk.yml) | Code and dependency scanning (SAST + SCA) for application and open-source vulnerabilities |
 | [OpenSSF Scorecard](https://github.com/BenLaurenson/PiggyBack/blob/main/.github/workflows/scorecard.yml) | Automated supply chain security health scoring |
+| [SLSA Provenance](https://github.com/BenLaurenson/PiggyBack/blob/main/.github/workflows/slsa-provenance.yml) | Supply chain integrity and artifact provenance verification |
 | [Dependabot](https://github.com/BenLaurenson/PiggyBack/blob/main/.github/dependabot.yml) | Automated dependency updates for npm, GitHub Actions, and Docker |
 
 ### Application Security

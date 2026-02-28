@@ -55,7 +55,7 @@ export default function SecurityPage() {
             <tbody className="font-[family-name:var(--font-dm-sans)]">
               <tr className="border-b border-border-light">
                 <td className="px-4 py-3 font-mono text-xs text-text-primary">
-                  0.9.x
+                  1.x
                 </td>
                 <td className="px-4 py-3 text-emerald-600 font-semibold">
                   Yes
@@ -63,7 +63,7 @@ export default function SecurityPage() {
               </tr>
               <tr>
                 <td className="px-4 py-3 font-mono text-xs text-text-primary">
-                  &lt; 0.9
+                  &lt; 1.0
                 </td>
                 <td className="px-4 py-3 text-text-tertiary">No</td>
               </tr>
