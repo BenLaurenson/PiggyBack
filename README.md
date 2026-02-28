@@ -130,7 +130,9 @@ Required variables:
 |----------|-------------|
 | `NEXT_PUBLIC_SUPABASE_URL` | Your Supabase project URL |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Your Supabase publishable/anon key |
-| `UP_API_ENCRYPTION_KEY` | 32-character key for encrypting stored Up API tokens |
+| `SUPABASE_SERVICE_ROLE_KEY` | Your Supabase service role key (Settings > API) |
+| `UP_API_ENCRYPTION_KEY` | 64-character hex key for encrypting stored Up API tokens (see `.env.local.example`) |
+| `NEXT_PUBLIC_APP_URL` | Your app URL (e.g. `http://localhost:3000` for local) |
 
 ### 4. Run the development server
 

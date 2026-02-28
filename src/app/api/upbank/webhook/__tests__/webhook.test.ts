@@ -13,6 +13,7 @@ vi.mock("@/lib/match-expense-transactions", () => ({
 
 vi.mock("@/lib/infer-category", () => ({
   inferCategoryId: vi.fn(() => "test-category"),
+  ensureInferredCategories: vi.fn(() => Promise.resolve()),
 }));
 
 vi.mock("@/lib/ai-categorize", () => ({

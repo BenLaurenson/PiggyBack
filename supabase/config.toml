@@ -2,9 +2,6 @@
 # Used with `supabase start` for fully local development/deployment
 # See: https://supabase.com/docs/guides/local-development
 
-[project]
-id = "piggyback-local"
-
 [api]
 enabled = true
 port = 54321

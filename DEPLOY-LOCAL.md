@@ -134,10 +134,10 @@ NEXT_PUBLIC_APP_URL=http://localhost:3000
 **Generate your encryption key:**
 
 ```bash
-node -e "console.log(require('crypto').randomBytes(16).toString('hex'))"
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 ```
 
-This produces a 32-character hex string. Paste it as your `UP_API_ENCRYPTION_KEY`.
+This produces a 64-character hex string (32 bytes for AES-256-GCM). Paste it as your `UP_API_ENCRYPTION_KEY`.
 
 > **Tip:** For personal use, add `NEXT_PUBLIC_SKIP_LANDING=true` to skip the marketing landing page.
 

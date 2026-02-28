@@ -11,7 +11,7 @@ import { revalidatePath } from "next/cache";
 import { createServiceRoleClient } from "@/utils/supabase/service-role";
 import { createHmac, timingSafeEqual } from "crypto";
 import { matchSingleTransactionToExpenses, matchSingleTransactionToIncomeSources } from "@/lib/match-expense-transactions";
-import { inferCategoryId } from "@/lib/infer-category";
+import { inferCategoryId, ensureInferredCategories } from "@/lib/infer-category";
 import { aiCategorizeTransaction } from "@/lib/ai-categorize";
 import { getPlaintextToken } from "@/lib/token-encryption";
 import { webhookLimiter, getClientIp } from "@/lib/rate-limiter";
@@ -453,7 +453,9 @@ async function processTransaction(
     transferAccountId = transferAccount?.id || null;
   }
 
-  // 3. Infer category + check merchant rules
+  // 3. Ensure inferred categories exist, then infer category + check merchant rules
+  await ensureInferredCategories(supabase);
+
   const categoryId = inferCategoryId({
     upCategoryId: txn.relationships.category.data?.id || null,
     transferAccountId,
