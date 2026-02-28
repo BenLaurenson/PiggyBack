@@ -69,8 +69,9 @@ describe("token-encryption", () => {
       const token = "up:yeah:test";
       const encrypted = encryptToken(token);
       const parts = encrypted.split(":");
-      // Tamper with the ciphertext
-      parts[2] = "ff" + parts[2].slice(2);
+      // Tamper with the ciphertext (XOR first byte to guarantee change)
+      const cByte = parseInt(parts[2].slice(0, 2), 16);
+      parts[2] = ((cByte ^ 0xff) & 0xff).toString(16).padStart(2, "0") + parts[2].slice(2);
       const tampered = parts.join(":");
 
       expect(() => decryptToken(tampered)).toThrow();
@@ -80,8 +81,9 @@ describe("token-encryption", () => {
       const token = "up:yeah:test";
       const encrypted = encryptToken(token);
       const parts = encrypted.split(":");
-      // Tamper with the auth tag
-      parts[1] = "ff" + parts[1].slice(2);
+      // Tamper with the auth tag (XOR first byte to guarantee change)
+      const aByte = parseInt(parts[1].slice(0, 2), 16);
+      parts[1] = ((aByte ^ 0xff) & 0xff).toString(16).padStart(2, "0") + parts[1].slice(2);
       const tampered = parts.join(":");
 
       expect(() => decryptToken(tampered)).toThrow();
