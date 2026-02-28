@@ -762,9 +762,6 @@ CREATE TABLE public.goal_contributions (
   balance_after_cents bigint NOT NULL DEFAULT 0,
   source text NOT NULL DEFAULT 'manual',
   created_at timestamp with time zone NOT NULL DEFAULT now(),
-  CONSTRAINT goal_contributions_pkey PRIMARY KEY (id),
-  CONSTRAINT goal_contributions_goal_id_fkey
-    FOREIGN KEY (goal_id) REFERENCES public.savings_goals(id) ON DELETE CASCADE,
   CONSTRAINT goal_contributions_source_check
     CHECK (source IN ('manual', 'webhook_sync', 'budget_allocation', 'initial'))
 );
@@ -955,6 +952,7 @@ ALTER TABLE public.notifications ADD CONSTRAINT notifications_pkey PRIMARY KEY (
 ALTER TABLE public.merchant_category_rules ADD CONSTRAINT merchant_category_rules_pkey PRIMARY KEY (id);
 ALTER TABLE public.methodology_customizations ADD CONSTRAINT methodology_customizations_pkey PRIMARY KEY (id);
 ALTER TABLE public.category_pin_states ADD CONSTRAINT category_pin_states_pkey PRIMARY KEY (id);
+ALTER TABLE public.goal_contributions ADD CONSTRAINT goal_contributions_pkey PRIMARY KEY (id);
 
 -- ============================================================================
 -- 6. UNIQUE CONSTRAINTS
@@ -1021,6 +1019,7 @@ ALTER TABLE public.expense_definitions ADD CONSTRAINT expense_definitions_partne
 ALTER TABLE public.expense_matches ADD CONSTRAINT expense_matches_expense_definition_id_fkey FOREIGN KEY (expense_definition_id) REFERENCES public.expense_definitions(id) ON DELETE CASCADE;
 ALTER TABLE public.expense_matches ADD CONSTRAINT expense_matches_matched_by_fkey FOREIGN KEY (matched_by) REFERENCES public.profiles(id) ON DELETE SET NULL;
 ALTER TABLE public.expense_matches ADD CONSTRAINT expense_matches_transaction_id_fkey FOREIGN KEY (transaction_id) REFERENCES public.transactions(id) ON DELETE CASCADE;
+ALTER TABLE public.goal_contributions ADD CONSTRAINT goal_contributions_goal_id_fkey FOREIGN KEY (goal_id) REFERENCES public.savings_goals(id) ON DELETE CASCADE;
 ALTER TABLE public.income_sources ADD CONSTRAINT income_sources_linked_transaction_id_fkey FOREIGN KEY (linked_transaction_id) REFERENCES public.transactions(id) ON DELETE SET NULL;
 ALTER TABLE public.income_sources ADD CONSTRAINT income_sources_partnership_id_fkey FOREIGN KEY (partnership_id) REFERENCES public.partnerships(id) ON DELETE CASCADE;
 ALTER TABLE public.investment_history ADD CONSTRAINT investment_history_investment_id_fkey FOREIGN KEY (investment_id) REFERENCES public.investments(id) ON DELETE CASCADE;
@@ -2202,3 +2201,19 @@ CREATE TRIGGER on_auth_user_created AFTER INSERT ON auth.users FOR EACH ROW EXEC
 
 GRANT EXECUTE ON FUNCTION public.merge_notification_preferences(uuid, jsonb) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.update_methodology_customization(uuid, uuid, text, jsonb, jsonb, timestamptz) TO authenticated;
+
+-- ============================================================================
+-- 14. SEED DATA: Inferred categories
+-- ============================================================================
+-- These categories are used by inferCategoryId() for transactions that Up Bank
+-- doesn't categorize (transfers, round-ups, salary, interest, etc.).
+-- They must exist before the first sync to avoid foreign key violations.
+
+INSERT INTO public.categories (id, name, parent_category_id) VALUES
+  ('salary-income', 'Salary & Income', NULL),
+  ('internal-transfer', 'Internal Transfer', NULL),
+  ('external-transfer', 'External Transfer', NULL),
+  ('round-up', 'Round Up Savings', NULL),
+  ('interest', 'Interest Earned', NULL),
+  ('investments', 'Investments', NULL)
+ON CONFLICT (id) DO NOTHING;

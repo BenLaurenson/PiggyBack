@@ -1,6 +1,6 @@
 import { createClient } from "@/utils/supabase/server";
 import { getPlaintextToken } from "@/lib/token-encryption";
-import { inferCategoryId } from "@/lib/infer-category";
+import { inferCategoryId, ensureInferredCategories } from "@/lib/infer-category";
 import { syncLimiter, getClientIp, rateLimitKey } from "@/lib/rate-limiter";
 import { validateUpApiUrl } from "@/lib/up-api";
 
@@ -100,6 +100,9 @@ export async function POST(request: Request) {
             }
           }
         }
+
+        // Ensure inferred categories exist (internal-transfer, round-up, etc.)
+        await ensureInferredCategories(supabase);
 
         // Phase: Sync accounts (with pagination)
         send({ phase: "syncing-accounts", message: "Syncing your accounts..." });

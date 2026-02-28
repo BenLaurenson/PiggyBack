@@ -12,7 +12,7 @@ export async function middleware(request: NextRequest) {
     `style-src 'self' 'unsafe-inline' https://fonts.googleapis.com`,
     "font-src 'self' https://fonts.gstatic.com",
     "img-src 'self' data: blob: https:",
-    "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://generativelanguage.googleapis.com https://api.openai.com https://api.anthropic.com https://vercel.live",
+    `connect-src 'self' ${process.env.NEXT_PUBLIC_SUPABASE_URL || ''} https://*.supabase.co wss://*.supabase.co https://generativelanguage.googleapis.com https://api.openai.com https://api.anthropic.com https://vercel.live`,
     "object-src 'none'",       // M184: block plugin-based content
     "base-uri 'self'",         // M184: restrict <base> element
     "frame-ancestors 'none'",  // M184: prevent framing

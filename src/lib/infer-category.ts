@@ -1,3 +1,36 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
+
+/**
+ * Categories that inferCategoryId can return. These don't come from Up Bank's
+ * API, so they must exist in our database before transactions reference them.
+ */
+export const INFERRED_CATEGORIES = [
+  { id: "salary-income", name: "Salary & Income" },
+  { id: "internal-transfer", name: "Internal Transfer" },
+  { id: "external-transfer", name: "External Transfer" },
+  { id: "round-up", name: "Round Up Savings" },
+  { id: "interest", name: "Interest Earned" },
+  { id: "investments", name: "Investments" },
+] as const;
+
+/**
+ * Ensures the inferred categories exist in the database.
+ * Safe to call multiple times — uses upsert with ON CONFLICT DO NOTHING.
+ */
+export async function ensureInferredCategories(supabase: SupabaseClient) {
+  const { error } = await supabase.from("categories").upsert(
+    INFERRED_CATEGORIES.map((c) => ({
+      id: c.id,
+      name: c.name,
+      parent_category_id: null,
+    })),
+    { onConflict: "id" }
+  );
+  if (error) {
+    console.error("Failed to ensure inferred categories:", error);
+  }
+}
+
 /**
  * Infers a category_id for transactions that Up Bank doesn't categorize.
  * This handles internal transfers, round-ups, salary, interest, etc.
