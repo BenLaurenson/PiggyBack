@@ -82,6 +82,7 @@ export function OnboardingWizard({ userId, email, existingDisplayName, stepsComp
           <BankStep
             onNext={() => handleNext()}
             onComplete={() => { markStepComplete("bank"); handleNext(); }}
+            isStepCompleted={completedSteps.includes("bank")}
           />
         );
       case 3:

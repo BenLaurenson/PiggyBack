@@ -11,11 +11,12 @@ import { createClient } from "@/utils/supabase/client";
 interface BankStepProps {
   onNext: () => void;
   onComplete: () => void;
+  isStepCompleted?: boolean;
 }
 
 type SyncPhase = "idle" | "connecting" | "syncing-accounts" | "syncing-categories" | "syncing-transactions" | "finishing" | "done";
 
-export function BankStep({ onNext, onComplete }: BankStepProps) {
+export function BankStep({ onNext, onComplete, isStepCompleted }: BankStepProps) {
   const [upToken, setUpToken] = useState("");
   const [showToken, setShowToken] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -29,6 +30,11 @@ export function BankStep({ onNext, onComplete }: BankStepProps) {
   const [showReconnectForm, setShowReconnectForm] = useState(false);
 
   useEffect(() => {
+    // If parent already knows step is completed, show connected state immediately
+    if (isStepCompleted) {
+      setAlreadyConnected(true);
+    }
+
     const checkConnection = async () => {
       try {
         const supabase = createClient();
@@ -37,11 +43,11 @@ export function BankStep({ onNext, onComplete }: BankStepProps) {
 
         const { data: config } = await supabase
           .from("up_api_configs")
-          .select("is_active")
+          .select("is_active, encrypted_token")
           .eq("user_id", user.id)
           .maybeSingle();
 
-        if (config?.is_active) {
+        if (config?.is_active || config?.encrypted_token) {
           const { count } = await supabase
             .from("accounts")
             .select("*", { count: "exact", head: true })
@@ -56,7 +62,7 @@ export function BankStep({ onNext, onComplete }: BankStepProps) {
       }
     };
     checkConnection();
-  }, []);
+  }, [isStepCompleted]);
 
   const handleConnect = async () => {
     if (!upToken.trim()) {
@@ -133,8 +139,8 @@ export function BankStep({ onNext, onComplete }: BankStepProps) {
     }
   };
 
-  // Loading connection check
-  if (checkingConnection) {
+  // Loading connection check (only show spinner if we don't already know it's completed)
+  if (checkingConnection && !alreadyConnected) {
     return (
       <div className="text-center py-8">
         <Loader2 className="h-8 w-8 mx-auto animate-spin" style={{ color: "var(--text-tertiary)" }} />
