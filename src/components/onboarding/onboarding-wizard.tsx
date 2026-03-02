@@ -29,9 +29,10 @@ interface OnboardingWizardProps {
   email: string;
   existingDisplayName: string;
   stepsCompleted: string[];
+  bankAccountCount?: number;
 }
 
-export function OnboardingWizard({ userId, email, existingDisplayName, stepsCompleted }: OnboardingWizardProps) {
+export function OnboardingWizard({ userId, email, existingDisplayName, stepsCompleted, bankAccountCount = 0 }: OnboardingWizardProps) {
   const [currentStep, setCurrentStep] = useState(0);
   const [completedSteps, setCompletedSteps] = useState<string[]>(stepsCompleted);
   const [error, setError] = useState<string | null>(null);
@@ -83,6 +84,7 @@ export function OnboardingWizard({ userId, email, existingDisplayName, stepsComp
             onNext={() => handleNext()}
             onComplete={() => { markStepComplete("bank"); handleNext(); }}
             isStepCompleted={completedSteps.includes("bank")}
+            serverAccountCount={bankAccountCount}
           />
         );
       case 3:
@@ -91,6 +93,7 @@ export function OnboardingWizard({ userId, email, existingDisplayName, stepsComp
             userId={userId}
             onNext={() => handleNext()}
             onComplete={() => { markStepComplete("income"); handleNext(); }}
+            hasBankAccounts={bankAccountCount > 0 || completedSteps.includes("bank")}
           />
         );
       case 4:

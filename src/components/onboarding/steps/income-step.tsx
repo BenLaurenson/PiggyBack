@@ -12,6 +12,7 @@ interface IncomeStepProps {
   userId: string;
   onNext: () => void;
   onComplete: () => void;
+  hasBankAccounts?: boolean;
 }
 
 interface IncomeSourceSummary {
@@ -23,7 +24,7 @@ interface IncomeSourceSummary {
 
 type View = "choice" | "from-transaction" | "manual";
 
-export function IncomeStep({ userId, onNext, onComplete }: IncomeStepProps) {
+export function IncomeStep({ userId, onNext, onComplete, hasBankAccounts }: IncomeStepProps) {
   const [view, setView] = useState<View>("choice");
   const [accountIds, setAccountIds] = useState<string[]>([]);
   const [partnershipId, setPartnershipId] = useState<string | undefined>();
@@ -157,7 +158,7 @@ export function IncomeStep({ userId, onNext, onComplete }: IncomeStepProps) {
           Set up your income
         </h2>
         <p className="font-[family-name:var(--font-dm-sans)]" style={{ color: "var(--text-secondary)" }}>
-          {accountIds.length > 0
+          {accountIds.length > 0 || hasBankAccounts
             ? "Find your salary in synced transactions, or enter it manually"
             : "Enter your income details to power budgets and projections"
           }
@@ -189,7 +190,7 @@ export function IncomeStep({ userId, onNext, onComplete }: IncomeStepProps) {
 
       {/* Action buttons */}
       <div className="space-y-3 max-w-sm mx-auto">
-        {accountIds.length > 0 && (
+        {(accountIds.length > 0 || hasBankAccounts) && (
           <Button
             onClick={() => setView("from-transaction")}
             variant="outline"

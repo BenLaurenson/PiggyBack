@@ -12,11 +12,12 @@ interface BankStepProps {
   onNext: () => void;
   onComplete: () => void;
   isStepCompleted?: boolean;
+  serverAccountCount?: number;
 }
 
 type SyncPhase = "idle" | "connecting" | "syncing-accounts" | "syncing-categories" | "syncing-transactions" | "finishing" | "done";
 
-export function BankStep({ onNext, onComplete, isStepCompleted }: BankStepProps) {
+export function BankStep({ onNext, onComplete, isStepCompleted, serverAccountCount = 0 }: BankStepProps) {
   const [upToken, setUpToken] = useState("");
   const [showToken, setShowToken] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -24,16 +25,14 @@ export function BankStep({ onNext, onComplete, isStepCompleted }: BankStepProps)
   const [syncPhase, setSyncPhase] = useState<SyncPhase>("idle");
   const [syncProgress, setSyncProgress] = useState("");
   const [txnCount, setTxnCount] = useState(0);
-  const [alreadyConnected, setAlreadyConnected] = useState(false);
-  const [accountCount, setAccountCount] = useState(0);
-  const [checkingConnection, setCheckingConnection] = useState(true);
+  const [alreadyConnected, setAlreadyConnected] = useState(!!isStepCompleted);
+  const [accountCount, setAccountCount] = useState(serverAccountCount);
+  const [checkingConnection, setCheckingConnection] = useState(!isStepCompleted);
   const [showReconnectForm, setShowReconnectForm] = useState(false);
 
   useEffect(() => {
-    // If parent already knows step is completed, show connected state immediately
-    if (isStepCompleted) {
-      setAlreadyConnected(true);
-    }
+    // If parent already knows step is completed, no need to check
+    if (isStepCompleted) return;
 
     const checkConnection = async () => {
       try {
@@ -55,14 +54,14 @@ export function BankStep({ onNext, onComplete, isStepCompleted }: BankStepProps)
             .eq("is_active", true);
 
           setAlreadyConnected(true);
-          setAccountCount(count || 0);
+          setAccountCount(count || serverAccountCount);
         }
       } finally {
         setCheckingConnection(false);
       }
     };
     checkConnection();
-  }, [isStepCompleted]);
+  }, [isStepCompleted, serverAccountCount]);
 
   const handleConnect = async () => {
     if (!upToken.trim()) {
