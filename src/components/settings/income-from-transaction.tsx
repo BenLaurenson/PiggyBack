@@ -132,10 +132,24 @@ export const IncomeFromTransaction = forwardRef<IncomeFromTransactionHandle, Inc
     const supabase = createClient();
     const pattern = suggestMatchPattern(txn.description);
 
+    // Use prop accountIds if available, otherwise fetch fresh from auth
+    let resolvedAccountIds = accountIds;
+    if (resolvedAccountIds.length === 0) {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: accounts } = await supabase
+          .from("accounts")
+          .select("id")
+          .eq("user_id", user.id)
+          .eq("is_active", true);
+        resolvedAccountIds = accounts?.map(a => a.id) || [];
+      }
+    }
+
     const { data: allMatching } = await supabase
       .from("transactions")
       .select("id, description, amount_cents, created_at, settled_at, account_id")
-      .in("account_id", accountIds)
+      .in("account_id", resolvedAccountIds.length > 0 ? resolvedAccountIds : [txn.account_id])
       .ilike("description", `${pattern.replace(/%/g, '')}%`)
       .gt("amount_cents", 0)
       .order("created_at", { ascending: true });
