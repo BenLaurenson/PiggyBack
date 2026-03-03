@@ -129,43 +129,45 @@ export const IncomeFromTransaction = forwardRef<IncomeFromTransactionHandle, Inc
   const handleSelectTransaction = async (txn: any) => {
     setSelectedTransaction(txn);
 
-    const supabase = createClient();
     const pattern = suggestMatchPattern(txn.description);
+    const searchTerm = pattern.replace(/%/g, '');
 
-    // Use prop accountIds if available, otherwise fetch fresh from auth
-    let resolvedAccountIds = accountIds;
-    if (resolvedAccountIds.length === 0) {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        const { data: accounts } = await supabase
-          .from("accounts")
-          .select("id")
-          .eq("user_id", user.id)
-          .eq("is_active", true);
-        resolvedAccountIds = accounts?.map(a => a.id) || [];
-      }
+    // Use the server-side API endpoint to find all matching income transactions
+    // (client-side Supabase may be blocked by RLS during onboarding)
+    const params = new URLSearchParams({
+      offset: "0",
+      limit: "200",
+      search: searchTerm,
+    });
+    if (accountIds.length > 0) params.set("accountId", accountIds.join(','));
+
+    let allMatching: any[] = [];
+    try {
+      const response = await fetch(`/api/transactions?${params.toString()}`);
+      const data = await response.json();
+      allMatching = (data.transactions || []).filter((t: any) => t.amount_cents > 0);
+    } catch (error) {
+      console.error("Failed to fetch related transactions:", error);
+      allMatching = [txn];
     }
 
-    const { data: allMatching } = await supabase
-      .from("transactions")
-      .select("id, description, amount_cents, created_at, settled_at, account_id")
-      .in("account_id", resolvedAccountIds.length > 0 ? resolvedAccountIds : [txn.account_id])
-      .ilike("description", `${pattern.replace(/%/g, '')}%`)
-      .gt("amount_cents", 0)
-      .order("created_at", { ascending: true });
+    // Fallback to at least the selected transaction
+    if (allMatching.length === 0) {
+      allMatching = [txn];
+    }
 
-    setRelatedTransactions(allMatching || [txn]);
+    setRelatedTransactions(allMatching);
 
-    const incomePattern = analyzeIncomePattern(allMatching || [txn]);
+    const incomePattern = analyzeIncomePattern(allMatching);
 
     setDetectedPattern({
       merchantPattern: pattern,
       merchantName: txn.description,
       recurrenceType: incomePattern.frequency,
-      avgAmountCents: Math.abs(txn.amount_cents),
+      avgAmountCents: Math.abs(incomePattern.averageAmountCents || txn.amount_cents),
       nextPredictedDate: incomePattern.nextPredictedPayDate || new Date().toISOString(),
       confidence: incomePattern.confidence === "high" ? 0.9 : incomePattern.confidence === "medium" ? 0.7 : 0.5,
-      transactionCount: allMatching?.length || 1,
+      transactionCount: allMatching.length,
       categoryName: "Income"
     });
   };
