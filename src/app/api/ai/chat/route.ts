@@ -14,10 +14,13 @@ import { chatLimiter, getClientIp, rateLimitKey } from "@/lib/rate-limiter";
 import { getPlaintextToken } from "@/lib/token-encryption";
 import { z } from "zod";
 
-const ChatMessageSchema = z.object({
-  role: z.enum(["user", "assistant"]),
-  content: z.string().max(50000),
-}).passthrough();
+// UI messages from @ai-sdk/react use { role, parts: [{ type, text }] } format,
+// not the legacy { role, content } format. Validate role and passthrough the rest.
+const ChatMessageSchema = z
+  .object({
+    role: z.enum(["user", "assistant"]),
+  })
+  .passthrough();
 
 const ChatRequestSchema = z.object({
   messages: z.array(ChatMessageSchema).min(1).max(100),
@@ -310,7 +313,30 @@ The ONLY time you should ask the user a question is for write actions (to confir
     return result.toUIMessageStreamResponse();
   } catch (err: unknown) {
     console.error("AI chat error:", err);
-    const message = "Something went wrong. Please try again.";
+
+    let message = "Something went wrong. Please try again.";
+    if (err instanceof Error) {
+      const m = err.message.toLowerCase();
+      if (
+        m.includes("api key") ||
+        m.includes("api_key") ||
+        m.includes("authentication") ||
+        m.includes("unauthorized") ||
+        m.includes("permission denied") ||
+        m.includes("403") ||
+        m.includes("401")
+      ) {
+        message = "Invalid API key. Please check your key in Settings > AI Assistant.";
+      } else if (m.includes("rate limit") || m.includes("429") || m.includes("quota")) {
+        message = "Rate limit exceeded. Please try again in a moment.";
+      } else if (
+        m.includes("model") &&
+        (m.includes("not found") || m.includes("not exist") || m.includes("404"))
+      ) {
+        message = "Model not found. Please check your model setting in AI Assistant settings.";
+      }
+    }
+
     return new Response(JSON.stringify({ error: message }), {
       status: 500,
       headers: { "Content-Type": "application/json" },
