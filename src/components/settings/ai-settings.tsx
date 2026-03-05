@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Sparkles, Eye, EyeOff, Check, Loader2, ChevronDown } from "lucide-react";
+import { Sparkles, Eye, EyeOff, Check, Loader2, ChevronDown, Unplug } from "lucide-react";
 import { goeyToast as toast } from "goey-toast";
 
 const PROVIDER_MODELS: Record<string, { id: string; label: string }[]> = {
@@ -43,7 +43,7 @@ export function AISettings() {
   const [showKey, setShowKey] = useState(false);
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
-
+  const [disconnecting, setDisconnecting] = useState(false);
 
   useEffect(() => {
     fetch("/api/ai/settings")
@@ -107,6 +107,31 @@ export function AISettings() {
     }
   };
 
+  const handleDisconnect = async () => {
+    setDisconnecting(true);
+    try {
+      const res = await fetch("/api/ai/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ provider, apiKey: null }),
+      });
+
+      if (res.ok) {
+        toast.success("AI provider disconnected");
+        setHasExistingKey(false);
+        setApiKey("");
+        setModel("");
+      } else {
+        const data = await res.json();
+        toast.error(data.error || "Failed to disconnect");
+      }
+    } catch {
+      toast.error("Failed to disconnect");
+    } finally {
+      setDisconnecting(false);
+    }
+  };
+
   const defaultModel = DEFAULT_MODELS[provider] || "";
   const isCustomModel =
     model &&
@@ -139,7 +164,13 @@ export function AISettings() {
           ].map((p) => (
             <button
               key={p.id}
-              onClick={() => { setProvider(p.id); setModel(""); }}
+              onClick={() => {
+                if (!hasExistingKey) {
+                  setProvider(p.id);
+                  setModel("");
+                }
+              }}
+              disabled={hasExistingKey && provider !== p.id}
               className="p-3 rounded-xl text-sm font-medium transition-all border-2"
               style={{
                 backgroundColor:
@@ -154,19 +185,20 @@ export function AISettings() {
                   provider === p.id
                     ? "var(--pastel-blue-dark)"
                     : "var(--text-secondary)",
+                opacity: hasExistingKey && provider !== p.id ? 0.4 : 1,
+                cursor: hasExistingKey && provider !== p.id ? "not-allowed" : "pointer",
               }}
             >
               {p.label}
             </button>
           ))}
         </div>
-        {provider === "google" && (
+        {hasExistingKey && (
           <p
             className="text-xs mt-2 px-1"
-            style={{ color: "var(--pastel-coral-dark)" }}
+            style={{ color: "var(--text-tertiary)" }}
           >
-            Gemini Flash models have known issues with tool calling reliability.
-            For best results, use Claude or GPT-4o.
+            Disconnect to switch providers.
           </p>
         )}
       </div>
@@ -183,44 +215,71 @@ export function AISettings() {
               className="ml-2 text-xs font-normal"
               style={{ color: "var(--pastel-mint-dark)" }}
             >
-              <Check className="h-3 w-3 inline" /> Configured
+              <Check className="h-3 w-3 inline" /> Connected
             </span>
           )}
         </label>
-        <div className="relative">
-          <input
-            type={showKey ? "text" : "password"}
-            value={apiKey}
-            onChange={(e) => setApiKey(e.target.value)}
-            placeholder={
-              hasExistingKey
-                ? "Enter new key to replace existing..."
-                : provider === "google"
+        {hasExistingKey ? (
+          <div className="flex items-center gap-2">
+            <div
+              className="flex-1 p-3 rounded-xl text-sm border-2 tracking-widest"
+              style={{
+                backgroundColor: "var(--surface)",
+                borderColor: "var(--border)",
+                color: "var(--text-tertiary)",
+              }}
+            >
+              ••••••••••••••••
+            </div>
+            <Button
+              onClick={handleDisconnect}
+              disabled={disconnecting}
+              variant="outline"
+              className="rounded-xl shrink-0"
+              style={{ color: "var(--pastel-coral-dark)", borderColor: "var(--pastel-coral)" }}
+            >
+              {disconnecting ? (
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              ) : (
+                <Unplug className="h-4 w-4 mr-2" />
+              )}
+              Disconnect
+            </Button>
+          </div>
+        ) : (
+          <div className="relative">
+            <input
+              type={showKey ? "text" : "password"}
+              value={apiKey}
+              onChange={(e) => setApiKey(e.target.value)}
+              placeholder={
+                provider === "google"
                   ? "AIza..."
                   : provider === "anthropic"
                     ? "sk-ant-..."
                     : "sk-..."
-            }
-            className="w-full p-3 pr-10 rounded-xl text-sm outline-none border-2 transition-colors"
-            style={{
-              backgroundColor: "var(--surface)",
-              borderColor: "var(--border)",
-              color: "var(--text-primary)",
-            }}
-          />
-          <button
-            type="button"
-            onClick={() => setShowKey(!showKey)}
-            className="absolute right-3 top-1/2 -translate-y-1/2"
-            style={{ color: "var(--text-tertiary)" }}
-          >
-            {showKey ? (
-              <EyeOff className="h-4 w-4" />
-            ) : (
-              <Eye className="h-4 w-4" />
-            )}
-          </button>
-        </div>
+              }
+              className="w-full p-3 pr-10 rounded-xl text-sm outline-none border-2 transition-colors"
+              style={{
+                backgroundColor: "var(--surface)",
+                borderColor: "var(--border)",
+                color: "var(--text-primary)",
+              }}
+            />
+            <button
+              type="button"
+              onClick={() => setShowKey(!showKey)}
+              className="absolute right-3 top-1/2 -translate-y-1/2"
+              style={{ color: "var(--text-tertiary)" }}
+            >
+              {showKey ? (
+                <EyeOff className="h-4 w-4" />
+              ) : (
+                <Eye className="h-4 w-4" />
+              )}
+            </button>
+          </div>
+        )}
         <p
           className="text-xs mt-1.5"
           style={{ color: "var(--text-tertiary)" }}
@@ -286,33 +345,34 @@ export function AISettings() {
 
       {/* Actions */}
       <div className="flex gap-2 pt-2">
-        <Button
-          onClick={handleSave}
-          disabled={saving}
-          className="flex-1 rounded-xl"
-          style={{
-            backgroundColor: "var(--pastel-blue)",
-            color: "white",
-          }}
-        >
-          {saving ? (
-            <Loader2 className="h-4 w-4 animate-spin mr-2" />
-          ) : null}
-          Save Settings
-        </Button>
-        {hasExistingKey && (
+        {hasExistingKey ? (
           <Button
             onClick={handleTest}
             disabled={testing}
+            className="flex-1 rounded-xl"
             variant="outline"
-            className="rounded-xl"
           >
             {testing ? (
               <Loader2 className="h-4 w-4 animate-spin mr-2" />
             ) : (
               <Sparkles className="h-4 w-4 mr-2" />
             )}
-            Test
+            Test Connection
+          </Button>
+        ) : (
+          <Button
+            onClick={handleSave}
+            disabled={saving || !apiKey}
+            className="flex-1 rounded-xl"
+            style={{
+              backgroundColor: apiKey ? "var(--pastel-blue)" : "var(--surface)",
+              color: apiKey ? "white" : "var(--text-tertiary)",
+            }}
+          >
+            {saving ? (
+              <Loader2 className="h-4 w-4 animate-spin mr-2" />
+            ) : null}
+            Connect
           </Button>
         )}
       </div>
