@@ -2,26 +2,33 @@
 
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Sparkles, Eye, EyeOff, Check, Loader2 } from "lucide-react";
+import { Sparkles, Eye, EyeOff, Check, Loader2, ChevronDown } from "lucide-react";
 import { goeyToast as toast } from "goey-toast";
 
-const PROVIDER_MODELS: Record<string, { id: string; label: string; description: string }[]> = {
+const PROVIDER_MODELS: Record<string, { id: string; label: string }[]> = {
   anthropic: [
-    { id: "claude-sonnet-4-5-20250929", label: "Claude Sonnet 4.5", description: "Best balance of speed & quality" },
-    { id: "claude-haiku-4-5-20251001", label: "Claude Haiku 4.5", description: "Fastest, most affordable" },
-    { id: "claude-opus-4-20250514", label: "Claude Opus 4", description: "Most capable" },
+    { id: "claude-sonnet-4-6", label: "Claude Sonnet 4.6 — Fast & capable" },
+    { id: "claude-haiku-4-5-20251001", label: "Claude Haiku 4.5 — Fastest, most affordable" },
+    { id: "claude-opus-4-6", label: "Claude Opus 4.6 — Most intelligent" },
   ],
   openai: [
-    { id: "gpt-4o-mini", label: "GPT-4o Mini", description: "Fast & affordable" },
-    { id: "gpt-4o", label: "GPT-4o", description: "Most capable" },
-    { id: "gpt-4.1-mini", label: "GPT-4.1 Mini", description: "Latest mini model" },
-    { id: "gpt-4.1", label: "GPT-4.1", description: "Latest full model" },
+    { id: "gpt-4.1-mini", label: "GPT-4.1 Mini — Fast & affordable" },
+    { id: "gpt-4.1", label: "GPT-4.1 — Latest full model" },
+    { id: "gpt-4o-mini", label: "GPT-4o Mini — Previous gen, affordable" },
+    { id: "gpt-4o", label: "GPT-4o — Previous gen, capable" },
   ],
   google: [
-    { id: "gemini-2.0-flash", label: "Gemini 2.0 Flash", description: "Fast & affordable" },
-    { id: "gemini-2.5-flash-preview-05-20", label: "Gemini 2.5 Flash", description: "Latest flash model" },
-    { id: "gemini-2.5-pro-preview-05-06", label: "Gemini 2.5 Pro", description: "Most capable" },
+    { id: "gemini-2.5-flash", label: "Gemini 2.5 Flash — Fast & capable" },
+    { id: "gemini-2.5-flash-lite", label: "Gemini 2.5 Flash Lite — Most affordable" },
+    { id: "gemini-2.5-pro", label: "Gemini 2.5 Pro — Most capable" },
+    { id: "gemini-2.0-flash", label: "Gemini 2.0 Flash — Previous gen" },
   ],
+};
+
+const DEFAULT_MODELS: Record<string, string> = {
+  anthropic: "claude-sonnet-4-6",
+  openai: "gpt-4.1-mini",
+  google: "gemini-2.5-flash",
 };
 
 export function AISettings() {
@@ -97,12 +104,11 @@ export function AISettings() {
     }
   };
 
-  const defaultModel =
-    provider === "google"
-      ? "gemini-2.0-flash"
-      : provider === "anthropic"
-        ? "claude-sonnet-4-5-20250929"
-        : "gpt-4o-mini";
+  const defaultModel = DEFAULT_MODELS[provider] || "";
+  const isCustomModel =
+    model &&
+    model !== "custom" &&
+    !(PROVIDER_MODELS[provider] || []).some((m) => m.id === model);
 
   if (loading) {
     return (
@@ -228,116 +234,51 @@ export function AISettings() {
         >
           Model
         </label>
-        <div className="space-y-2">
-          {(PROVIDER_MODELS[provider] || []).map((m) => (
-            <button
-              key={m.id}
-              onClick={() => setModel(m.id === defaultModel ? "" : m.id)}
-              className="w-full flex items-center gap-3 p-3 rounded-xl text-left transition-all border-2"
-              style={{
-                backgroundColor:
-                  (model || defaultModel) === m.id
-                    ? "var(--pastel-blue-light)"
-                    : "var(--surface)",
-                borderColor:
-                  (model || defaultModel) === m.id
-                    ? "var(--pastel-blue)"
-                    : "transparent",
-              }}
-            >
-              <div className="flex-1 min-w-0">
-                <div
-                  className="text-sm font-medium"
-                  style={{
-                    color:
-                      (model || defaultModel) === m.id
-                        ? "var(--pastel-blue-dark)"
-                        : "var(--text-primary)",
-                  }}
-                >
-                  {m.label}
-                </div>
-                <div
-                  className="text-xs"
-                  style={{ color: "var(--text-tertiary)" }}
-                >
-                  {m.description}
-                </div>
-              </div>
-              {(model || defaultModel) === m.id && (
-                <Check
-                  className="h-4 w-4 flex-shrink-0"
-                  style={{ color: "var(--pastel-blue-dark)" }}
-                />
-              )}
-            </button>
-          ))}
-          {/* Custom model option */}
-          <div>
-            <button
-              onClick={() => {
-                const isCustom =
-                  model &&
-                  !(PROVIDER_MODELS[provider] || []).some((m) => m.id === model);
-                if (!isCustom) setModel("custom");
-              }}
-              className="w-full flex items-center gap-3 p-3 rounded-xl text-left transition-all border-2"
-              style={{
-                backgroundColor:
-                  model &&
-                  !(PROVIDER_MODELS[provider] || []).some((m) => m.id === model)
-                    ? "var(--pastel-blue-light)"
-                    : "var(--surface)",
-                borderColor:
-                  model &&
-                  !(PROVIDER_MODELS[provider] || []).some((m) => m.id === model)
-                    ? "var(--pastel-blue)"
-                    : "transparent",
-              }}
-            >
-              <div className="flex-1 min-w-0">
-                <div
-                  className="text-sm font-medium"
-                  style={{
-                    color:
-                      model &&
-                      !(PROVIDER_MODELS[provider] || []).some(
-                        (m) => m.id === model
-                      )
-                        ? "var(--pastel-blue-dark)"
-                        : "var(--text-primary)",
-                  }}
-                >
-                  Custom model
-                </div>
-                <div
-                  className="text-xs"
-                  style={{ color: "var(--text-tertiary)" }}
-                >
-                  Enter a model ID manually
-                </div>
-              </div>
-            </button>
-            {model &&
-              !(PROVIDER_MODELS[provider] || []).some(
-                (m) => m.id === model
-              ) && (
-                <input
-                  type="text"
-                  value={model === "custom" ? "" : model}
-                  onChange={(e) => setModel(e.target.value || "custom")}
-                  placeholder="e.g. gemini-2.0-flash-lite"
-                  autoFocus
-                  className="w-full mt-2 p-3 rounded-xl text-sm outline-none border-2 transition-colors"
-                  style={{
-                    backgroundColor: "var(--surface)",
-                    borderColor: "var(--border)",
-                    color: "var(--text-primary)",
-                  }}
-                />
-              )}
-          </div>
+        <div className="relative">
+          <select
+            value={isCustomModel ? "custom" : model || defaultModel}
+            onChange={(e) => {
+              const val = e.target.value;
+              if (val === "custom") {
+                setModel("custom");
+              } else {
+                setModel(val === defaultModel ? "" : val);
+              }
+            }}
+            className="w-full p-3 pr-10 rounded-xl text-sm outline-none border-2 transition-colors appearance-none cursor-pointer"
+            style={{
+              backgroundColor: "var(--surface)",
+              borderColor: "var(--border)",
+              color: "var(--text-primary)",
+            }}
+          >
+            {(PROVIDER_MODELS[provider] || []).map((m) => (
+              <option key={m.id} value={m.id}>
+                {m.label}
+              </option>
+            ))}
+            <option value="custom">Custom model ID...</option>
+          </select>
+          <ChevronDown
+            className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 pointer-events-none"
+            style={{ color: "var(--text-tertiary)" }}
+          />
         </div>
+        {(model === "custom" || isCustomModel) && (
+          <input
+            type="text"
+            value={model === "custom" ? "" : model}
+            onChange={(e) => setModel(e.target.value || "custom")}
+            placeholder="Enter model ID, e.g. gemini-2.0-flash-lite"
+            autoFocus
+            className="w-full mt-2 p-3 rounded-xl text-sm outline-none border-2 transition-colors"
+            style={{
+              backgroundColor: "var(--surface)",
+              borderColor: "var(--border)",
+              color: "var(--text-primary)",
+            }}
+          />
+        )}
       </div>
 
       {/* Actions */}
