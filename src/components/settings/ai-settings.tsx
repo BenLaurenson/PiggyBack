@@ -8,27 +8,30 @@ import { goeyToast as toast } from "goey-toast";
 const PROVIDER_MODELS: Record<string, { id: string; label: string }[]> = {
   anthropic: [
     { id: "claude-sonnet-4-6", label: "Claude Sonnet 4.6 — Fast & capable" },
-    { id: "claude-haiku-4-5-20251001", label: "Claude Haiku 4.5 — Fastest, most affordable" },
-    { id: "claude-opus-4-6", label: "Claude Opus 4.6 — Most intelligent" },
+    { id: "claude-opus-4-6", label: "Claude Opus 4.6 — Most capable, 1M context" },
+    { id: "claude-haiku-4-5", label: "Claude Haiku 4.5 — Fastest, most affordable" },
   ],
   openai: [
-    { id: "gpt-4.1-mini", label: "GPT-4.1 Mini — Fast & affordable" },
-    { id: "gpt-4.1", label: "GPT-4.1 — Latest full model" },
-    { id: "gpt-4o-mini", label: "GPT-4o Mini — Previous gen, affordable" },
-    { id: "gpt-4o", label: "GPT-4o — Previous gen, capable" },
+    { id: "gpt-5.3-instant", label: "GPT-5.3 Instant — Latest, lowest hallucinations" },
+    { id: "gpt-5.2", label: "GPT-5.2 — Advanced reasoning" },
+    { id: "gpt-5.2-pro", label: "GPT-5.2 Pro — Smartest, most trustworthy" },
+    { id: "gpt-5.2-codex", label: "GPT-5.2-Codex — Best for agentic coding" },
+    { id: "gpt-4.1-mini", label: "GPT-4.1 Mini — Legacy, affordable" },
+    { id: "gpt-4.1", label: "GPT-4.1 — Legacy, capable" },
   ],
   google: [
-    { id: "gemini-2.5-flash", label: "Gemini 2.5 Flash — Fast & capable" },
-    { id: "gemini-2.5-flash-lite", label: "Gemini 2.5 Flash Lite — Most affordable" },
-    { id: "gemini-2.5-pro", label: "Gemini 2.5 Pro — Most capable" },
-    { id: "gemini-2.0-flash", label: "Gemini 2.0 Flash — Previous gen" },
+    { id: "gemini-3.0-flash", label: "Gemini 3 Flash — Fast & affordable" },
+    { id: "gemini-3.1-flash-lite", label: "Gemini 3.1 Flash Lite — Most cost-effective" },
+    { id: "gemini-3.1-pro", label: "Gemini 3.1 Pro — Most capable" },
+    { id: "gemini-3.0-pro", label: "Gemini 3 Pro — Strong reasoning" },
+    { id: "gemini-3.0-deep-think", label: "Gemini 3 Deep Think — Science & research" },
   ],
 };
 
 const DEFAULT_MODELS: Record<string, string> = {
   anthropic: "claude-sonnet-4-6",
-  openai: "gpt-4.1-mini",
-  google: "gemini-2.5-flash",
+  openai: "gpt-5.3-instant",
+  google: "gemini-3.0-flash",
 };
 
 export function AISettings() {
