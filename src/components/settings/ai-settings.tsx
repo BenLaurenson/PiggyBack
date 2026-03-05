@@ -346,19 +346,35 @@ export function AISettings() {
       {/* Actions */}
       <div className="flex gap-2 pt-2">
         {hasExistingKey ? (
-          <Button
-            onClick={handleTest}
-            disabled={testing}
-            className="flex-1 rounded-xl"
-            variant="outline"
-          >
-            {testing ? (
-              <Loader2 className="h-4 w-4 animate-spin mr-2" />
-            ) : (
-              <Sparkles className="h-4 w-4 mr-2" />
-            )}
-            Test Connection
-          </Button>
+          <>
+            <Button
+              onClick={handleTest}
+              disabled={testing || saving}
+              className="flex-1 rounded-xl"
+              variant="outline"
+            >
+              {testing ? (
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              ) : (
+                <Sparkles className="h-4 w-4 mr-2" />
+              )}
+              Test Connection
+            </Button>
+            <Button
+              onClick={handleSave}
+              disabled={saving || testing}
+              className="flex-1 rounded-xl"
+              style={{
+                backgroundColor: "var(--pastel-blue)",
+                color: "white",
+              }}
+            >
+              {saving ? (
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              ) : null}
+              Save Model
+            </Button>
+          </>
         ) : (
           <Button
             onClick={handleSave}
