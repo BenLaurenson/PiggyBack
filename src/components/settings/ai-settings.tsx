@@ -12,26 +12,26 @@ const PROVIDER_MODELS: Record<string, { id: string; label: string }[]> = {
     { id: "claude-haiku-4-5", label: "Claude Haiku 4.5 — Fastest, most affordable" },
   ],
   openai: [
-    { id: "gpt-5.3-instant", label: "GPT-5.3 Instant — Latest, lowest hallucinations" },
-    { id: "gpt-5.2", label: "GPT-5.2 — Advanced reasoning" },
-    { id: "gpt-5.2-pro", label: "GPT-5.2 Pro — Smartest, most trustworthy" },
-    { id: "gpt-5.2-codex", label: "GPT-5.2-Codex — Best for agentic coding" },
-    { id: "gpt-4.1-mini", label: "GPT-4.1 Mini — Legacy, affordable" },
-    { id: "gpt-4.1", label: "GPT-4.1 — Legacy, capable" },
+    { id: "gpt-5.2", label: "GPT-5.2 — Latest, advanced reasoning (400K context)" },
+    { id: "gpt-4.1-mini", label: "GPT-4.1 Mini — Fast & affordable" },
+    { id: "gpt-4.1", label: "GPT-4.1 — Smartest non-reasoning model" },
+    { id: "gpt-4.1-nano", label: "GPT-4.1 Nano — Fastest, cheapest" },
+    { id: "o4-mini", label: "o4-mini — Fast reasoning" },
   ],
   google: [
-    { id: "gemini-3.0-flash", label: "Gemini 3 Flash — Fast & affordable" },
-    { id: "gemini-3.1-flash-lite", label: "Gemini 3.1 Flash Lite — Most cost-effective" },
-    { id: "gemini-3.1-pro", label: "Gemini 3.1 Pro — Most capable" },
-    { id: "gemini-3.0-pro", label: "Gemini 3 Pro — Strong reasoning" },
-    { id: "gemini-3.0-deep-think", label: "Gemini 3 Deep Think — Science & research" },
+    { id: "gemini-2.5-flash", label: "Gemini 2.5 Flash — Fast & capable (GA)" },
+    { id: "gemini-2.5-flash-lite", label: "Gemini 2.5 Flash Lite — Most affordable (GA)" },
+    { id: "gemini-2.5-pro", label: "Gemini 2.5 Pro — Most capable (GA)" },
+    { id: "gemini-3-flash-preview", label: "Gemini 3 Flash — Latest flash (Preview)" },
+    { id: "gemini-3.1-pro-preview", label: "Gemini 3.1 Pro — Latest pro (Preview)" },
+    { id: "gemini-3.1-flash-lite-preview", label: "Gemini 3.1 Flash Lite (Preview)" },
   ],
 };
 
 const DEFAULT_MODELS: Record<string, string> = {
   anthropic: "claude-sonnet-4-6",
-  openai: "gpt-5.3-instant",
-  google: "gemini-3.0-flash",
+  openai: "gpt-4.1-mini",
+  google: "gemini-2.5-flash",
 };
 
 export function AISettings() {

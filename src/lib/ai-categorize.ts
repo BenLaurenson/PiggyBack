@@ -131,10 +131,10 @@ export async function aiCategorizeTransaction({
 
   if (provider === "google") {
     const client = createGoogleGenerativeAI({ apiKey });
-    model = client(profile.ai_model || "gemini-3.0-flash");
+    model = client(profile.ai_model || "gemini-2.5-flash");
   } else if (provider === "openai") {
     const client = createOpenAI({ apiKey });
-    model = client.chat(profile.ai_model || "gpt-5.3-instant");
+    model = client.chat(profile.ai_model || "gpt-4.1-mini");
   } else {
     const client = createAnthropic({ apiKey });
     model = client(profile.ai_model || "claude-sonnet-4-6");

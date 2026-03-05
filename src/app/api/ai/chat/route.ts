@@ -95,10 +95,10 @@ export async function POST(req: Request) {
     let baseModel;
     if (provider === "google") {
       const client = createGoogleGenerativeAI({ apiKey });
-      baseModel = client(aiSettings?.ai_model || "gemini-3.0-flash");
+      baseModel = client(aiSettings?.ai_model || "gemini-2.5-flash");
     } else if (provider === "openai") {
       const client = createOpenAI({ apiKey });
-      baseModel = client.chat(aiSettings?.ai_model || "gpt-5.3-instant");
+      baseModel = client.chat(aiSettings?.ai_model || "gpt-4.1-mini");
     } else {
       const client = createAnthropic({ apiKey });
       baseModel = client(aiSettings?.ai_model || "claude-sonnet-4-6");
