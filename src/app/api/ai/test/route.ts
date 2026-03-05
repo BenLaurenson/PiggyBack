@@ -37,10 +37,10 @@ export async function POST() {
     let model;
     if (provider === "google") {
       const client = createGoogleGenerativeAI({ apiKey });
-      model = client(aiSettings?.ai_model || "gemini-2.5-flash");
+      model = client(aiSettings?.ai_model || "gemini-3.0-flash");
     } else if (provider === "openai") {
       const client = createOpenAI({ apiKey });
-      model = client.chat(aiSettings?.ai_model || "gpt-4.1-mini");
+      model = client.chat(aiSettings?.ai_model || "gpt-5.3-instant");
     } else {
       const client = createAnthropic({ apiKey });
       model = client(aiSettings?.ai_model || "claude-sonnet-4-6");
