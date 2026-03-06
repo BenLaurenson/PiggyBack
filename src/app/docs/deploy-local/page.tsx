@@ -118,7 +118,7 @@ export default function DeployLocalPage() {
         <h2 className="font-[family-name:var(--font-nunito)] text-xl font-bold text-text-primary mb-4">
           Choose Your Database
         </h2>
-        <div className="rounded-xl border border-border-medium overflow-hidden">
+        <div className="rounded-xl border border-border-medium overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-surface-elevated border-b border-border-light">
@@ -190,7 +190,7 @@ export default function DeployLocalPage() {
           </h2>
         </div>
 
-        <div className="space-y-5 ml-11">
+        <div className="space-y-5 ml-0 sm:ml-11">
           <OptionCard option="A" color="blue">
             <ol className="space-y-3 font-[family-name:var(--font-dm-sans)] text-sm text-text-secondary list-decimal list-inside">
               <li>
@@ -241,7 +241,13 @@ export default function DeployLocalPage() {
                 Set <strong>Site URL</strong> to{" "}
                 <code className="bg-white/50 px-1 rounded">
                   http://localhost:3000
-                </code>
+                </code>{" "}
+                (or{" "}
+                <code className="bg-white/50 px-1 rounded">
+                  http://localhost:3005
+                </code>{" "}
+                if using{" "}
+                <code className="bg-white/50 px-1 rounded">npm run dev</code>)
               </li>
               <li>
                 Add redirect URLs:{" "}
@@ -252,6 +258,11 @@ export default function DeployLocalPage() {
                 <code className="bg-white/50 px-1 rounded">
                   http://localhost:3000/update-password
                 </code>
+                . If using{" "}
+                <code className="bg-white/50 px-1 rounded">npm run dev</code>,
+                also add the{" "}
+                <code className="bg-white/50 px-1 rounded">:3005</code>{" "}
+                variants.
               </li>
             </ol>
             <p className="font-[family-name:var(--font-nunito)] font-bold text-sm text-text-primary">
@@ -320,7 +331,7 @@ supabase start`}</CodeBlock>
           </h2>
         </div>
 
-        <div className="space-y-5 ml-11">
+        <div className="space-y-5 ml-0 sm:ml-11">
           <CodeBlock title="terminal">{`git clone https://github.com/BenLaurenson/PiggyBack.git
 cd PiggyBack
 cp .env.local.example .env.local`}</CodeBlock>
@@ -345,6 +356,20 @@ SUPABASE_SERVICE_ROLE_KEY=your_service_role_key_from_supabase_start
 UP_API_ENCRYPTION_KEY=your_64_character_hex_key
 NEXT_PUBLIC_APP_URL=http://localhost:3000`}</CodeBlock>
           </OptionCard>
+
+          <InfoBox>
+            <strong>Port note:</strong> Use{" "}
+            <code className="bg-white/50 px-1 rounded">
+              http://localhost:3000
+            </code>{" "}
+            for Docker /{" "}
+            <code className="bg-white/50 px-1 rounded">npm start</code>, or{" "}
+            <code className="bg-white/50 px-1 rounded">
+              http://localhost:3005
+            </code>{" "}
+            for{" "}
+            <code className="bg-white/50 px-1 rounded">npm run dev</code>.
+          </InfoBox>
 
           <h3 className="font-[family-name:var(--font-nunito)] font-bold text-sm text-text-primary">
             Generate Your Encryption Key
@@ -378,7 +403,7 @@ NEXT_PUBLIC_APP_URL=http://localhost:3000`}</CodeBlock>
           </h2>
         </div>
 
-        <div className="space-y-5 ml-11">
+        <div className="space-y-5 ml-0 sm:ml-11">
           <div className="rounded-xl border border-border-light bg-surface-elevated p-5">
             <h3 className="font-[family-name:var(--font-nunito)] font-bold text-sm text-text-primary mb-3 flex items-center gap-2">
               <Container className="w-4 h-4 text-text-tertiary" />
@@ -444,7 +469,7 @@ npm start`}</CodeBlock>
           </h2>
         </div>
 
-        <div className="space-y-4 ml-11">
+        <div className="space-y-4 ml-0 sm:ml-11">
           <ol className="space-y-3 font-[family-name:var(--font-dm-sans)] text-sm text-text-secondary list-decimal list-inside">
             <li>
               Open{" "}
@@ -487,7 +512,7 @@ npm start`}</CodeBlock>
           </h2>
         </div>
 
-        <div className="space-y-4 ml-11">
+        <div className="space-y-4 ml-0 sm:ml-11">
           <p className="font-[family-name:var(--font-dm-sans)] text-sm text-text-secondary">
             Pull the latest changes and rebuild:
           </p>
@@ -529,8 +554,21 @@ npm start`}</CodeBlock>
               Cron Jobs (Payment Reminders)
             </h3>
             <p className="font-[family-name:var(--font-dm-sans)] text-sm text-text-secondary mb-3">
-              Set up a cron job or scheduled task to call the endpoint daily:
+              PiggyBack has a daily notification system for payment reminders and
+              AI-generated weekly summaries. In a local deployment, you&apos;ll
+              need to set up your own scheduler.
             </p>
+            <ol className="space-y-2 font-[family-name:var(--font-dm-sans)] text-sm text-text-secondary list-decimal list-inside mb-3">
+              <li>
+                Add{" "}
+                <code className="bg-white/50 px-1 rounded">
+                  CRON_SECRET=your_random_secret
+                </code>{" "}
+                to{" "}
+                <code className="bg-white/50 px-1 rounded">.env.local</code>
+              </li>
+              <li>Set up a cron job or scheduled task to call the endpoint daily:</li>
+            </ol>
             <CodeBlock title="crontab">{`# Runs at 9am daily — replace <secret> with your CRON_SECRET
 0 9 * * * curl -H "Authorization: Bearer <secret>" http://localhost:3000/api/cron/notifications`}</CodeBlock>
           </div>
@@ -542,8 +580,9 @@ npm start`}</CodeBlock>
             </h3>
             <p className="font-[family-name:var(--font-dm-sans)] text-sm text-text-secondary">
               Each user configures their own AI provider — no server-side keys
-              needed. Go to <strong>Settings</strong> &rarr; <strong>AI</strong>{" "}
-              and choose Google Gemini, OpenAI, or Anthropic.
+              needed. Go to <strong>Settings</strong> &rarr; <strong>AI</strong>,
+              choose Google Gemini, OpenAI, or Anthropic, and enter your API
+              key.
             </p>
           </div>
 

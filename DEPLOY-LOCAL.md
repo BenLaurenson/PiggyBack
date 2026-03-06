@@ -44,10 +44,12 @@ Pick one and follow the matching instructions below. You can switch later.
 **Configure auth URLs:**
 
 1. Go to **Authentication** > **URL Configuration**
-2. Set **Site URL** to `http://localhost:3000`
+2. Set **Site URL** to `http://localhost:3000` (or `http://localhost:3005` if using `npm run dev`)
 3. Add **Redirect URLs**:
    - `http://localhost:3000/auth/callback`
    - `http://localhost:3000/update-password`
+   - `http://localhost:3005/auth/callback` (if using `npm run dev`)
+   - `http://localhost:3005/update-password` (if using `npm run dev`)
 
 **Get your keys:**
 
@@ -117,9 +119,11 @@ Edit `.env.local` with your values:
 NEXT_PUBLIC_SUPABASE_URL=https://your-project-id.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your_anon_key_from_dashboard
 SUPABASE_SERVICE_ROLE_KEY=your_service_role_key_from_dashboard
-UP_API_ENCRYPTION_KEY=your_32_character_key
+UP_API_ENCRYPTION_KEY=your_64_hex_character_encryption_key
 NEXT_PUBLIC_APP_URL=http://localhost:3000
 ```
+
+> **Port note:** Use `http://localhost:3000` for Docker / `npm start`, or `http://localhost:3005` for `npm run dev`.
 
 ### Option B: Local Supabase
 
@@ -127,9 +131,11 @@ NEXT_PUBLIC_APP_URL=http://localhost:3000
 NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your_anon_key_from_supabase_start
 SUPABASE_SERVICE_ROLE_KEY=your_service_role_key_from_supabase_start
-UP_API_ENCRYPTION_KEY=your_32_character_key
+UP_API_ENCRYPTION_KEY=your_64_hex_character_encryption_key
 NEXT_PUBLIC_APP_URL=http://localhost:3000
 ```
+
+> **Port note:** Use `http://localhost:3000` for Docker / `npm start`, or `http://localhost:3005` for `npm run dev`.
 
 **Generate your encryption key:**
 

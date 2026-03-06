@@ -1,14 +1,17 @@
 # PiggyBack
 
-[![Status: Beta](https://img.shields.io/badge/Status-Beta-blue)]()
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/BenLaurenson/PiggyBack/badge)](https://securityscorecards.dev/viewer/?uri=github.com/BenLaurenson/PiggyBack)
-[![OpenSSF Best Practices](https://www.bestpractices.dev/projects/10407/badge)](https://www.bestpractices.dev/projects/10407)
-[![Next.js](https://img.shields.io/badge/Next.js-16-black?logo=next.js)](https://nextjs.org/)
-[![React](https://img.shields.io/badge/React-19-61DAFB?logo=react)](https://react.dev/)
-[![Supabase](https://img.shields.io/badge/Supabase-PostgreSQL-3ECF8E?logo=supabase)](https://supabase.com/)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript)](https://www.typescriptlang.org/)
-[![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-4-06B6D4?logo=tailwindcss)](https://tailwindcss.com/)
+<p>
+  <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT" /></a>
+  <img src="https://img.shields.io/badge/Status-Beta-blue" alt="Status: Beta" />
+  <a href="https://securityscorecards.dev/viewer/?uri=github.com/BenLaurenson/PiggyBack"><img src="https://api.securityscorecards.dev/projects/github.com/BenLaurenson/PiggyBack/badge" alt="OpenSSF Scorecard" /></a>
+  <a href="https://www.bestpractices.dev/projects/10407"><img src="https://www.bestpractices.dev/projects/10407/badge" alt="OpenSSF Best Practices" /></a>
+  <br />
+  <a href="https://nextjs.org/"><img src="https://img.shields.io/badge/Next.js-16-black?logo=next.js" alt="Next.js" /></a>
+  <a href="https://react.dev/"><img src="https://img.shields.io/badge/React-19-61DAFB?logo=react" alt="React" /></a>
+  <a href="https://supabase.com/"><img src="https://img.shields.io/badge/Supabase-PostgreSQL-3ECF8E?logo=supabase" alt="Supabase" /></a>
+  <a href="https://www.typescriptlang.org/"><img src="https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript" alt="TypeScript" /></a>
+  <a href="https://tailwindcss.com/"><img src="https://img.shields.io/badge/Tailwind_CSS-4-06B6D4?logo=tailwindcss" alt="Tailwind CSS" /></a>
+</p>
 
 Your finances on autopilot with Up Bank. Auto-syncing transactions, budgets, savings goals, and a 35-tool AI financial assistant. Self-hosted on Vercel + Supabase.
 
@@ -132,7 +135,7 @@ Required variables:
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Your Supabase publishable/anon key |
 | `SUPABASE_SERVICE_ROLE_KEY` | Your Supabase service role key (Settings > API) |
 | `UP_API_ENCRYPTION_KEY` | 64-character hex key for encrypting stored Up API tokens (see `.env.local.example`) |
-| `NEXT_PUBLIC_APP_URL` | Your app URL (e.g. `http://localhost:3000` for local) |
+| `NEXT_PUBLIC_APP_URL` | Your app URL (`http://localhost:3005` for local dev, `http://localhost:3000` for Docker/production) |
 
 ### 4. Run the development server
 
@@ -140,7 +143,7 @@ Required variables:
 npm run dev
 ```
 
-Open [http://localhost:3005](http://localhost:3005) to access the app.
+Open [http://localhost:3005](http://localhost:3005) to access the app. Make sure `NEXT_PUBLIC_APP_URL` in `.env.local` is set to `http://localhost:3005` and your Supabase auth redirect URLs include the `:3005` port.
 
 ### 5. Connect Up Bank
 
@@ -154,42 +157,28 @@ Open [http://localhost:3005](http://localhost:3005) to access the app.
 ```
 PiggyBack/
 ├── src/
-│   ├── app/                    # Next.js App Router
-│   │   ├── (app)/              # Authenticated app pages (33 pages)
-│   │   │   ├── home/           # Dashboard overview
-│   │   │   ├── activity/       # Transaction history & income
-│   │   │   ├── analysis/       # Spending analysis
-│   │   │   ├── budget/         # Budget management
-│   │   │   ├── goals/          # Savings goals
-│   │   │   ├── invest/         # Investment portfolio & watchlist
-│   │   │   ├── plan/           # FIRE planning
-│   │   │   ├── notifications/  # Notification centre
-│   │   │   └── settings/       # User settings (10 sub-pages)
-│   │   ├── actions/            # 13 server action files
-│   │   ├── api/                # 34 REST API routes
-│   │   │   ├── ai/             # AI chat endpoint
-│   │   │   ├── budget/         # Budget calculation APIs
-│   │   │   ├── upbank/         # Up Bank webhook & sync
-│   │   │   └── ...
-│   │   └── auth/               # Auth callback
-│   ├── components/             # React components (125 files across 18 domains)
-│   │   ├── ui/                 # shadcn/ui primitives
-│   │   ├── ai/                 # AI chat interface
-│   │   ├── budget/             # Budget dashboard
-│   │   ├── invest/             # Investment portfolio views
-│   │   └── ...
-│   ├── lib/                    # Utilities and business logic (45 files)
-│   │   ├── __tests__/          # 50 test files (1090+ tests)
-│   │   ├── price-apis.ts       # Yahoo Finance + CoinGecko price fetching
-│   │   ├── portfolio-aggregation.ts  # Portfolio timeline & metrics
-│   │   ├── invest-calculations.ts    # Investment page calculations
-│   │   ├── fire-calculations.ts      # FIRE planning engine
-│   │   └── ...
+│   ├── app/              # Next.js App Router
+│   │   ├── (app)/        # Authenticated pages
+│   │   │   ├── home/
+│   │   │   ├── activity/
+│   │   │   ├── analysis/
+│   │   │   ├── budget/
+│   │   │   ├── goals/
+│   │   │   ├── invest/
+│   │   │   ├── plan/
+│   │   │   ├── notifications/
+│   │   │   └── settings/
+│   │   ├── actions/      # Server actions
+│   │   ├── api/          # REST API routes
+│   │   └── auth/
+│   ├── components/       # 125 React components
+│   ├── lib/              # Business logic
+│   │   └── __tests__/    # 50 test files
 │   └── utils/
-│       └── supabase/           # Supabase client setup
-├── documentation/              # Developer documentation
+│       └── supabase/     # Client setup
+├── documentation/
 ├── supabase/
-│   └── migrations/             # Consolidated initial schema
+│   └── migrations/
 └── package.json
 ```
 
@@ -229,40 +218,18 @@ Two deployment guides are available:
 
 Detailed documentation for contributors and developers:
 
-```
-documentation/
-├── architecture/
-│   ├── overview.md              # System architecture and design decisions
-│   ├── data-flow.md             # Data flow between components
-│   ├── deployment.md            # Deployment architecture
-│   └── tech-stack.md            # Technology choices and rationale
-├── features/
-│   ├── ai-system.md             # AI assistant (35 tools, multi-provider)
-│   ├── budget-system.md         # Budget engine and zero-based budgeting
-│   ├── fire-system.md           # FIRE calculator and planning
-│   ├── income-tracking.md       # Income detection and tracking
-│   ├── investment-tracking.md   # Portfolio tracking and price APIs
-│   ├── library-reference.md     # Shared utility library reference
-│   ├── recurring-expenses.md    # Expense detection and matching
-│   └── up-bank-integration.md   # Up Bank API and webhook integration
-├── database/
-│   ├── schema.md                # Database schema reference
-│   └── rls-policies.md          # Row Level Security policies
-├── api-routes/
-│   ├── README.md                # API routes overview
-│   └── server-actions.md        # Server actions reference
-├── up-bank-api/
-│   ├── README.md                # Up Bank API overview
-│   ├── accounts.md              # Account endpoints
-│   ├── transactions.md          # Transaction endpoints
-│   ├── categories.md            # Category endpoints
-│   ├── tags.md                  # Tag endpoints
-│   ├── webhooks.md              # Webhook setup and handling
-│   └── pagination-and-errors.md # Pagination and error handling
-├── components/README.md         # Component architecture
-├── settings/README.md           # Settings system
-└── onboarding/README.md         # Onboarding flow
-```
+| Directory | Contents |
+|-----------|----------|
+| `architecture/` | System overview, data flow, deployment, tech stack |
+| `features/` | AI system, budget engine, FIRE calculator, income tracking, investments, recurring expenses, Up Bank integration, library reference |
+| `database/` | Schema reference, RLS policies |
+| `api-routes/` | REST API routes, server actions |
+| `up-bank-api/` | Accounts, transactions, categories, tags, webhooks, pagination |
+| `components/` | Component architecture |
+| `settings/` | Settings system |
+| `onboarding/` | Onboarding flow |
+
+See the full [documentation index](documentation/README.md) for details.
 
 ## Security
 
@@ -274,14 +241,16 @@ Every push and pull request is scanned by:
 
 | Tool | What It Does |
 |------|-------------|
-| [CodeQL](https://github.com/BenLaurenson/PiggyBack/blob/main/.github/workflows/codeql.yml) | Static application security testing (SAST) for JS/TS — detects XSS, injection, data flow vulnerabilities |
-| [Trivy](https://github.com/BenLaurenson/PiggyBack/blob/main/.github/workflows/trivy.yml) | Filesystem vulnerability scanning, Docker container scanning, and SBOM generation |
-| [Gitleaks](https://github.com/BenLaurenson/PiggyBack/blob/main/.github/workflows/secrets-scan.yml) | Secret detection in commits (also runs as a pre-commit hook) |
-| [Dependency Review](https://github.com/BenLaurenson/PiggyBack/blob/main/.github/workflows/dependency-review.yml) | Blocks PRs that introduce vulnerable or restrictively-licensed dependencies |
-| [Snyk](https://github.com/BenLaurenson/PiggyBack/blob/main/.github/workflows/snyk.yml) | Code and dependency scanning (SAST + SCA) for application and open-source vulnerabilities |
-| [OpenSSF Scorecard](https://github.com/BenLaurenson/PiggyBack/blob/main/.github/workflows/scorecard.yml) | Automated supply chain security health scoring |
-| [SLSA Provenance](https://github.com/BenLaurenson/PiggyBack/blob/main/.github/workflows/slsa-provenance.yml) | Supply chain integrity and artifact provenance verification |
-| [Dependabot](https://github.com/BenLaurenson/PiggyBack/blob/main/.github/dependabot.yml) | Automated dependency updates for npm, GitHub Actions, and Docker |
+| CodeQL | SAST for JS/TS — detects XSS, injection, data flow vulnerabilities |
+| Trivy | Filesystem and Docker vulnerability scanning, SBOM generation |
+| Gitleaks | Secret detection in commits (also runs as a pre-commit hook) |
+| Dependency Review | Blocks PRs with vulnerable or restrictively-licensed dependencies |
+| Snyk | Code and dependency scanning (SAST + SCA) |
+| OpenSSF Scorecard | Automated supply chain security health scoring |
+| SLSA Provenance | Supply chain integrity and artifact provenance verification |
+| Dependabot | Automated dependency updates for npm, GitHub Actions, and Docker |
+
+All workflow files are in [`.github/workflows/`](.github/workflows/).
 
 ### Application Security
 

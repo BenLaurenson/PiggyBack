@@ -19,10 +19,10 @@ export default function DocsLayout({ children }: { children: React.ReactNode }) 
   return (
     <div className={`mint min-h-screen ${nunito.variable} ${dmSans.variable}`}>
       <LandingHeader />
-      <div className="flex min-h-[calc(100vh-57px)]">
+      <div className="md:flex min-h-[calc(100vh-57px)]">
         <DocSidebar />
         <div className="flex-1 flex flex-col min-w-0">
-          <main className="flex-1 w-full px-6 py-10 md:px-10 lg:px-16">
+          <main className="flex-1 w-full px-4 py-8 sm:px-6 md:px-10 lg:px-16 md:py-10">
             {children}
           </main>
           <LandingFooter />

@@ -52,7 +52,7 @@ export default function ContributingPage() {
                 Fork &amp; Clone
               </h3>
             </div>
-            <div className="ml-11">
+            <div className="ml-0 sm:ml-11">
               <CodeBlock title="terminal">{`git clone https://github.com/<your-username>/PiggyBack.git
 cd PiggyBack
 npm install`}</CodeBlock>
@@ -67,11 +67,11 @@ npm install`}</CodeBlock>
                 Set Up Environment Variables
               </h3>
             </div>
-            <div className="ml-11 space-y-3">
+            <div className="ml-0 sm:ml-11 space-y-3">
               <CodeBlock title="terminal">{`cp .env.local.example .env.local`}</CodeBlock>
               <p className="font-[family-name:var(--font-dm-sans)] text-sm text-text-secondary">
-                Fill in your Supabase project URL, anon key, and a 32-character
-                encryption key. See the{" "}
+                Fill in your Supabase project URL, anon key, and a 64-character
+                hex encryption key (32 bytes). See the{" "}
                 <a
                   href="https://github.com/BenLaurenson/PiggyBack#getting-started"
                   target="_blank"
@@ -93,7 +93,7 @@ npm install`}</CodeBlock>
                 Set Up the Database
               </h3>
             </div>
-            <div className="ml-11">
+            <div className="ml-0 sm:ml-11">
               <p className="font-[family-name:var(--font-dm-sans)] text-sm text-text-secondary">
                 Apply the migrations in{" "}
                 <code className="bg-white/50 px-1 rounded">
@@ -113,7 +113,7 @@ npm install`}</CodeBlock>
                 Enable Git Hooks
               </h3>
             </div>
-            <div className="ml-11 space-y-3">
+            <div className="ml-0 sm:ml-11 space-y-3">
               <CodeBlock title="terminal">{`git config core.hooksPath .githooks`}</CodeBlock>
               <InfoBox>
                 This enables the pre-commit hook that uses{" "}
@@ -142,7 +142,7 @@ npm install`}</CodeBlock>
                 Start the Dev Server
               </h3>
             </div>
-            <div className="ml-11 space-y-3">
+            <div className="ml-0 sm:ml-11 space-y-3">
               <CodeBlock title="terminal">{`npm run dev`}</CodeBlock>
               <p className="font-[family-name:var(--font-dm-sans)] text-sm text-text-secondary">
                 The app runs at{" "}
@@ -250,15 +250,15 @@ npm install`}</CodeBlock>
         </h2>
 
         <CodeBlock title="project">{`src/
-  app/           # Next.js App Router (34 pages, 54 API routes)
-  components/    # React components by feature domain (205 files)
+  app/           # Next.js App Router (33 pages, 34 API routes, 13 server action files)
+  components/    # React components by feature domain (125 files)
   lib/           # Utilities and business logic
-  lib/__tests__/ # Vitest test files (43 files, 722+ tests)
+  lib/__tests__/ # Vitest test files (50 files, 1090+ tests)
   hooks/         # Custom React hooks
   types/         # TypeScript type definitions
   utils/         # Supabase client setup
 supabase/
-  migrations/    # SQL migration files`}</CodeBlock>
+  migrations/    # 1 consolidated initial schema migration`}</CodeBlock>
       </section>
 
       {/* Database Changes */}
@@ -305,11 +305,14 @@ supabase/
 npm run test:run  # Single run`}</CodeBlock>
 
         <p className="font-[family-name:var(--font-dm-sans)] text-sm text-text-secondary mt-4 mb-3">
-          Tests use Vitest (43 test files, 722+ tests). Test files live in{" "}
+          Tests use Vitest (50 test files, 1090+ tests). Test files live in{" "}
           <code className="bg-white/50 px-1 rounded">
             src/lib/__tests__/
           </code>{" "}
-          and cover:
+          and additional{" "}
+          <code className="bg-white/50 px-1 rounded">__tests__/</code>{" "}
+          directories throughout{" "}
+          <code className="bg-white/50 px-1 rounded">src/</code> and cover:
         </p>
 
         <ul className="space-y-2 font-[family-name:var(--font-dm-sans)] text-sm text-text-secondary">
@@ -324,7 +327,7 @@ npm run test:run  # Single run`}</CodeBlock>
             <span className="text-brand-coral font-bold">&bull;</span>
             <span>
               Investment logic (price APIs, portfolio aggregation, FIRE
-              calculations)
+              calculations, invest calculations)
             </span>
           </li>
           <li className="flex gap-2">

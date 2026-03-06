@@ -44,7 +44,7 @@ export default function ConfigurationPage() {
           in your hosting provider&apos;s dashboard.
         </p>
 
-        <div className="rounded-xl border border-border-light bg-surface-elevated overflow-hidden">
+        <div className="rounded-xl border border-border-light bg-surface-elevated overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-surface-elevated border-b border-border-light">
@@ -177,7 +177,7 @@ node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`}</Code
               Redirect URLs
             </h3>
             <p className="font-[family-name:var(--font-dm-sans)] text-sm text-text-secondary mb-2">
-              Add both of the following:
+              Add both of the following (replace with your actual URL):
             </p>
             <ul className="font-[family-name:var(--font-dm-sans)] text-sm text-text-secondary list-disc list-inside space-y-1">
               <li>
@@ -191,6 +191,17 @@ node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`}</Code
                 </code>
               </li>
             </ul>
+            <p className="font-[family-name:var(--font-dm-sans)] text-xs text-text-tertiary mt-2">
+              For local development, use{" "}
+              <code className="bg-white/50 px-1 rounded">
+                http://localhost:3005
+              </code>{" "}
+              (dev server) or{" "}
+              <code className="bg-white/50 px-1 rounded">
+                http://localhost:3000
+              </code>{" "}
+              (Docker / production build).
+            </p>
           </div>
         </div>
 

@@ -40,7 +40,7 @@ export default function SecurityPage() {
           Supported Versions
         </h2>
 
-        <div className="rounded-xl border border-border-medium overflow-hidden">
+        <div className="rounded-xl border border-border-medium overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-surface-elevated border-b border-border-light">

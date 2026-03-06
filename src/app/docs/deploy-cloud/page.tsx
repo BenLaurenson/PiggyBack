@@ -101,7 +101,7 @@ export default function DeployCloudPage() {
           </h2>
         </div>
 
-        <div className="space-y-4 ml-11">
+        <div className="space-y-4 ml-0 sm:ml-11">
           <h3 className="font-[family-name:var(--font-nunito)] font-bold text-sm text-text-primary">
             Create a New Project
           </h3>
@@ -236,7 +236,7 @@ export default function DeployCloudPage() {
           </h2>
         </div>
 
-        <div className="space-y-4 ml-11">
+        <div className="space-y-4 ml-0 sm:ml-11">
           <h3 className="font-[family-name:var(--font-nunito)] font-bold text-sm text-text-primary">
             One-Click Deploy
           </h3>
@@ -298,7 +298,63 @@ export default function DeployCloudPage() {
             <strong>Environment Variables</strong> and add:
           </p>
 
-          <div className="rounded-xl border border-border-medium overflow-hidden">
+          {/* Card layout on mobile, table on larger screens */}
+          <div className="sm:hidden space-y-3">
+            {[
+              {
+                var: "NEXT_PUBLIC_SUPABASE_URL",
+                required: "Yes",
+                desc: "Your Supabase project URL",
+              },
+              {
+                var: "NEXT_PUBLIC_SUPABASE_ANON_KEY",
+                required: "Yes",
+                desc: "Your Supabase anon key",
+              },
+              {
+                var: "SUPABASE_SERVICE_ROLE_KEY",
+                required: "Yes",
+                desc: "Your Supabase service role key",
+              },
+              {
+                var: "UP_API_ENCRYPTION_KEY",
+                required: "Yes",
+                desc: "A 64-character hex string (see below)",
+              },
+              {
+                var: "NEXT_PUBLIC_APP_URL",
+                required: "Yes",
+                desc: "Your Vercel deployment URL",
+              },
+              {
+                var: "CRON_SECRET",
+                required: "Recommended",
+                desc: "A random secret for cron auth",
+              },
+              {
+                var: "NEXT_PUBLIC_SKIP_LANDING",
+                required: "Optional",
+                desc: "Set to 'true' to skip marketing page",
+              },
+            ].map((row) => (
+              <div
+                key={row.var}
+                className="rounded-xl border border-border-light bg-surface-elevated p-4"
+              >
+                <code className="font-mono text-xs text-brand-coral break-all">
+                  {row.var}
+                </code>
+                <p className="font-[family-name:var(--font-dm-sans)] text-sm text-text-secondary mt-1">
+                  {row.desc}
+                </p>
+                <span className="font-[family-name:var(--font-dm-sans)] text-xs text-text-tertiary">
+                  {row.required}
+                </span>
+              </div>
+            ))}
+          </div>
+
+          <div className="hidden sm:block rounded-xl border border-border-medium overflow-hidden">
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-surface-elevated border-b border-border-light">
@@ -432,7 +488,7 @@ node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`}</Code
           </h2>
         </div>
 
-        <div className="space-y-4 ml-11">
+        <div className="space-y-4 ml-0 sm:ml-11">
           <ol className="space-y-3 font-[family-name:var(--font-dm-sans)] text-sm text-text-secondary list-decimal list-inside">
             <li>Visit your deployed app</li>
             <li>
@@ -484,7 +540,7 @@ node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`}</Code
               <code className="bg-white/50 px-1 rounded">vercel.json</code> to
               change it:
             </p>
-            <div className="rounded-xl border border-border-medium overflow-hidden">
+            <div className="rounded-xl border border-border-medium overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="bg-surface-elevated border-b border-border-light">

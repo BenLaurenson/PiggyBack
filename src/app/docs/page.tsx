@@ -208,7 +208,7 @@ export default function DocsOverviewPage() {
         <h2 className="font-[family-name:var(--font-nunito)] text-xl font-bold text-text-primary mb-4">
           Tech Stack
         </h2>
-        <div className="bg-surface-elevated border border-border-light rounded-xl overflow-hidden">
+        <div className="bg-surface-elevated border border-border-light rounded-xl overflow-x-auto">
           <table className="w-full font-[family-name:var(--font-dm-sans)] text-sm">
             <thead>
               <tr className="border-b border-border-medium">

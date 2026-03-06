@@ -18,7 +18,7 @@ npm install
 cp .env.local.example .env.local
 ```
 
-Fill in your Supabase project URL, anon key, and a 32-character encryption key. See the [README](README.md#getting-started) for details.
+Fill in your Supabase project URL, anon key, and a 64-character hex encryption key (32 bytes). See the [README](README.md#getting-started) for details.
 
 ### 3. Set up the database
 
