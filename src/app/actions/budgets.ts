@@ -38,6 +38,10 @@ const sectionSchema = z.object({
   id: z.string().max(100),
   name: z.string().max(200),
   itemIds: z.array(z.string().max(200)),
+  collapsed: z.boolean().optional(),
+  color: z.string().max(50).optional(),
+  displayOrder: z.number().int().min(0).max(1000).optional(),
+  percentage: z.number().min(0).max(100).optional(),
 });
 
 const createBudgetSchema = z.object({
