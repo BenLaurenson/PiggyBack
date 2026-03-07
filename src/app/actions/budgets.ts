@@ -36,7 +36,7 @@ const categoryFilterSchema = z
 
 const sectionSchema = z.object({
   id: z.string().max(100),
-  title: z.string().max(200),
+  name: z.string().max(200),
   itemIds: z.array(z.string().max(200)),
 });
 
