@@ -100,7 +100,9 @@ export async function updateSession(request: NextRequest) {
   if (needsCsrfCheck && !isSelfAuthenticated) {
     const origin = request.headers.get("origin");
     // M174: Derive appUrl from Host header when NEXT_PUBLIC_APP_URL is unset
-    const configuredAppUrl = process.env.NEXT_PUBLIC_APP_URL;
+    const rawAppUrl = process.env.NEXT_PUBLIC_APP_URL;
+    // Ensure configured URL has a protocol (users may set "example.com" without https://)
+    const configuredAppUrl = rawAppUrl && !rawAppUrl.startsWith("http") ? `https://${rawAppUrl}` : rawAppUrl;
     const appUrl = configuredAppUrl || (() => {
       const host = request.headers.get("host");
       if (!host) return null;
@@ -110,8 +112,14 @@ export async function updateSession(request: NextRequest) {
 
     if (origin) {
       // Origin is present — verify it matches the app URL (exact origin comparison to prevent prefix bypass)
-      if (appUrl && new URL(origin).origin !== new URL(appUrl).origin) {
-        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      if (appUrl) {
+        try {
+          if (new URL(origin).origin !== new URL(appUrl).origin) {
+            return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+          }
+        } catch {
+          // Invalid URL format — skip CSRF origin check rather than crashing
+        }
       }
     } else {
       // M50: Origin is absent — use Sec-Fetch-Site as fallback
