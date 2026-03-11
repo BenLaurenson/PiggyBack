@@ -262,23 +262,34 @@ export async function GET(request: Request) {
       );
     }
 
-    // ── Fetch goal & investment contributions for this period ──────────
-    // Goal contributions: internal transfers to goal-linked saver accounts
+    // ── Fetch goal & investment contributions in parallel ──────────────
     const goalLinkedAccountIds = (goalsResult.data ?? [])
       .map((g) => g.linked_account_id)
       .filter(Boolean) as string[];
+    const investmentIds = (investmentsResult.data ?? []).map((i) => i.id);
 
-    const goalTransfersResult = goalLinkedAccountIds.length > 0
-      ? await supabase
-          .from("transactions")
-          .select("transfer_account_id, amount_cents")
-          .eq("is_internal_transfer", true)
-          .in("transfer_account_id", goalLinkedAccountIds)
-          .neq("status", "DELETED")
-          .gte("settled_at", periodRange.start.toISOString())
-          .lte("settled_at", periodRange.end.toISOString())
-          .limit(1000)
-      : { data: [], error: null };
+    const [goalTransfersResult, investContribResult] = await Promise.all([
+      goalLinkedAccountIds.length > 0
+        ? supabase
+            .from("transactions")
+            .select("transfer_account_id, amount_cents")
+            .eq("is_internal_transfer", true)
+            .in("transfer_account_id", goalLinkedAccountIds)
+            .neq("status", "DELETED")
+            .gte("settled_at", periodRange.start.toISOString())
+            .lte("settled_at", periodRange.end.toISOString())
+            .limit(1000)
+        : Promise.resolve({ data: [] as any[], error: null }),
+      investmentIds.length > 0
+        ? supabase
+            .from("investment_contributions")
+            .select("investment_id, amount_cents")
+            .in("investment_id", investmentIds)
+            .gte("contributed_at", periodRange.start.toISOString())
+            .lte("contributed_at", periodRange.end.toISOString())
+            .limit(1000)
+        : Promise.resolve({ data: [] as any[], error: null }),
+    ]);
 
     const goalContributions = new Map<string, number>();
     const accountToGoal = new Map<string, string>();
@@ -293,21 +304,10 @@ export async function GET(request: Request) {
       }
     }
 
-    // Investment contributions: from investment_contributions table
     const assetContributions = new Map<string, number>();
-    const investmentIds = (investmentsResult.data ?? []).map((i) => i.id);
-    if (investmentIds.length > 0) {
-      const { data: contribs } = await supabase
-        .from("investment_contributions")
-        .select("investment_id, amount_cents")
-        .in("investment_id", investmentIds)
-        .gte("contributed_at", periodRange.start.toISOString())
-        .lte("contributed_at", periodRange.end.toISOString())
-        .limit(1000);
-      for (const c of contribs ?? []) {
-        assetContributions.set(c.investment_id,
-          (assetContributions.get(c.investment_id) ?? 0) + c.amount_cents);
-      }
+    for (const c of investContribResult.data ?? []) {
+      assetContributions.set(c.investment_id,
+        (assetContributions.get(c.investment_id) ?? 0) + c.amount_cents);
     }
 
     // ── Map data to engine input types ─────────────────────────────────

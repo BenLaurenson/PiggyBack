@@ -6,6 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ---
 
+## [1.1.0] - 2026-03-11
+
+### Fixed
+- Changing an expense's category (e.g. Entertainment → Subscriptions) now recategorizes all linked transactions — previously only the expense definition updated while transactions stayed under the old category in the budget table
+
+### Changed
+- Home dashboard: eliminated duplicate 1000-row transaction query and duplicate `category_mappings` fetch by combining fields into a single query
+- AI context route: parallelized sequential Supabase queries into two batches (independent queries first, then account-dependent queries)
+- Budget summary route: parallelized goal transfer and investment contribution queries that were running sequentially
+
+---
+
 ## [1.0.3] - 2026-03-04
 
 ### Fixed

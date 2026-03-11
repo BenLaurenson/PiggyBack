@@ -21,70 +21,56 @@ export async function GET() {
     );
   }
 
-  // Check if user has API key configured
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("ai_api_key, ai_provider")
-    .eq("id", user.id)
-    .maybeSingle();
+  // Batch 1: Independent queries in parallel
+  const now = new Date();
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+  const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+  const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  const endOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0);
+
+  const [
+    { data: profile },
+    { data: membership },
+    { data: accounts },
+    { data: categoryMappings },
+  ] = await Promise.all([
+    supabase.from("profiles").select("ai_api_key, ai_provider").eq("id", user.id).maybeSingle(),
+    supabase.from("partnership_members").select("partnership_id").eq("user_id", user.id).limit(1).maybeSingle(),
+    supabase.from("accounts").select("id, balance_cents, display_name, account_type").eq("user_id", user.id).eq("is_active", true),
+    supabase.from("category_mappings").select("up_category_id, new_parent_name").limit(200),
+  ]);
 
   const hasApiKey = !!profile?.ai_api_key;
-
-  // Get partnership
-  const { data: membership } = await supabase
-    .from("partnership_members")
-    .select("partnership_id")
-    .eq("user_id", user.id)
-    .limit(1)
-    .maybeSingle();
-
   const partnershipId = membership?.partnership_id;
-
-  // Fetch accounts
-  const { data: accounts } = await supabase
-    .from("accounts")
-    .select("id, balance_cents, display_name, account_type")
-    .eq("user_id", user.id)
-    .eq("is_active", true);
-
   const accountIds = accounts?.map((a) => a.id) || [];
   const totalBalance =
     accounts?.reduce((sum, acc) => sum + (acc.balance_cents || 0), 0) || 0;
 
-  // Current month transactions
-  const now = new Date();
-  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-  const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-
-  const { data: monthTxns } = await supabase
-    .from("transactions")
-    .select(
-      "description, amount_cents, category_id, is_income, created_at"
-    )
-    .in("account_id", accountIds)
-    .is("transfer_account_id", null)
-    .gte("created_at", startOfMonth.toISOString())
-    .lte("created_at", endOfMonth.toISOString())
-    .limit(500);
-
-  // Last month transactions for comparison
-  const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-  const endOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0);
-
-  const { data: lastMonthTxns } = await supabase
-    .from("transactions")
-    .select("amount_cents, category_id, is_income")
-    .in("account_id", accountIds)
-    .is("transfer_account_id", null)
-    .gte("created_at", startOfLastMonth.toISOString())
-    .lte("created_at", endOfLastMonth.toISOString())
-    .limit(500);
-
-  // Category mappings
-  const { data: categoryMappings } = await supabase
-    .from("category_mappings")
-    .select("up_category_id, new_parent_name")
-    .limit(200);
+  // Batch 2: Transaction queries in parallel (depend on accountIds)
+  type TxnRow = { description: string; amount_cents: number; category_id: string | null; is_income: boolean; created_at: string };
+  type TxnSummaryRow = { amount_cents: number; category_id: string | null; is_income: boolean };
+  const [{ data: monthTxns }, { data: lastMonthTxns }] = await Promise.all([
+    accountIds.length > 0
+      ? supabase
+          .from("transactions")
+          .select("description, amount_cents, category_id, is_income, created_at")
+          .in("account_id", accountIds)
+          .is("transfer_account_id", null)
+          .gte("created_at", startOfMonth.toISOString())
+          .lte("created_at", endOfMonth.toISOString())
+          .limit(500) as unknown as Promise<{ data: TxnRow[] | null; error: any }>
+      : Promise.resolve({ data: [] as TxnRow[], error: null }),
+    accountIds.length > 0
+      ? supabase
+          .from("transactions")
+          .select("amount_cents, category_id, is_income")
+          .in("account_id", accountIds)
+          .is("transfer_account_id", null)
+          .gte("created_at", startOfLastMonth.toISOString())
+          .lte("created_at", endOfLastMonth.toISOString())
+          .limit(500) as unknown as Promise<{ data: TxnSummaryRow[] | null; error: any }>
+      : Promise.resolve({ data: [] as TxnSummaryRow[], error: null }),
+  ]);
 
   const catMap = new Map(
     categoryMappings?.map((c) => [c.up_category_id, c.new_parent_name]) || []

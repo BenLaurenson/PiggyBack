@@ -92,13 +92,117 @@ export async function PATCH(
   if (hasMatchCriteria) {
     try {
       const { matchExpenseToTransactions } = await import('@/lib/match-expense-transactions');
-      const matchResult = await matchExpenseToTransactions(id, expense.partnership_id, {
+      await matchExpenseToTransactions(id, expense.partnership_id, {
         amountTolerancePercent: 10, // Match within ±10% of expected amount
         limitMonths: null, // Search all history
       });
     } catch (matchError) {
       console.error('Error re-matching transactions:', matchError);
       // Don't fail the update if matching fails
+    }
+  }
+
+  // When category_name changes, recategorize all linked transactions
+  if (body.category_name) {
+    try {
+      // Look up the category mapping to get the up_category_id
+      const { data: mapping } = await supabase
+        .from("category_mappings")
+        .select("up_category_id, new_parent_name")
+        .eq("new_child_name", body.category_name)
+        .limit(1)
+        .maybeSingle();
+
+      if (mapping) {
+        // Resolve parent_category_id from the categories table
+        const { data: categoryRecord } = await supabase
+          .from("categories")
+          .select("parent_category_id")
+          .eq("id", mapping.up_category_id)
+          .maybeSingle();
+
+        const newCategoryId = mapping.up_category_id;
+        const newParentCategoryId = categoryRecord?.parent_category_id || null;
+
+        // Find all transactions linked to this expense
+        const { data: matches } = await supabase
+          .from("expense_matches")
+          .select("transaction_id")
+          .eq("expense_definition_id", id);
+
+        const txnIds = matches?.map((m) => m.transaction_id) || [];
+
+        if (txnIds.length > 0) {
+          // Get current categories for override records
+          const { data: transactions } = await supabase
+            .from("transactions")
+            .select("id, category_id, parent_category_id")
+            .in("id", txnIds);
+
+          // Update all linked transactions to the new category
+          await supabase
+            .from("transactions")
+            .update({
+              category_id: newCategoryId,
+              parent_category_id: newParentCategoryId,
+            })
+            .in("id", txnIds);
+
+          // Create override records for audit trail
+          if (transactions && transactions.length > 0) {
+            const { data: existingOverrides } = await supabase
+              .from("transaction_category_overrides")
+              .select("transaction_id")
+              .in("transaction_id", txnIds);
+
+            const overriddenIds = new Set(
+              existingOverrides?.map((o) => o.transaction_id) || []
+            );
+
+            // Insert new overrides for transactions without one
+            const newOverrides = transactions
+              .filter((t) => !overriddenIds.has(t.id))
+              .map((t) => ({
+                transaction_id: t.id,
+                original_category_id: t.category_id,
+                original_parent_category_id: t.parent_category_id,
+                override_category_id: newCategoryId,
+                override_parent_category_id: newParentCategoryId,
+                changed_by: user.id,
+                notes: `Expense category change: ${updated.name} → ${body.category_name}`,
+              }));
+
+            if (newOverrides.length > 0) {
+              const BATCH_SIZE = 100;
+              for (let i = 0; i < newOverrides.length; i += BATCH_SIZE) {
+                await supabase
+                  .from("transaction_category_overrides")
+                  .insert(newOverrides.slice(i, i + BATCH_SIZE));
+              }
+            }
+
+            // Update existing overrides
+            const existingIds = transactions
+              .filter((t) => overriddenIds.has(t.id))
+              .map((t) => t.id);
+
+            if (existingIds.length > 0) {
+              await supabase
+                .from("transaction_category_overrides")
+                .update({
+                  override_category_id: newCategoryId,
+                  override_parent_category_id: newParentCategoryId,
+                  changed_at: new Date().toISOString(),
+                  notes: `Expense category change: ${updated.name} → ${body.category_name}`,
+                })
+                .in("transaction_id", existingIds);
+            }
+          }
+        }
+      }
+    } catch (recatError) {
+      console.error("Error recategorizing linked transactions:", recatError);
+      // Don't fail the update if recategorization fails
     }
   }
 

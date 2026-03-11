@@ -16,6 +16,7 @@ export default async function DashboardPage() {
   }
 
   // Batch 1: Independent queries in parallel
+  // Fetch full category_mappings once (includes child names for insights + icons for display)
   const [
     { data: profile },
     partnershipId,
@@ -25,7 +26,7 @@ export default async function DashboardPage() {
     supabase.from("profiles").select("display_name").eq("id", user.id).maybeSingle(),
     getUserPartnershipId(supabase, user.id),
     supabase.from("accounts").select("id, balance_cents, display_name, account_type, updated_at").eq("user_id", user.id).eq("is_active", true),
-    supabase.from("category_mappings").select("up_category_id, new_parent_name, icon"),
+    supabase.from("category_mappings").select("up_category_id, new_parent_name, new_child_name, icon"),
   ]);
 
   if (!accounts || accounts.length === 0) {
@@ -66,6 +67,10 @@ export default async function DashboardPage() {
   const sixMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 5, 1);
   const twoWeeksFromNow = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000);
 
+  // Batch 2: Queries that depend on accountIds/partnershipId — run in parallel
+  // Combined historicalTransactions includes all fields needed for both monthly flow + insights
+  // (eliminates duplicate 1000-row transaction query)
+  // Reuses categoryMappings from batch 1 (eliminates duplicate category_mappings query)
   const [
     { data: monthTransactions },
     { data: recentTransactions },
@@ -74,8 +79,6 @@ export default async function DashboardPage() {
     { data: netWorthSnapshots },
     { data: incomeSourcesRaw },
     { data: historicalTransactions },
-    { data: insightTransactions },
-    { data: fullCategoryMappings },
     { data: expenseDefinitions },
     { data: splitSettings },
   ] = await Promise.all([
@@ -85,9 +88,7 @@ export default async function DashboardPage() {
     supabase.from("savings_goals").select("id, name, icon, color, current_amount_cents, target_amount_cents, deadline").eq("partnership_id", partnershipId).eq("is_completed", false).order("created_at", { ascending: false }).limit(3),
     supabase.from("net_worth_snapshots").select("snapshot_date, total_balance_cents, investment_total_cents").eq("partnership_id", partnershipId).order("snapshot_date", { ascending: true }).limit(12),
     supabase.from("income_sources").select("id, next_pay_date, amount_cents, frequency").eq("user_id", user.id).eq("is_active", true).eq("source_type", "recurring-salary").eq("is_manual_partner_income", false),
-    supabase.from("transactions").select("amount_cents, is_income, created_at").in("account_id", accountIds).is("transfer_account_id", null).gte("created_at", sixMonthsAgo.toISOString()).lte("created_at", endOfMonth.toISOString()).order("created_at", { ascending: false }).limit(1000),
-    supabase.from("transactions").select("description, amount_cents, created_at, category_id, parent_category_id, is_internal_transfer").in("account_id", accountIds).is("transfer_account_id", null).gte("created_at", sixMonthsAgo.toISOString()).lte("created_at", endOfMonth.toISOString()).order("created_at", { ascending: false }).limit(1000),
-    supabase.from("category_mappings").select("up_category_id, new_parent_name, new_child_name"),
+    supabase.from("transactions").select("description, amount_cents, created_at, category_id, parent_category_id, is_income, is_internal_transfer").in("account_id", accountIds).is("transfer_account_id", null).gte("created_at", sixMonthsAgo.toISOString()).lte("created_at", endOfMonth.toISOString()).order("created_at", { ascending: false }).limit(1000),
     supabase.from("expense_definitions").select("id, name, match_pattern, merchant_name, category_name, expected_amount_cents, recurrence_type").eq("partnership_id", partnershipId).eq("is_active", true),
     supabase.from("couple_split_settings").select("expense_definition_id, owner_percentage").eq("partnership_id", partnershipId),
   ]);
@@ -217,8 +218,8 @@ export default async function DashboardPage() {
   });
 
   const insights = generateInsights(
-    insightTransactions || [],
-    fullCategoryMappings || [],
+    historicalTransactions || [],
+    categoryMappings || [],
     expenseDefinitions || []
   );
 
