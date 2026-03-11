@@ -106,12 +106,24 @@ export async function PATCH(
   if (body.category_name) {
     try {
       // Look up the category mapping to get the up_category_id
-      const { data: mapping } = await supabase
+      // Try child name first (subcategory), then parent name (top-level category)
+      let { data: mapping } = await supabase
         .from("category_mappings")
         .select("up_category_id, new_parent_name")
         .eq("new_child_name", body.category_name)
         .limit(1)
         .maybeSingle();
+
+      if (!mapping) {
+        // Dropdown sends parent names — find the first child in that parent
+        const { data: parentMapping } = await supabase
+          .from("category_mappings")
+          .select("up_category_id, new_parent_name")
+          .eq("new_parent_name", body.category_name)
+          .limit(1)
+          .maybeSingle();
+        mapping = parentMapping;
+      }
 
       if (mapping) {
         // Resolve parent_category_id from the categories table
