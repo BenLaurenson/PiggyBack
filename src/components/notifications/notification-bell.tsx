@@ -23,7 +23,7 @@ import {
 } from "@/components/ui/sheet";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { goeyToast as toast } from "goey-toast";
+import { gooeyToast as toast } from "goey-toast";
 import { motion, AnimatePresence } from "framer-motion";
 
 interface Notification {

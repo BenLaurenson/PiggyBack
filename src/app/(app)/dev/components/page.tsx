@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { goeyToast as toast } from "goey-toast"
+import { gooeyToast as toast } from "goey-toast"
 import { Plus, RefreshCw, Settings, Trash2, Check, X, Info, AlertTriangle } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
