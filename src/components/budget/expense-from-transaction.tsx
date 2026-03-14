@@ -7,7 +7,7 @@
  */
 
 import { useState, useEffect, useRef } from "react";
-import { goeyToast as toast } from "goey-toast";
+import { gooeyToast as toast } from "goey-toast";
 import { TransactionCard } from "@/components/activity/transaction-card";
 import { CategoryProvider } from "@/contexts/category-context";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";

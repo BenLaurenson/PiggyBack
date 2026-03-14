@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Sparkles, Eye, EyeOff, Check, Loader2, ChevronDown, Unplug } from "lucide-react";
-import { goeyToast as toast } from "goey-toast";
+import { gooeyToast as toast } from "goey-toast";
 
 const PROVIDER_MODELS: Record<string, { id: string; label: string }[]> = {
   anthropic: [

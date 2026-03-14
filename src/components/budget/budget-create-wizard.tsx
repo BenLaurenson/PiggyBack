@@ -10,7 +10,7 @@ import { WizardPrerequisitesStep } from "./wizard/wizard-prerequisites-step";
 import { WizardTemplateStep } from "./wizard/wizard-template-step";
 import { WizardFinetuneStep } from "./wizard/wizard-finetune-step";
 import { WizardReviewStep } from "./wizard/wizard-review-step";
-import { goeyToast as toast } from "goey-toast";
+import { gooeyToast as toast } from "goey-toast";
 import { createBudget, type CreateBudgetInput } from "@/app/actions/budgets";
 import type { BudgetTemplate } from "@/lib/budget-templates";
 import type { Section } from "@/lib/layout-persistence";

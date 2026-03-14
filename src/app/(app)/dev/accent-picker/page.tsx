@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Check, Plus, Settings, ChevronLeft, ChevronRight, Copy, Info, Sparkles, Home, PieChart, Target, TrendingUp, Search, Bell } from "lucide-react"
-import { goeyToast as toast } from "goey-toast"
+import { gooeyToast as toast } from "goey-toast"
 
 // ============================================================================
 // CURATED BACKGROUND & HOVER SCHEMES

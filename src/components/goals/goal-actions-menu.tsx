@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { goeyToast as toast } from "goey-toast";
+import { gooeyToast as toast } from "goey-toast";
 import {
   DropdownMenu,
   DropdownMenuContent,

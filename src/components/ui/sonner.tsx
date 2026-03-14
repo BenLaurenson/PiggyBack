@@ -7,11 +7,11 @@ import {
   OctagonXIcon,
   TriangleAlertIcon,
 } from "lucide-react"
-import { GoeyToaster, type GoeyToasterProps } from "goey-toast"
+import { GooeyToaster, type GooeyToasterProps } from "goey-toast"
 
-const Toaster = ({ ...props }: GoeyToasterProps) => {
+const Toaster = ({ ...props }: GooeyToasterProps) => {
   return (
-    <GoeyToaster
+    <GooeyToaster
       position="top-center"
       bounce={0.3}
       {...props}

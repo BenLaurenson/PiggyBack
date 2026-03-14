@@ -16,7 +16,7 @@ import { deleteBudget } from "@/app/actions/budgets";
 import { BudgetLayoutProvider } from "@/contexts/budget-layout-context";
 import { BudgetCategoryLayoutEditor } from "./budget-category-layout-editor";
 import type { BudgetItemWithLayout } from "@/types/budget-layout";
-import { goeyToast as toast } from "goey-toast";
+import { gooeyToast as toast } from "goey-toast";
 import { useBudget } from "@/contexts/budget-context";
 
 const PERIOD_OPTIONS = [
