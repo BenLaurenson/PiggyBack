@@ -382,7 +382,7 @@ export function ExpenseDefinitionModal({
     </Popover>
   );
 
-  const ManualEntryForm = () => (
+  const manualEntryFormJsx = (
     <form onSubmit={handleSubmit} className="space-y-4">
       {error && (
         <div
@@ -900,10 +900,8 @@ export function ExpenseDefinitionModal({
 
         {/* Content - fixed height with scroll */}
         <div className="px-6 py-5 flex-1 overflow-y-auto min-h-[400px]">
-          {isEditing ? (
-            <ManualEntryForm />
-          ) : activeTab === "manual" ? (
-            <ManualEntryForm />
+          {(isEditing || activeTab === "manual") ? (
+            manualEntryFormJsx
           ) : (
             <ExpenseFromTransaction
               partnershipId={partnershipId}

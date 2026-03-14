@@ -89,6 +89,18 @@ export function BudgetOverviewTab({
   const periodStart = summary?.periodStart ? summary.periodStart.split('T')[0] : new Date().toISOString().split('T')[0];
   const periodEnd = summary?.periodEnd ? summary.periodEnd.split('T')[0] : new Date().toISOString().split('T')[0];
 
+  // Stable references for ExpenseDefinitionModal props
+  const categoryNames = useMemo(
+    () => allBudgetItems.filter((i: any) => i.type === 'subcategory').map((c: any) => c.name),
+    [allBudgetItems]
+  );
+  const selectedExpenseInitialSplit = useMemo(() => {
+    if (!selectedExpense) return null;
+    const split = expenseSplits.get(`expense:${selectedExpense.id}`);
+    if (!split) return null;
+    return { isShared: true, splitPercentage: split.ownerPercentage };
+  }, [selectedExpense, expenseSplits]);
+
   // Calculate totals from visible items only (same filtering as UnifiedBudgetTable)
   const { visibleBudgeted, visibleSpent } = useMemo(() => {
     const HIDDEN_CATEGORIES = new Set(['Internal Transfers', 'External Transfers']);
@@ -249,14 +261,9 @@ export function BudgetOverviewTab({
         open={showExpenseModal}
         onClose={() => { setShowExpenseModal(false); setSelectedExpense(null); }}
         partnershipId={partnershipId}
-        categories={allBudgetItems.filter((i: any) => i.type === 'subcategory').map((c: any) => c.name)}
+        categories={categoryNames}
         expense={selectedExpense}
-        initialSplit={(() => {
-          if (!selectedExpense) return null;
-          const split = expenseSplits.get(`expense:${selectedExpense.id}`);
-          if (!split) return null;
-          return { isShared: true, splitPercentage: split.ownerPercentage };
-        })()}
+        initialSplit={selectedExpenseInitialSplit}
       />
 
       <AutoDetectExpensesDialog

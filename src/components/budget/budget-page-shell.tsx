@@ -406,6 +406,16 @@ function BudgetPageShellContent({
   const [showRecurringExpenseModal, setShowRecurringExpenseModal] = useState(false);
   const [selectedRecurringExpense, setSelectedRecurringExpense] = useState<any | null>(null);
   const [showRecurringAutoDetect, setShowRecurringAutoDetect] = useState(false);
+  const shellCategoryNames = useMemo(
+    () => categoryMappings.map(c => c.newParentName).filter((v, i, a) => a.indexOf(v) === i),
+    [categoryMappings]
+  );
+  const recurringExpenseInitialSplit = useMemo(
+    () => selectedRecurringExpense?.split_percentage
+      ? { isShared: true, splitPercentage: selectedRecurringExpense.split_percentage }
+      : null,
+    [selectedRecurringExpense]
+  );
   const [showIndividual, setShowIndividual] = useState(false);
   const [showCompactTimeline, setShowCompactTimeline] = useState(false);
 
@@ -656,15 +666,15 @@ function BudgetPageShellContent({
               open={showRecurringExpenseModal}
               onClose={() => { setShowRecurringExpenseModal(false); setSelectedRecurringExpense(null); }}
               partnershipId={partnershipId}
-              categories={categoryMappings.map(c => c.newParentName).filter((v, i, a) => a.indexOf(v) === i)}
+              categories={shellCategoryNames}
               expense={selectedRecurringExpense}
-              initialSplit={selectedRecurringExpense?.split_percentage ? { isShared: true, splitPercentage: selectedRecurringExpense.split_percentage } : null}
+              initialSplit={recurringExpenseInitialSplit}
             />
             <AutoDetectExpensesDialog
               open={showRecurringAutoDetect}
               onClose={() => setShowRecurringAutoDetect(false)}
               partnershipId={partnershipId}
-              categories={categoryMappings.map(c => c.newParentName).filter((v, i, a) => a.indexOf(v) === i)}
+              categories={shellCategoryNames}
             />
           </TabsContent>
 

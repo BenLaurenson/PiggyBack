@@ -100,7 +100,8 @@ export async function updateSession(request: NextRequest) {
   if (needsCsrfCheck && !isSelfAuthenticated) {
     const origin = request.headers.get("origin");
     // M174: Derive appUrl from Host header when NEXT_PUBLIC_APP_URL is unset
-    const rawAppUrl = process.env.NEXT_PUBLIC_APP_URL;
+    // In development, always derive from Host header so localhost works
+    const rawAppUrl = process.env.NODE_ENV === "development" ? undefined : process.env.NEXT_PUBLIC_APP_URL;
     // Ensure configured URL has a protocol (users may set "example.com" without https://)
     const configuredAppUrl = rawAppUrl && !rawAppUrl.startsWith("http") ? `https://${rawAppUrl}` : rawAppUrl;
     const appUrl = configuredAppUrl || (() => {
