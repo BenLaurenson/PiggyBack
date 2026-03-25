@@ -101,7 +101,7 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.2.1",
-    "jsdom": "^27.4.0",
+    "jsdom": "^29.0.1",
     "knip": "^5.86.0",
     "shadcn": "^3.6.2",
     "tailwindcss": "^4",
