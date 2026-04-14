@@ -30,7 +30,7 @@ jobs:
           args: --sarif-file-output=snyk-code.sarif
 
       - uses: github/codeql-action/upload-sarif@38697555549f1db7851b81482ff19f1fa5c4fedc # v3
-        if: always()
+        if: always() && hashFiles('snyk-code.sarif') != ''
         with:
           sarif_file: snyk-code.sarif
           category: snyk-code
@@ -52,7 +52,7 @@ jobs:
           args: --severity-threshold=high --sarif-file-output=snyk-deps.sarif
 
       - uses: github/codeql-action/upload-sarif@38697555549f1db7851b81482ff19f1fa5c4fedc # v3
-        if: always()
+        if: always() && hashFiles('snyk-deps.sarif') != ''
         with:
           sarif_file: snyk-deps.sarif
           category: snyk-open-source
