@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { Github, Heart, Coffee } from "lucide-react";
+import { Heart, Coffee } from "lucide-react";
+import { Github } from "@/components/icons/brand-icons";
 
 const GITHUB_URL = "https://github.com/BenLaurenson/PiggyBack";
 
