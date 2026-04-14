@@ -1,6 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
-import { Github } from "lucide-react";
+import { Github } from "@/components/icons/brand-icons";
 
 const GITHUB_URL = "https://github.com/BenLaurenson/PiggyBack";
 
