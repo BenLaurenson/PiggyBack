@@ -1,7 +1,7 @@
 FROM node:22-alpine@sha256:8094c002d08262dba12645a3b4a15cd6cd627d30bc782f53229a2ec13ee22a00 AS base
 
-# Patch Alpine zlib CVEs (buffer overflow + CRC32 DoS)
-RUN apk upgrade --no-cache zlib
+# Patch Alpine OS package CVEs (zlib + openssl/musl)
+RUN apk upgrade --no-cache zlib libssl3 libcrypto3 musl musl-utils
 
 # Install dependencies only when needed
 FROM base AS deps
