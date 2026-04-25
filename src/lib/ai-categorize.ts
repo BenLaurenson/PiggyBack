@@ -102,7 +102,7 @@ export async function aiCategorizeTransaction({
   // Step 2: Load user's AI settings
   const { data: profile } = await supabase
     .from("profiles")
-    .select("ai_provider, ai_api_key, ai_model")
+    .select("ai_provider, ai_api_key, ai_model, ai_base_url")
     .eq("id", userId)
     .single();
 
@@ -133,7 +133,10 @@ export async function aiCategorizeTransaction({
     const client = createGoogleGenerativeAI({ apiKey });
     model = client(profile.ai_model || "gemini-2.5-flash");
   } else if (provider === "openai") {
-    const client = createOpenAI({ apiKey });
+    const client = createOpenAI({
+      apiKey,
+      baseURL: profile.ai_base_url || undefined,
+    });
     model = client.chat(profile.ai_model || "gpt-4.1-mini");
   } else {
     const client = createAnthropic({ apiKey });

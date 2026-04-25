@@ -74,7 +74,7 @@ export async function POST(req: Request) {
     // Load AI settings
     const { data: aiSettings } = await supabase
       .from("profiles")
-      .select("ai_provider, ai_api_key, ai_model")
+      .select("ai_provider, ai_api_key, ai_model, ai_base_url")
       .eq("id", user.id)
       .maybeSingle();
 
@@ -97,7 +97,10 @@ export async function POST(req: Request) {
       const client = createGoogleGenerativeAI({ apiKey });
       baseModel = client(aiSettings?.ai_model || "gemini-2.5-flash");
     } else if (provider === "openai") {
-      const client = createOpenAI({ apiKey });
+      const client = createOpenAI({
+        apiKey,
+        baseURL: aiSettings?.ai_base_url || undefined,
+      });
       baseModel = client.chat(aiSettings?.ai_model || "gpt-4.1-mini");
     } else {
       const client = createAnthropic({ apiKey });

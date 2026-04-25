@@ -16,7 +16,7 @@ export async function GET() {
 
   const { data } = await supabase
     .from("profiles")
-    .select("ai_provider, ai_model, ai_api_key")
+    .select("ai_provider, ai_model, ai_api_key, ai_base_url")
     .eq("id", user.id)
     .maybeSingle();
 
@@ -24,6 +24,7 @@ export async function GET() {
     provider: data?.ai_provider || "google",
     model: data?.ai_model || "",
     hasApiKey: !!data?.ai_api_key,
+    baseUrl: data?.ai_base_url || "",
   });
 }
 
@@ -49,7 +50,7 @@ export async function POST(req: Request) {
     );
   }
 
-  const { provider, model, apiKey } = await req.json();
+  const { provider, model, apiKey, baseUrl } = await req.json();
 
   const ALLOWED_PROVIDERS = ["google", "openai", "anthropic"];
 
@@ -67,9 +68,32 @@ export async function POST(req: Request) {
     );
   }
 
+  if (baseUrl !== undefined && baseUrl !== null && baseUrl !== "") {
+    if (typeof baseUrl !== "string" || baseUrl.length > 500) {
+      return NextResponse.json(
+        { error: "Invalid base URL" },
+        { status: 400 }
+      );
+    }
+    try {
+      const url = new URL(baseUrl);
+      if (url.protocol !== "https:" && url.protocol !== "http:") {
+        throw new Error("Invalid protocol");
+      }
+    } catch {
+      return NextResponse.json(
+        { error: "Invalid base URL format" },
+        { status: 400 }
+      );
+    }
+  }
+
   const updates: Record<string, string | null> = {};
   if (provider) updates.ai_provider = provider;
   if (model) updates.ai_model = model;
+  if (baseUrl !== undefined) {
+    updates.ai_base_url = baseUrl || null;
+  }
   if (apiKey !== undefined) {
     if (apiKey && !process.env.UP_API_ENCRYPTION_KEY) {
       console.error("UP_API_ENCRYPTION_KEY not configured, cannot store API key");

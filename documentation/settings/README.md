@@ -206,15 +206,16 @@ The AI assistant provider, API key, and model used for the PiggyBack AI chat fea
 |-------|------|----------|-------|
 | AI Provider | Button group (3 options) | Yes | Anthropic (Claude), OpenAI (GPT), Google (Gemini) |
 | API Key | Password input | Yes (first time) | Stored server-side in user profile |
+| Base URL | URL input | No | OpenAI-compatible endpoint override (only shown for OpenAI provider). Leave empty for default |
 | Model | Text input | No | Override default model; placeholder shows default |
 
 ### Default Models by Provider
 
 | Provider | Default Model |
 |----------|--------------|
-| Google (Gemini) | `gemini-2.0-flash` |
-| Anthropic (Claude) | `claude-sonnet-4-5-20250929` |
-| OpenAI (GPT) | `gpt-4o-mini` |
+| Google (Gemini) | `gemini-2.5-flash` |
+| Anthropic (Claude) | `claude-sonnet-4-6` |
+| OpenAI (GPT) | `gpt-4.1-mini` |
 
 ### Warnings
 
@@ -224,9 +225,9 @@ A warning is displayed when Google (Gemini) is selected: "Gemini Flash models ha
 
 | Endpoint | Method | Purpose |
 |----------|--------|---------|
-| `/api/ai/settings` | GET | Load current provider, model, and whether a key exists |
-| `/api/ai/settings` | POST | Save provider, model, and optionally a new API key |
-| `/api/ai/chat` | POST | Test connection by sending a simple message |
+| `/api/ai/settings` | GET | Load current provider, model, base URL, and whether a key exists |
+| `/api/ai/settings` | POST | Save provider, model, base URL, and optionally a new API key |
+| `/api/ai/test` | POST | Test connection by sending a simple message |
 
 ### Features
 

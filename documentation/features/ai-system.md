@@ -4,15 +4,19 @@
 PiggyBack integrates with multiple AI providers for transaction categorization and a financial chat assistant ("Piggy Chat"). Users bring their own API keys (BYOK model) -- no API keys are stored by the application itself; they live per-user in the `profiles` table.
 
 ## Supported Providers
-Configured via Settings > AI Assistant. Provider, API key, and model stored per-user in the `profiles` table (`ai_provider`, `ai_api_key`, `ai_model` columns).
+Configured via Settings > AI Assistant. Provider, API key, model, and optional base URL stored per-user in the `profiles` table (`ai_provider`, `ai_api_key`, `ai_model`, `ai_base_url` columns).
 
 | Provider | SDK Package | Default Model |
 |----------|------------|---------------|
-| Google Gemini | `@ai-sdk/google` | `gemini-2.0-flash` |
-| OpenAI GPT | `@ai-sdk/openai` | `gpt-4o-mini` |
-| Anthropic Claude | `@ai-sdk/anthropic` | `claude-sonnet-4-5-20250929` |
+| Google Gemini | `@ai-sdk/google` | `gemini-2.5-flash` |
+| OpenAI GPT | `@ai-sdk/openai` | `gpt-4.1-mini` |
+| Anthropic Claude | `@ai-sdk/anthropic` | `claude-sonnet-4-6` |
 
 All three providers are used identically through the Vercel AI SDK abstraction layer, meaning any provider can power both the chat assistant and the auto-categorization pipeline.
+
+### OpenAI-Compatible Endpoints
+
+The OpenAI provider supports a custom **Base URL** override, allowing users to point at any OpenAI-compatible API endpoint (e.g., Azure OpenAI, Groq, Together AI, or self-hosted proxies). When set, the `baseURL` parameter is passed directly to `createOpenAI()` from `@ai-sdk/openai`. When null or empty, the default OpenAI endpoint (`https://api.openai.com/v1`) is used. This setting only applies when the OpenAI provider is selected and is stored in the `ai_base_url` column of the `profiles` table.
 
 ---
 

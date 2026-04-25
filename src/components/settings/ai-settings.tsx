@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Sparkles, Eye, EyeOff, Check, Loader2, ChevronDown, Unplug } from "lucide-react";
+import { Sparkles, Eye, EyeOff, Check, Loader2, ChevronDown, Unplug, Globe } from "lucide-react";
 import { gooeyToast as toast } from "goey-toast";
 
 const PROVIDER_MODELS: Record<string, { id: string; label: string }[]> = {
@@ -44,6 +44,7 @@ export function AISettings() {
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
   const [disconnecting, setDisconnecting] = useState(false);
+  const [baseUrl, setBaseUrl] = useState("");
 
   useEffect(() => {
     fetch("/api/ai/settings")
@@ -52,6 +53,7 @@ export function AISettings() {
         setProvider(data.provider || "anthropic");
         setModel(data.model || "");
         setHasExistingKey(data.hasApiKey || false);
+        setBaseUrl(data.baseUrl || "");
       })
       .catch(() => {})
       .finally(() => setLoading(false));
@@ -64,6 +66,8 @@ export function AISettings() {
       // Don't send "custom" placeholder — only send actual model IDs
       if (model && model !== "custom") body.model = model;
       if (apiKey) body.apiKey = apiKey;
+      // Only include baseUrl for OpenAI provider
+      if (provider === "openai" && baseUrl) body.baseUrl = baseUrl;
 
       const res = await fetch("/api/ai/settings", {
         method: "POST",
@@ -113,7 +117,7 @@ export function AISettings() {
       const res = await fetch("/api/ai/settings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ provider, apiKey: null }),
+        body: JSON.stringify({ provider, apiKey: null, baseUrl: null }),
       });
 
       if (res.ok) {
@@ -121,6 +125,7 @@ export function AISettings() {
         setHasExistingKey(false);
         setApiKey("");
         setModel("");
+        setBaseUrl("");
       } else {
         const data = await res.json();
         toast.error(data.error || "Failed to disconnect");
@@ -287,6 +292,43 @@ export function AISettings() {
           Your key is stored in your profile and used server-side only.
         </p>
       </div>
+
+      {/* Base URL — OpenAI-compatible endpoint override */}
+      {provider === "openai" && (
+        <div>
+          <label
+            className="text-sm font-medium block mb-2"
+            style={{ color: "var(--text-primary)" }}
+          >
+            <Globe className="h-3.5 w-3.5 inline mr-1" />
+            Base URL
+            <span
+              className="ml-1.5 text-xs font-normal"
+              style={{ color: "var(--text-tertiary)" }}
+            >
+              Optional
+            </span>
+          </label>
+          <input
+            type="url"
+            value={baseUrl}
+            onChange={(e) => setBaseUrl(e.target.value)}
+            placeholder="https://api.openai.com/v1"
+            className="w-full p-3 rounded-xl text-sm outline-none border-2 transition-colors"
+            style={{
+              backgroundColor: "var(--surface)",
+              borderColor: "var(--border)",
+              color: "var(--text-primary)",
+            }}
+          />
+          <p
+            className="text-xs mt-1.5"
+            style={{ color: "var(--text-tertiary)" }}
+          >
+            Override the default OpenAI endpoint to use any OpenAI-compatible provider (e.g. Azure OpenAI, Groq, Together AI). Leave empty for the default.
+          </p>
+        </div>
+      )}
 
       {/* Model Selection */}
       <div>

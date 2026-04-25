@@ -18,7 +18,7 @@ export async function POST() {
 
     const { data: aiSettings } = await supabase
       .from("profiles")
-      .select("ai_provider, ai_api_key, ai_model")
+      .select("ai_provider, ai_api_key, ai_model, ai_base_url")
       .eq("id", user.id)
       .maybeSingle();
 
@@ -39,7 +39,10 @@ export async function POST() {
       const client = createGoogleGenerativeAI({ apiKey });
       model = client(aiSettings?.ai_model || "gemini-2.5-flash");
     } else if (provider === "openai") {
-      const client = createOpenAI({ apiKey });
+      const client = createOpenAI({
+        apiKey,
+        baseURL: aiSettings?.ai_base_url || undefined,
+      });
       model = client.chat(aiSettings?.ai_model || "gpt-4.1-mini");
     } else {
       const client = createAnthropic({ apiKey });
