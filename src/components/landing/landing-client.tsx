@@ -55,13 +55,13 @@ const FEATURES: (Omit<FeatureSectionProps, "visual"> & { visual: string })[] = [
     iconBg: "bg-pastel-lavender-light",
     mascotScene: "piggyback-celebrating.png",
     mascotAlt: "Superhero Penny with cape and star glasses surrounded by orbiting tool icons while Buck watches amazed",
-    tagline: "25-Tool AI Agent",
+    tagline: "AI Financial Analyst",
     accentColor: "text-pastel-lavender-dark",
     title: "Not a chatbot. A financial analyst.",
     description:
-      "Penny has 29 tools. She can check your spending velocity, forecast cash flow, analyse subscriptions, run custom queries, and create budgets, goals, and expenses on your behalf.",
+      "Penny analyses your spending velocity, forecasts cash flow, audits subscriptions, runs custom queries, and creates budgets, goals, and expenses on your behalf.",
     highlights: [
-      "14 query tools plus a custom SQL-like power query",
+      "Custom SQL-like power query for any question Penny doesn't have a built-in for",
       "Spending velocity, cash flow forecast, subscription analysis",
       "Creates budgets, goals, and expense definitions for you",
       "Works in-app and via OpenClaw bot integration",

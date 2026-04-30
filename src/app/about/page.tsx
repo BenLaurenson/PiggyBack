@@ -170,7 +170,7 @@ export default function AboutPage() {
             </p>
             <p>
               What started as a weekend project turned into a full-featured app
-              with zero-based budgeting, a 25-tool AI assistant, real-time
+              with zero-based budgeting, an AI financial analyst, real-time
               webhook sync, smart categorization, and proper couples support with
               income-proportional splitting.
             </p>
@@ -200,7 +200,7 @@ export default function AboutPage() {
               </p>
               <p>
                 They show up throughout the app. Penny is also the name of the
-                AI assistant, which has 29 financial tools and can answer
+                AI assistant — your in-app financial analyst that can answer
                 questions about your spending, create budgets, and track goals.
               </p>
             </div>
