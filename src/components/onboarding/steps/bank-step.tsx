@@ -452,29 +452,36 @@ export function BankStep({ onNext, onComplete, isStepCompleted, serverAccountCou
           <Label htmlFor="upToken">UP API Token</Label>
           <div className="relative">
             {/*
-              We tell every password manager / autofill engine to leave this
-              field alone. It's an Up Bank PAT, not a website password —
-              autofill suggesting the user's PiggyBack password here is wrong
-              and confusing.
+              We deliberately use type="text" (not type="password") so Chrome's
+              built-in password autofill doesn't trigger. Chrome ignores
+              autoComplete="off" on password fields by design. We mask the
+              characters via CSS instead. The eye toggle flips the CSS, not
+              the input type.
 
-              - autoComplete="off" handles Chrome's built-in.
-              - "one-time-code" is a hint many password managers respect
-                (used for OTP fields they shouldn't save).
-              - data-1p-ignore: 1Password.
-              - data-lpignore: LastPass.
-              - data-bwignore: Bitwarden.
-              - name="up-bank-pat-{random}" so password managers can't pattern-
-                match by name even if they ignore the autoComplete hint.
+              All the other autofill suppressors stack on top so 1Password /
+              LastPass / Bitwarden also leave it alone:
+                - data-1p-ignore: 1Password
+                - data-lpignore: LastPass
+                - data-bwignore: Bitwarden
+                - data-form-type="other": broader hint
             */}
             <Input
               id="upToken"
               name="up-bank-pat-do-not-save"
-              type={showToken ? "text" : "password"}
+              type="text"
               autoComplete="off"
+              spellCheck={false}
+              autoCorrect="off"
+              autoCapitalize="off"
               placeholder="up:yeah:xxxxxxxx"
               value={upToken}
               onChange={(e) => setUpToken(e.target.value)}
               className="pr-10"
+              style={
+                showToken
+                  ? undefined
+                  : ({ WebkitTextSecurity: "disc", textSecurity: "disc" } as React.CSSProperties)
+              }
               data-1p-ignore
               data-lpignore="true"
               data-bwignore="true"

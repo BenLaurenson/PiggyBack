@@ -475,14 +475,22 @@ export default function UpConnectionPage() {
                   <Input
                     id="token"
                     name="up-bank-pat-do-not-save"
-                    type={showToken ? "text" : "password"}
+                    type="text"
                     autoComplete="off"
+                    spellCheck={false}
+                    autoCorrect="off"
+                    autoCapitalize="off"
                     placeholder="up:yeah:xxxxxxxx"
                     value={token}
                     onChange={(e) => setToken(e.target.value)}
                     required
                     disabled={loading}
                     className="h-12 rounded-xl border-2 font-[family-name:var(--font-dm-sans)] pr-12"
+                    style={
+                      showToken
+                        ? undefined
+                        : ({ WebkitTextSecurity: "disc", textSecurity: "disc" } as React.CSSProperties)
+                    }
                     data-1p-ignore
                     data-lpignore="true"
                     data-bwignore="true"
