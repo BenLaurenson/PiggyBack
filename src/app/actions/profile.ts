@@ -5,13 +5,27 @@ import { revalidatePath } from "next/cache";
 import { demoActionGuard } from "@/lib/demo-guard";
 import { safeErrorMessage } from "@/lib/safe-error";
 
+// IANA TZ names accepted for the profile.timezone column. We only allow
+// Australian zones from the UI; the validator falls back to NULL (which the
+// renderer interprets as the AEST/AEDT default) for anything else.
+const ALLOWED_PROFILE_TIMEZONES = new Set([
+  "Australia/Melbourne",
+  "Australia/Sydney",
+  "Australia/Brisbane",
+  "Australia/Adelaide",
+  "Australia/Darwin",
+  "Australia/Perth",
+  "Australia/Hobart",
+]);
+
 /**
- * Update user profile (display name, avatar).
+ * Update user profile (display name, avatar, timezone).
  * Server-side validation ensures only whitelisted fields are written.
  */
 export async function updateProfile(data: {
   display_name: string;
   avatar_url?: string | null;
+  timezone?: string | null;
 }) {
   const blocked = demoActionGuard(); if (blocked) return blocked;
   const supabase = await createClient();
@@ -26,12 +40,28 @@ export async function updateProfile(data: {
     return { error: "Display name is required" };
   }
 
+  // Sanitise timezone — accept null/empty (default), or a whitelisted AU zone.
+  let timezone: string | null = null;
+  if (data.timezone !== undefined) {
+    if (data.timezone && ALLOWED_PROFILE_TIMEZONES.has(data.timezone)) {
+      timezone = data.timezone;
+    } else if (data.timezone) {
+      return { error: "Invalid timezone" };
+    }
+    // else: timezone is null/empty → store NULL (use default)
+  }
+
+  const updatePayload: Record<string, unknown> = {
+    display_name: displayName,
+    avatar_url: data.avatar_url || null,
+  };
+  if (data.timezone !== undefined) {
+    updatePayload.timezone = timezone;
+  }
+
   const { error } = await supabase
     .from("profiles")
-    .update({
-      display_name: displayName,
-      avatar_url: data.avatar_url || null,
-    })
+    .update(updatePayload)
     .eq("id", user.id);
 
   if (error) {

@@ -531,8 +531,15 @@ async function processTransaction(
 }
 
 /**
- * Process a TRANSACTION_DELETED event
- * Soft-deletes the transaction and removes associated expense matches
+ * Process a TRANSACTION_DELETED event.
+ *
+ * Soft-deletes the transaction by setting `deleted_at` (preserves the row so
+ * historical budget aggregations remain stable) and removes any expense
+ * matches the transaction was attached to.
+ *
+ * Idempotent: if the row is already soft-deleted (deleted_at is non-null) we
+ * leave the original timestamp alone so we don't shift historical reports
+ * around if Up Bank re-delivers the event.
  */
 async function processTransactionDeletion(upTransactionId: string, userId: string) {
   const supabase = createServiceRoleClient();
@@ -552,7 +559,7 @@ async function processTransactionDeletion(upTransactionId: string, userId: strin
   // 2. Find the local transaction scoped to the user's accounts
   const { data: transaction } = await supabase
     .from("transactions")
-    .select("id")
+    .select("id, deleted_at")
     .eq("up_transaction_id", upTransactionId)
     .in("account_id", accountIds)
     .maybeSingle();
@@ -561,26 +568,27 @@ async function processTransactionDeletion(upTransactionId: string, userId: strin
     return;
   }
 
-  // 3. Remove associated expense matches
-  const { data: matches } = await supabase
+  // 3. Remove associated expense matches (re-running on a redelivered event
+  // is fine: the second delete is a no-op).
+  await supabase
     .from("expense_matches")
-    .select("id, expense_definition_id")
+    .delete()
     .eq("transaction_id", transaction.id);
 
-  if (matches && matches.length > 0) {
-    await supabase
-      .from("expense_matches")
-      .delete()
-      .eq("transaction_id", transaction.id);
-
+  // 4. Soft-delete the transaction — only set deleted_at if it isn't set yet
+  // so redelivered events don't move the timestamp around. We also keep the
+  // legacy `status = 'DELETED'` write so older code paths that still filter
+  // on status continue to work; the canonical filter is `deleted_at IS NULL`.
+  if (transaction.deleted_at) {
+    return;
   }
 
-  // 4. Soft-delete the transaction (mark as deleted)
+  const nowIso = new Date().toISOString();
   const { error: updateError } = await supabase
     .from("transactions")
     .update({
+      deleted_at: nowIso,
       status: "DELETED",
-      updated_at: new Date().toISOString(),
     })
     .eq("id", transaction.id);
 

@@ -32,6 +32,7 @@ async function getAllTransactions(
       .select("amount_cents, is_income")
       .in("account_id", accountIds)
       .is("transfer_account_id", null)
+      .is("deleted_at", null)
       .order("created_at", { ascending: false })
       .range(offset, offset + currentBatchSize - 1);
 
@@ -117,6 +118,7 @@ export default async function ActivityPage({
     `)
     .in("account_id", accountIds)
     .is("transfer_account_id", null) // Exclude transfers by default
+    .is("deleted_at", null) // Exclude soft-deleted (TRANSACTION_DELETED) txns
     .order("created_at", { ascending: false })
     .range(0, 499); // Fetch first 500 for display
 
@@ -204,7 +206,8 @@ export default async function ActivityPage({
     .from("transactions")
     .select("*", { count: "exact", head: true })
     .in("account_id", accountIds)
-    .is("transfer_account_id", null);
+    .is("transfer_account_id", null)
+    .is("deleted_at", null);
 
   return (
     <div className="p-4 md:p-6 space-y-6">

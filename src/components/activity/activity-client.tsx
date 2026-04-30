@@ -83,6 +83,14 @@ export function ActivityClient({
   const [loading, setLoading] = useState(false);
   const [hasMore, setHasMore] = useState(initialTransactions.length >= 25);
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
+  // Cursor pagination — set to the created_at of the last loaded row so the
+  // next "load more" call uses keyset pagination (faster than OFFSET at
+  // depth on partnerships with 10k+ transactions).
+  const [nextCursor, setNextCursor] = useState<string | null>(
+    initialTransactions.length > 0
+      ? initialTransactions[initialTransactions.length - 1].created_at
+      : null
+  );
 
   // Summary totals from API - Initialize with all-time totals from server
   const [summarySpending, setSummarySpending] = useState(allTimeSpending || 0);
@@ -134,9 +142,18 @@ export function ActivityClient({
     setLoading(true);
     try {
       const params = new URLSearchParams({
-        offset: transactions.length.toString(),
         limit: "25",
       });
+
+      // Prefer cursor pagination over OFFSET — keyset paging stays fast at
+      // depth (a 10k-transaction partnership scrolling to row 8000 with
+      // OFFSET=8000 is O(N); cursor with `created_at < ?` is O(log N) given
+      // idx_transactions_account_created).
+      if (nextCursor) {
+        params.set("cursor", nextCursor);
+      } else {
+        params.set("offset", transactions.length.toString());
+      }
 
       if (searchTerm) params.set("search", searchTerm);
 
@@ -173,6 +190,11 @@ export function ActivityClient({
       if (data.transactions && data.transactions.length > 0) {
         setTransactions(prev => [...prev, ...data.transactions]);
         setHasMore(data.hasMore);
+        // Update cursor to the last row's created_at so the next loadMore call
+        // pages forward via keyset rather than OFFSET.
+        if (data.nextCursor) {
+          setNextCursor(data.nextCursor);
+        }
       } else {
         setHasMore(false);
       }
@@ -184,7 +206,7 @@ export function ActivityClient({
     } finally {
       setLoading(false);
     }
-  }, [loading, hasMore, transactions.length, searchTerm, selectedAccount, selectedCategory, selectedStatus, selectedYear, startDate, endDate, minAmount, maxAmount]);
+  }, [loading, hasMore, transactions.length, nextCursor, searchTerm, selectedAccount, selectedCategory, selectedStatus, selectedYear, startDate, endDate, minAmount, maxAmount]);
 
   // Trigger load more when scrolling into view
   useEffect(() => {
@@ -245,6 +267,10 @@ export function ActivityClient({
         setTransactions(data.transactions || []);
         setTotalCount(data.total || 0);
         setHasMore(data.hasMore);
+        // Reset cursor so subsequent loadMore() calls page from the top of
+        // the filtered set (using the last row's created_at).
+        const last = data.transactions?.[data.transactions.length - 1];
+        setNextCursor(last?.created_at ?? null);
 
         // Update summary totals
         if (data.summary) {
