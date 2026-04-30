@@ -1125,4 +1125,421 @@ describe("AI Financial Tools", () => {
       expect(result).toHaveProperty("comparison");
     });
   });
+
+  // =========================================================================
+  // PREVIOUSLY UNTESTED TOOLS — Phase 1 #50
+  // =========================================================================
+
+  describe("comparePeriods", () => {
+    it("returns side-by-side spending breakdown with totals and per-category diffs", async () => {
+      const result = await tools.comparePeriods.execute(
+        { month1: "2025-05", month2: "2025-06" },
+        { toolCallId: "test", messages: [], abortSignal: undefined as any }
+      );
+      expect(result).toHaveProperty("month1", "2025-05");
+      expect(result).toHaveProperty("month2", "2025-06");
+      expect(result).toHaveProperty("month1Total");
+      expect(result).toHaveProperty("month2Total");
+      expect(result).toHaveProperty("totalDifference");
+      expect(result).toHaveProperty("comparison");
+      expect(Array.isArray(result.comparison)).toBe(true);
+      // Total dollar strings should be currency-formatted
+      expect(result.month1Total).toMatch(/^\$/);
+      expect(result.totalDifference).toMatch(/^[+\-$]/);
+    });
+
+    it("handles empty data — returns zero totals with empty comparison array", async () => {
+      const supabase = createMockSupabase({
+        transactions: [],
+        category_mappings: [],
+      });
+      const emptyTools = createFinancialTools(
+        supabase as any,
+        ACCOUNT_IDS,
+        PARTNERSHIP_ID,
+        USER_ID
+      );
+      const result = await emptyTools.comparePeriods.execute(
+        { month1: "2025-05", month2: "2025-06" },
+        { toolCallId: "test", messages: [], abortSignal: undefined as any }
+      );
+      expect(result.comparison).toEqual([]);
+      expect(result.month1Total).toBe("$0.00");
+      expect(result.month2Total).toBe("$0.00");
+    });
+  });
+
+  describe("getTopMerchants", () => {
+    it("returns ranked merchant list with totals, visit counts, and averages", async () => {
+      const result = await tools.getTopMerchants.execute(
+        { limit: 5 },
+        { toolCallId: "test", messages: [], abortSignal: undefined as any }
+      );
+      expect(result).toHaveProperty("period", "all time");
+      expect(result).toHaveProperty("merchants");
+      expect(Array.isArray(result.merchants)).toBe(true);
+      expect(result.merchants.length).toBeGreaterThan(0);
+      const top = result.merchants[0];
+      expect(top).toHaveProperty("rank", 1);
+      expect(top).toHaveProperty("merchant");
+      expect(top).toHaveProperty("totalSpent");
+      expect(top).toHaveProperty("visits");
+      expect(top).toHaveProperty("averageSpend");
+      expect(top.totalSpent).toMatch(/^\$/);
+    });
+
+    it("filters by month when provided", async () => {
+      const result = await tools.getTopMerchants.execute(
+        { month: "2025-06", limit: 3 },
+        { toolCallId: "test", messages: [], abortSignal: undefined as any }
+      );
+      expect(result).toHaveProperty("period", "2025-06");
+      expect(result.merchants.length).toBeLessThanOrEqual(3);
+    });
+
+    it("returns empty merchants array when no transactions", async () => {
+      const supabase = createMockSupabase({ transactions: [] });
+      const emptyTools = createFinancialTools(
+        supabase as any,
+        ACCOUNT_IDS,
+        PARTNERSHIP_ID,
+        USER_ID
+      );
+      const result = await emptyTools.getTopMerchants.execute(
+        {},
+        { toolCallId: "test", messages: [], abortSignal: undefined as any }
+      );
+      expect(result.merchants).toEqual([]);
+    });
+  });
+
+  describe("updateInvestment", () => {
+    it("updates value and returns previous/current/change", async () => {
+      const tools = createFinancialTools(
+        createMockSupabase({
+          investments: [
+            {
+              id: "inv-1",
+              name: "VDHG",
+              asset_type: "etf",
+              current_value_cents: 600000,
+            },
+          ],
+        }) as any,
+        ACCOUNT_IDS,
+        PARTNERSHIP_ID,
+        USER_ID
+      );
+      const result = await tools.updateInvestment.execute(
+        { investmentName: "VDHG", currentValueDollars: 6500 },
+        { toolCallId: "test", messages: [] as any, abortSignal: undefined as any }
+      );
+      expect(result).toHaveProperty("success", true);
+      expect(result).toHaveProperty("name", "VDHG");
+      expect(result).toHaveProperty("previousValue", "$6000.00");
+      expect(result).toHaveProperty("currentValue", "$6500.00");
+      expect(result).toHaveProperty("change");
+    });
+
+    it("returns error when investment not found", async () => {
+      const supabase = createMockSupabase({ investments: [] });
+      const emptyTools = createFinancialTools(
+        supabase as any,
+        ACCOUNT_IDS,
+        PARTNERSHIP_ID,
+        USER_ID
+      );
+      const result = await emptyTools.updateInvestment.execute(
+        { investmentName: "Nonexistent", currentValueDollars: 100 },
+        { toolCallId: "test", messages: [] as any, abortSignal: undefined as any }
+      );
+      expect(result).toHaveProperty("error");
+      expect((result as { error: string }).error).toContain("No investment found");
+    });
+
+    it("returns error when no partnership", async () => {
+      const supabase = createMockSupabase({});
+      const noPartnerTools = createFinancialTools(
+        supabase as any,
+        ACCOUNT_IDS,
+        null,
+        USER_ID
+      );
+      const result = await noPartnerTools.updateInvestment.execute(
+        { investmentName: "VDHG", currentValueDollars: 6500 },
+        { toolCallId: "test", messages: [] as any, abortSignal: undefined as any }
+      );
+      expect(result).toHaveProperty("error");
+    });
+
+    it("returns error when multiple investments match", async () => {
+      const tools = createFinancialTools(
+        createMockSupabase({
+          investments: [
+            { id: "inv-1", name: "VDHG", asset_type: "etf", current_value_cents: 600000 },
+            { id: "inv-2", name: "VDHG (US)", asset_type: "etf", current_value_cents: 200000 },
+          ],
+        }) as any,
+        ACCOUNT_IDS,
+        PARTNERSHIP_ID,
+        USER_ID
+      );
+      const result = await tools.updateInvestment.execute(
+        { investmentName: "VDHG", currentValueDollars: 6500 },
+        { toolCallId: "test", messages: [] as any, abortSignal: undefined as any }
+      );
+      expect(result).toHaveProperty("error");
+      expect((result as { error: string }).error).toContain("Multiple");
+    });
+  });
+
+  describe("getFinancialHealth", () => {
+    it("returns metrics, recommendations, and summary block", async () => {
+      const tools = createFinancialTools(
+        createMockSupabase({
+          accounts: SAMPLE_ACCOUNTS,
+          transactions: SAMPLE_TRANSACTIONS,
+          category_mappings: SAMPLE_CATEGORIES,
+          net_worth_snapshots: [
+            { snapshot_date: "2025-06-01", total_balance_cents: 600000 },
+            { snapshot_date: "2025-05-01", total_balance_cents: 580000 },
+          ],
+          savings_goals: SAMPLE_SAVINGS_GOALS,
+          expense_definitions: SAMPLE_EXPENSE_DEFINITIONS,
+          income_sources: SAMPLE_INCOME_SOURCES,
+        }) as any,
+        ACCOUNT_IDS,
+        PARTNERSHIP_ID,
+        USER_ID
+      );
+      const result = await tools.getFinancialHealth.execute(
+        { months: 3 },
+        { toolCallId: "test", messages: [] as any, abortSignal: undefined as any }
+      );
+      expect(result).toHaveProperty("metrics");
+      expect(result).toHaveProperty("recommendations");
+      expect(result).toHaveProperty("summary");
+      expect(Array.isArray((result as any).metrics)).toBe(true);
+      expect(Array.isArray((result as any).recommendations)).toBe(true);
+      const summary = (result as any).summary;
+      expect(summary).toHaveProperty("monthlyIncome");
+      expect(summary).toHaveProperty("monthlySpending");
+      expect(summary).toHaveProperty("savingsRate");
+      expect(summary).toHaveProperty("emergencyFundMonths");
+      expect(summary.savingsRate).toMatch(/%$/);
+    });
+
+    it("returns error when no partnership", async () => {
+      const supabase = createMockSupabase({});
+      const noPartnerTools = createFinancialTools(
+        supabase as any,
+        ACCOUNT_IDS,
+        null,
+        USER_ID
+      );
+      const result = await noPartnerTools.getFinancialHealth.execute(
+        {},
+        { toolCallId: "test", messages: [], abortSignal: undefined as any }
+      );
+      expect(result).toHaveProperty("error");
+    });
+  });
+
+  describe("getNetWorthHistory", () => {
+    it("returns trend data with latest, change, highest, lowest, and sampled points", async () => {
+      const tools = createFinancialTools(
+        createMockSupabase({
+          net_worth_snapshots: [
+            { snapshot_date: "2025-01-01", total_balance_cents: 500000 },
+            { snapshot_date: "2025-02-01", total_balance_cents: 520000 },
+            { snapshot_date: "2025-03-01", total_balance_cents: 510000 },
+            { snapshot_date: "2025-04-01", total_balance_cents: 600000 },
+          ],
+        }) as any,
+        ACCOUNT_IDS,
+        PARTNERSHIP_ID,
+        USER_ID
+      );
+      const result = await tools.getNetWorthHistory.execute(
+        { period: "1Y" },
+        { toolCallId: "test", messages: [] as any, abortSignal: undefined as any }
+      );
+      expect(result).toHaveProperty("period", "1Y");
+      expect(result).toHaveProperty("latestNetWorth");
+      expect(result).toHaveProperty("changeOverPeriod");
+      expect(result).toHaveProperty("changePercent");
+      expect(result).toHaveProperty("highestValue");
+      expect(result).toHaveProperty("lowestValue");
+      expect(result).toHaveProperty("trend");
+      expect(result).toHaveProperty("dataPoints");
+      expect(["up", "down", "flat"]).toContain((result as any).trend);
+      expect((result as any).latestNetWorth).toMatch(/^\$/);
+    });
+
+    it("returns empty message when no snapshots exist", async () => {
+      const supabase = createMockSupabase({ net_worth_snapshots: [] });
+      const emptyTools = createFinancialTools(
+        supabase as any,
+        ACCOUNT_IDS,
+        PARTNERSHIP_ID,
+        USER_ID
+      );
+      const result = await emptyTools.getNetWorthHistory.execute(
+        {},
+        { toolCallId: "test", messages: [], abortSignal: undefined as any }
+      );
+      expect(result).toHaveProperty("dataPoints", []);
+      expect(result).toHaveProperty("message");
+    });
+
+    it("returns error when no partnership", async () => {
+      const supabase = createMockSupabase({});
+      const noPartnerTools = createFinancialTools(
+        supabase as any,
+        ACCOUNT_IDS,
+        null,
+        USER_ID
+      );
+      const result = await noPartnerTools.getNetWorthHistory.execute(
+        {},
+        { toolCallId: "test", messages: [], abortSignal: undefined as any }
+      );
+      expect(result).toHaveProperty("error");
+    });
+  });
+
+  describe("getGoalDetails", () => {
+    it("returns enriched goal details with progress, status, and budget allocation", async () => {
+      const result = await tools.getGoalDetails.execute(
+        {},
+        { toolCallId: "test", messages: [], abortSignal: undefined as any }
+      );
+      expect(result).toHaveProperty("goals");
+      const goals = (result as any).goals as Array<Record<string, unknown>>;
+      expect(Array.isArray(goals)).toBe(true);
+      expect(goals.length).toBeGreaterThan(0);
+      const goal = goals[0];
+      expect(goal).toHaveProperty("name");
+      expect(goal).toHaveProperty("target");
+      expect(goal).toHaveProperty("current");
+      expect(goal).toHaveProperty("remaining");
+      expect(goal).toHaveProperty("progress");
+      expect(goal).toHaveProperty("status");
+      expect(goal).toHaveProperty("monthlySavingsNeeded");
+      expect(goal).toHaveProperty("budgetAllocation");
+      expect((goal.progress as string)).toMatch(/%$/);
+    });
+
+    it("returns goals: [] with message when no active goals match", async () => {
+      const supabase = createMockSupabase({ savings_goals: [] });
+      const emptyTools = createFinancialTools(
+        supabase as any,
+        ACCOUNT_IDS,
+        PARTNERSHIP_ID,
+        USER_ID
+      );
+      const result = await emptyTools.getGoalDetails.execute(
+        { goalName: "Holiday" },
+        { toolCallId: "test", messages: [], abortSignal: undefined as any }
+      );
+      expect(result).toHaveProperty("goals", []);
+      expect(result).toHaveProperty("message");
+    });
+
+    it("returns error when no partnership", async () => {
+      const supabase = createMockSupabase({});
+      const noPartnerTools = createFinancialTools(
+        supabase as any,
+        ACCOUNT_IDS,
+        null,
+        USER_ID
+      );
+      const result = await noPartnerTools.getGoalDetails.execute(
+        {},
+        { toolCallId: "test", messages: [], abortSignal: undefined as any }
+      );
+      expect(result).toHaveProperty("error");
+    });
+  });
+
+  describe("getInvestmentPortfolio", () => {
+    it("returns portfolio totals, per-investment breakdown, performance, and top movers", async () => {
+      const tools = createFinancialTools(
+        createMockSupabase({
+          investments: [
+            {
+              id: "inv-1",
+              name: "VDHG",
+              ticker_symbol: "VDHG.AX",
+              asset_type: "etf",
+              quantity: 50,
+              purchase_value_cents: 500000,
+              current_value_cents: 620000,
+              created_at: "2024-01-01T00:00:00Z",
+            },
+            {
+              id: "inv-2",
+              name: "BTC",
+              ticker_symbol: "BTC",
+              asset_type: "crypto",
+              quantity: 0.1,
+              purchase_value_cents: 200000,
+              current_value_cents: 180000,
+              created_at: "2024-06-01T00:00:00Z",
+            },
+          ],
+          target_allocations: [],
+        }) as any,
+        ACCOUNT_IDS,
+        PARTNERSHIP_ID,
+        USER_ID
+      );
+      const result = await tools.getInvestmentPortfolio.execute(
+        {},
+        { toolCallId: "test", messages: [] as any, abortSignal: undefined as any }
+      );
+      expect(result).toHaveProperty("totalValue");
+      expect(result).toHaveProperty("totalCost");
+      expect(result).toHaveProperty("totalGain");
+      expect(result).toHaveProperty("totalROI");
+      expect(result).toHaveProperty("investments");
+      expect(result).toHaveProperty("performance");
+      expect(result).toHaveProperty("topGainers");
+      expect(result).toHaveProperty("topLosers");
+      expect((result as any).totalValue).toMatch(/^\$/);
+      expect(Array.isArray((result as any).investments)).toBe(true);
+      expect((result as any).investments.length).toBe(2);
+    });
+
+    it("returns empty message when no investments tracked", async () => {
+      const supabase = createMockSupabase({ investments: [] });
+      const emptyTools = createFinancialTools(
+        supabase as any,
+        ACCOUNT_IDS,
+        PARTNERSHIP_ID,
+        USER_ID
+      );
+      const result = await emptyTools.getInvestmentPortfolio.execute(
+        {},
+        { toolCallId: "test", messages: [], abortSignal: undefined as any }
+      );
+      expect(result).toHaveProperty("investments", []);
+      expect(result).toHaveProperty("message");
+    });
+
+    it("returns error when no partnership", async () => {
+      const supabase = createMockSupabase({});
+      const noPartnerTools = createFinancialTools(
+        supabase as any,
+        ACCOUNT_IDS,
+        null,
+        USER_ID
+      );
+      const result = await noPartnerTools.getInvestmentPortfolio.execute(
+        {},
+        { toolCallId: "test", messages: [], abortSignal: undefined as any }
+      );
+      expect(result).toHaveProperty("error");
+    });
+  });
 });
