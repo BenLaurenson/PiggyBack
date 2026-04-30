@@ -1,4 +1,5 @@
 import { SupabaseClient } from "@supabase/supabase-js";
+import type { BudgetScope } from "@/lib/budget-engine";
 
 /**
  * Get effective account IDs for budget calculations, handling JOINT account deduplication.
@@ -9,12 +10,21 @@ import { SupabaseClient } from "@supabase/supabase-js";
  * user_id alphabetically wins).
  *
  * In "individual" view, only the current user's accounts are returned (no dedup needed).
+ *
+ * Optional `scope` (2Up budget toggle):
+ *  - "personal":  filters to ownership_type='INDIVIDUAL' only.
+ *  - "shared":    filters to ownership_type='JOINT' only (the 2Up account).
+ *  - "combined":  no filter (default behaviour, matches the original API).
+ *
+ * The `view` parameter still determines whose accounts are visible in the first
+ * place; `scope` is layered on top to refine that set by ownership type.
  */
 export async function getEffectiveAccountIds(
   supabase: SupabaseClient,
   partnershipId: string,
   userId: string,
-  view: "individual" | "shared"
+  view: "individual" | "shared",
+  scope: BudgetScope = "combined"
 ): Promise<string[]> {
   // Get all partnership members
   const { data: members } = await supabase
@@ -26,21 +36,30 @@ export async function getEffectiveAccountIds(
 
   if (view === "individual") {
     // Individual view: only current user's accounts
-    const { data: accounts } = await supabase
+    let query = supabase
       .from("accounts")
-      .select("id")
+      .select("id, ownership_type")
       .eq("user_id", userId)
       .eq("is_active", true);
 
+    if (scope === "personal") query = query.eq("ownership_type", "INDIVIDUAL");
+    else if (scope === "shared") query = query.eq("ownership_type", "JOINT");
+
+    const { data: accounts } = await query;
     return accounts?.map((a) => a.id) || [];
   }
 
   // Shared view: all members' accounts, with JOINT deduplication
-  const { data: accounts } = await supabase
+  let sharedQuery = supabase
     .from("accounts")
     .select("id, user_id, up_account_id, ownership_type")
     .in("user_id", userIds)
     .eq("is_active", true);
+
+  if (scope === "personal") sharedQuery = sharedQuery.eq("ownership_type", "INDIVIDUAL");
+  else if (scope === "shared") sharedQuery = sharedQuery.eq("ownership_type", "JOINT");
+
+  const { data: accounts } = await sharedQuery;
 
   if (!accounts) return [];
 

@@ -6,7 +6,9 @@ import { generalReadLimiter } from "@/lib/rate-limiter";
 import {
   getBudgetPeriodRange,
   calculateBudgetSummary,
+  calculateSpentByPartner,
   getMonthKeyForPeriod,
+  type BudgetScope,
   type BudgetSummaryInput,
   type IncomeSourceInput,
   type AssignmentInput,
@@ -16,14 +18,24 @@ import {
   type CategoryMapping,
   type GoalInput,
   type AssetInput,
+  type PartnerSpend,
 } from "@/lib/budget-engine";
 
 /**
- * GET /api/budget/summary?budget_id=xxx&date=2026-02-15
+ * GET /api/budget/summary?budget_id=xxx&date=2026-02-15&scope=combined|personal|shared
  *
  * Returns a full BudgetSummary for a specific budget and period.
  * Replaces the 21+ parallel queries previously done in page.tsx with
  * a single API call that fetches data and runs the budget engine.
+ *
+ * `scope` is the 2Up account-ownership filter (defaults to "combined"):
+ *   - "personal":  only INDIVIDUAL accounts (each partner's own money).
+ *   - "shared":    only JOINT accounts (the 2Up account).
+ *   - "combined":  every account (default; matches pre-2Up behaviour).
+ *
+ * When `scope=shared`, the response also includes `partnerBreakdown`: a per-row
+ * map of "Parent::Subcategory" → { userShare, partnerShare, userPercentage }
+ * computed from `couple_split_settings` so the UI can render per-partner sub-lines.
  */
 export async function GET(request: Request) {
   try {
@@ -48,6 +60,11 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const budgetId = searchParams.get("budget_id");
     const dateParam = searchParams.get("date");
+    const scopeParam = searchParams.get("scope");
+    const scope: BudgetScope =
+      scopeParam === "personal" || scopeParam === "shared" || scopeParam === "combined"
+        ? scopeParam
+        : "combined";
 
     if (!budgetId || !dateParam) {
       return NextResponse.json(
@@ -88,12 +105,13 @@ export async function GET(request: Request) {
     const periodRange = getBudgetPeriodRange(date, budget.period_type);
     const monthKey = getMonthKeyForPeriod(date);
 
-    // ── Get effective account IDs (handles JOINT dedup) ────────────────
+    // ── Get effective account IDs (handles JOINT dedup + 2Up scope filter) ──
     const accountIds = await getEffectiveAccountIds(
       supabase,
       partnershipId,
       user.id,
-      budget.budget_view
+      budget.budget_view,
+      scope
     );
 
     // ── 10 parallel data fetches ────────────────────────────────────────
@@ -660,12 +678,31 @@ export async function GET(request: Request) {
       }
     }
 
+    // ── Per-partner breakdown for the 2Up shared scope ────────────────────
+    // Only computed when scope=shared so we don't pay the cost on personal/combined
+    // views. The UI uses this map to render "your share / partner share" sub-lines
+    // beneath each subcategory row in the shared budget view.
+    let partnerBreakdown: Record<string, PartnerSpend> | undefined;
+    if (scope === "shared") {
+      const breakdownMap = calculateSpentByPartner(
+        transactions,
+        categoryMappings,
+        splitSettings,
+        user.id,
+        budget.created_by ?? user.id,
+        categoryFallbacks
+      );
+      partnerBreakdown = Object.fromEntries(breakdownMap.entries());
+    }
+
     return NextResponse.json({
       ...summary,
       periodLabel: periodRange.label,
       periodStart: periodRange.start.toISOString(),
       periodEnd: periodRange.end.toISOString(),
       monthKey,
+      scope,
+      ...(partnerBreakdown ? { partnerBreakdown } : {}),
     });
   } catch (err) {
     console.error("Budget summary error:", err);
