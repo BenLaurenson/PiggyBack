@@ -16,7 +16,10 @@ import { createClient } from "@/utils/supabase/server";
 import { LandingHeader } from "@/components/landing/landing-header";
 import { LandingFooter } from "@/components/landing/landing-footer";
 import { getProvisionByGoogleSub } from "@/lib/provisioner/state-machine";
+import { vanityChangeAllowedFrom } from "@/lib/provisioner/subdomain";
+import { createServiceRoleClient } from "@/utils/supabase/service-role";
 import { AccountActions } from "./account-actions";
+import { SubdomainForm } from "./subdomain-form";
 
 const nunito = Nunito({
   subsets: ["latin"],
@@ -57,6 +60,18 @@ export default async function AccountPage() {
     tone: "text-text-tertiary",
   };
 
+  // Subdomain rename surface (Phase 3.2).
+  const lastChangedAt = provision.subdomain_vanity_set_at
+    ? new Date(provision.subdomain_vanity_set_at)
+    : null;
+  const cooldownMessage = vanityChangeAllowedFrom(lastChangedAt);
+  const service = createServiceRoleClient();
+  const { data: aliases } = await service
+    .from("subdomain_aliases")
+    .select("alias, expires_at, kind")
+    .eq("provision_id", provision.id)
+    .order("created_at", { ascending: false });
+
   return (
     <div className={`mint min-h-screen ${nunito.variable} ${dmSans.variable}`}>
       <LandingHeader />
@@ -91,6 +106,14 @@ export default async function AccountPage() {
             Status: <span className={subStatus.tone}>{subStatus.label}</span>
           </p>
         </div>
+
+        {/* Subdomain rename (Phase 3.2) */}
+        <SubdomainForm
+          shortId={provision.subdomain_short_id}
+          vanity={provision.subdomain_vanity}
+          cooldownMessage={cooldownMessage}
+          aliases={(aliases ?? []) as Array<{ alias: string; expires_at: string; kind: string }>}
+        />
 
         {/* Actions */}
         <AccountActions

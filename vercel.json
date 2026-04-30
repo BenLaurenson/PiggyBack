@@ -16,6 +16,11 @@
       "comment": "Hosted-platform migration propagation every hour. Walks each READY provision and applies any pending migrations from the bundled supabase/migrations/ to their per-tenant Supabase via stored OAuth refresh tokens.",
       "path": "/api/admin/propagate-migrations?all=true",
       "schedule": "15 * * * *"
+    },
+    {
+      "comment": "Phase 3.2 — Release subdomain aliases whose 30-day redirect window has expired. Removes the old hostname from the user's Vercel project and deletes the alias row.",
+      "path": "/api/admin/release-aliases",
+      "schedule": "30 * * * *"
     }
   ],
   "headers": [
