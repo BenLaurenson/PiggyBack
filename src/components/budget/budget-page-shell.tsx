@@ -38,6 +38,7 @@ import {
 import { motion } from "framer-motion";
 import { BudgetOverviewTab } from "./budget-overview-tab";
 import { BudgetSettingsTab } from "./budget-settings-tab";
+import { BudgetScopeToggle } from "./budget-scope-toggle";
 import { ExpenseDefinitionModal } from "./expense-definition-modal";
 import { AutoDetectExpensesDialog } from "./auto-detect-expenses-dialog";
 import { ExpensePaidSection } from "./expense-paid-section";
@@ -73,6 +74,10 @@ export interface BudgetShellData {
   nextPayDate?: string | null;
   initialCategoryShares?: { category_name: string; is_shared: boolean; share_percentage: number }[];
   initialSplitSettings?: { expense_definition_id?: string | null; category_name?: string | null; split_type: string; owner_percentage?: number | null }[];
+  /** Display name for the current user — for 2Up per-partner sub-lines. */
+  userDisplayName?: string;
+  /** Display name for the partner (real or manual) — for 2Up per-partner sub-lines. */
+  partnerDisplayName?: string;
 }
 
 interface BudgetPageShellProps {
@@ -388,6 +393,8 @@ function BudgetPageShellContent({
     initialUserId,
     initialLayoutConfig,
     nextPayDate,
+    userDisplayName,
+    partnerDisplayName,
   } = data;
 
   // ── New budget context (replaces useBudgetZero) ──
@@ -567,46 +574,49 @@ function BudgetPageShellContent({
             All Budgets
           </Button>
 
-          <div className="flex items-center gap-3">
-            <span className="text-3xl" aria-hidden="true">
-              {budget.emoji}
-            </span>
-            <div>
-              <div className="flex items-center gap-2">
-                <h1
-                  className="font-[family-name:var(--font-nunito)] text-xl md:text-2xl font-bold"
-                  style={{ color: "var(--text-primary)" }}
-                >
-                  {budget.name}
-                </h1>
-                {budget.is_default && (
-                  <Star
-                    className="w-4 h-4 fill-current"
-                    style={{ color: "var(--brand-coral)" }}
-                    aria-label="Default budget"
-                  />
-                )}
-              </div>
-              <span
-                className="text-xs"
-                style={{ color: "var(--text-tertiary)" }}
-              >
-                {budget.methodology === "50-30-20"
-                  ? "50/30/20"
-                  : budget.methodology === "pay-yourself-first"
-                    ? "Pay Yourself First"
-                    : budget.methodology === "zero-based"
-                      ? "Zero-Based"
-                      : budget.methodology === "80-20"
-                        ? "80/20"
-                        : budget.methodology}
-                {" \u00B7 "}
-                {periodType.charAt(0).toUpperCase() +
-                  periodType.slice(1)}
-                {" \u00B7 "}
-                {budget.budget_view === "shared" ? "Ours" : "Mine"}
+          <div className="flex items-start justify-between gap-3 flex-wrap">
+            <div className="flex items-center gap-3">
+              <span className="text-3xl" aria-hidden="true">
+                {budget.emoji}
               </span>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h1
+                    className="font-[family-name:var(--font-nunito)] text-xl md:text-2xl font-bold"
+                    style={{ color: "var(--text-primary)" }}
+                  >
+                    {budget.name}
+                  </h1>
+                  {budget.is_default && (
+                    <Star
+                      className="w-4 h-4 fill-current"
+                      style={{ color: "var(--brand-coral)" }}
+                      aria-label="Default budget"
+                    />
+                  )}
+                </div>
+                <span
+                  className="text-xs"
+                  style={{ color: "var(--text-tertiary)" }}
+                >
+                  {budget.methodology === "50-30-20"
+                    ? "50/30/20"
+                    : budget.methodology === "pay-yourself-first"
+                      ? "Pay Yourself First"
+                      : budget.methodology === "zero-based"
+                        ? "Zero-Based"
+                        : budget.methodology === "80-20"
+                          ? "80/20"
+                          : budget.methodology}
+                  {" \u00B7 "}
+                  {periodType.charAt(0).toUpperCase() +
+                    periodType.slice(1)}
+                  {" \u00B7 "}
+                  {budget.budget_view === "shared" ? "Ours" : "Mine"}
+                </span>
+              </div>
             </div>
+            <BudgetScopeToggle />
           </div>
         </motion.div>
 
@@ -638,6 +648,8 @@ function BudgetPageShellContent({
               nextPayDate={nextPayDate}
               userId={userId}
               categoryMappings={categoryMappings}
+              userDisplayName={userDisplayName}
+              partnerDisplayName={partnerDisplayName}
               onAssignCategory={handleAssignCategory}
               onAssignGoal={handleAssignGoal}
               onAssignAsset={handleAssignAsset}
