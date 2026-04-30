@@ -4,11 +4,15 @@ Generated 2026-04-30. Snapshot of every Penny (AI assistant) tool in
 `src/lib/ai-tools.ts`, plus its existing test coverage in
 `src/lib/__tests__/ai-tools.test.ts`.
 
+Updated 2026-04-30 (Phase 1 #50): added `describe()` blocks for 7 of the
+8 previously-untested tools. `getFIREProgress` remains intentionally
+uncovered — gated by `NEXT_PUBLIC_FIRE_ENABLED` and out of v1 scope.
+
 ## Summary
 
 - **Total tools defined:** 35
-- **Covered by `describe()` in tests:** 27
-- **Untested:** 8
+- **Covered by `describe()` in tests:** 34
+- **Untested:** 1 (`getFIREProgress`, deferred per v1 scope)
 
 ## Status by tool
 
@@ -22,8 +26,8 @@ Generated 2026-04-30. Snapshot of every Penny (AI assistant) tool in
 | 6 | `getSavingsGoals` | yes | Empty + populated paths |
 | 7 | `getMonthlyTrends` | yes | |
 | 8 | `getMerchantSpending` | yes | |
-| 9 | `comparePeriods` | NO | No test coverage |
-| 10 | `getTopMerchants` | NO | No test coverage |
+| 9 | `comparePeriods` | yes | Happy path + empty-data path (Phase 1 #50) |
+| 10 | `getTopMerchants` | yes | All-time + per-month + empty (Phase 1 #50) |
 | 11 | `getBudgetStatus` | yes | |
 | 12 | `getPaySchedule` | yes | |
 | 13 | `getCategoryList` | yes | |
@@ -43,25 +47,23 @@ Generated 2026-04-30. Snapshot of every Penny (AI assistant) tool in
 | 27 | `recategorizeTransaction` | yes | |
 | 28 | `createIncomeSource` | yes | |
 | 29 | `createInvestment` | yes | |
-| 30 | `updateInvestment` | NO | No test coverage |
-| 31 | `getFinancialHealth` | NO | No test coverage |
-| 32 | `getNetWorthHistory` | NO | No test coverage |
-| 33 | `getGoalDetails` | NO | No test coverage |
-| 34 | `getInvestmentPortfolio` | NO | No test coverage |
-| 35 | `getFIREProgress` | NO | No test coverage. Will be moot once FIRE returns to GA. |
+| 30 | `updateInvestment` | yes | Happy + not-found + no-partner + multi-match (Phase 1 #50) |
+| 31 | `getFinancialHealth` | yes | Shape + no-partner (Phase 1 #50) |
+| 32 | `getNetWorthHistory` | yes | Shape + empty + no-partner (Phase 1 #50) |
+| 33 | `getGoalDetails` | yes | Shape + empty + no-partner (Phase 1 #50) |
+| 34 | `getInvestmentPortfolio` | yes | Shape + empty + no-partner (Phase 1 #50) |
+| 35 | `getFIREProgress` | NO | Gated by `NEXT_PUBLIC_FIRE_ENABLED`. Out of v1 scope. |
 
 ## What's verified vs not
 
-**Verified (via vitest):** All 27 tested tools pass shape checks against
+**Verified (via vitest):** All 34 covered tools pass shape checks against
 mocked Supabase responses. Their `execute(args, ctx)` returns the documented
 property names with the right types. Result-handling helpers (currency
 formatting, date formatting, splits) work end-to-end.
 
-**Not verified:** The 8 untested tools have not been called from the test
-suite. They may have:
-- Drift in their return shape vs the JSDoc.
-- Missing null-guards that crash on edge inputs.
-- Schema mismatches against the live Supabase tables they query.
+**Not verified:** `getFIREProgress` has no test coverage — it sits behind
+the `NEXT_PUBLIC_FIRE_ENABLED` flag and is intentionally deferred until
+FIRE returns to GA in v1.1+.
 
 **None of the 35 have been verified live against an authenticated session
 on dev.piggyback.finance.** The unit tests use a deep-mocked Supabase client.
@@ -70,16 +72,16 @@ is the only way to catch real-world bugs.
 
 ## Recommended next pass
 
-1. Add `describe()` blocks for the 8 untested tools — same shape as the
-   existing tests (mock Supabase, call `runTool`, assert keys present).
-2. Live-smoke 5 representative questions in Penny against dev:
+1. Live-smoke 5 representative questions in Penny against dev:
    - "How much did I spend this month?" -> getSpendingSummary
-   - "What's my savings rate?" -> getFinancialHealth (untested)
-   - "Compare last month to this month" -> comparePeriods (untested)
-   - "Net worth chart" -> getNetWorthHistory (untested)
+   - "What's my savings rate?" -> getFinancialHealth
+   - "Compare last month to this month" -> comparePeriods
+   - "Net worth chart" -> getNetWorthHistory
    - "Pay schedule" -> getPaySchedule
-3. If any tool errors live, capture the request/response in
+2. If any tool errors live, capture the request/response in
    /api/ai/chat logs and add a regression test.
+3. When `NEXT_PUBLIC_FIRE_ENABLED` is flipped on for v1.1, add coverage
+   for `getFIREProgress`.
 
 ## Out of scope tonight
 
