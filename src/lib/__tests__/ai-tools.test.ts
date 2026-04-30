@@ -1,6 +1,23 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { createFinancialTools } from "../ai-tools";
 
+/**
+ * Test-only helper that calls a tool's execute() and returns the resolved
+ * value with a relaxed type. The AI SDK types `execute` as optional and
+ * its return as `T | AsyncIterable<T>` — neither matters for these unit
+ * tests, which use the synchronous resolved value directly.
+ */
+async function runTool(tool: any, args: any): Promise<any> {
+  if (!tool || typeof tool.execute !== "function") {
+    throw new Error("tool has no execute()");
+  }
+  return tool.execute(args, {
+    toolCallId: "test",
+    messages: [],
+    abortSignal: undefined as any,
+  });
+}
+
 // ---------------------------------------------------------------------------
 // Mock Supabase client
 // ---------------------------------------------------------------------------
@@ -318,20 +335,14 @@ describe("AI Financial Tools", () => {
 
   describe("searchTransactions", () => {
     it("returns transactions with proper shape", async () => {
-      const result = await tools.searchTransactions.execute(
-        { limit: 10 },
-        { toolCallId: "test", messages: [], abortSignal: undefined as any }
-      );
+      const result = await runTool(tools.searchTransactions, { limit: 10 });
       expect(result).toHaveProperty("count");
       expect(result).toHaveProperty("transactions");
       expect(result.count).toBeGreaterThan(0);
     });
 
     it("formats amounts as dollar strings", async () => {
-      const result = await tools.searchTransactions.execute(
-        { query: "Woolworths" },
-        { toolCallId: "test", messages: [], abortSignal: undefined as any }
-      );
+      const result = await runTool(tools.searchTransactions, { query: "Woolworths" });
       expect(result.transactions.length).toBeGreaterThan(0);
       expect(result.transactions[0].amount).toMatch(/^\$/);
     });
@@ -339,10 +350,7 @@ describe("AI Financial Tools", () => {
 
   describe("getAccountBalances", () => {
     it("returns total and per-account balances", async () => {
-      const result = await tools.getAccountBalances.execute(
-        {},
-        { toolCallId: "test", messages: [], abortSignal: undefined as any }
-      );
+      const result = await runTool(tools.getAccountBalances, {});
       expect(result).toHaveProperty("totalBalance");
       expect(result).toHaveProperty("accounts");
       expect(result.totalBalance).toMatch(/^\$/);
@@ -352,10 +360,7 @@ describe("AI Financial Tools", () => {
 
   describe("getSpendingSummary", () => {
     it("returns spending breakdown for a month", async () => {
-      const result = await tools.getSpendingSummary.execute(
-        { month: "2025-06" },
-        { toolCallId: "test", messages: [], abortSignal: undefined as any }
-      );
+      const result = await runTool(tools.getSpendingSummary, { month: "2025-06" });
       expect(result).toHaveProperty("month", "2025-06");
       expect(result).toHaveProperty("totalSpending");
       expect(result).toHaveProperty("categories");
@@ -365,10 +370,7 @@ describe("AI Financial Tools", () => {
 
   describe("getIncomeSummary", () => {
     it("returns income for a month", async () => {
-      const result = await tools.getIncomeSummary.execute(
-        { month: "2025-06" },
-        { toolCallId: "test", messages: [], abortSignal: undefined as any }
-      );
+      const result = await runTool(tools.getIncomeSummary, { month: "2025-06" });
       expect(result).toHaveProperty("month", "2025-06");
       expect(result).toHaveProperty("totalIncome");
       expect(result.totalIncome).toMatch(/^\$/);
@@ -377,10 +379,7 @@ describe("AI Financial Tools", () => {
 
   describe("getSavingsGoals", () => {
     it("returns goals with progress", async () => {
-      const result = await tools.getSavingsGoals.execute(
-        {},
-        { toolCallId: "test", messages: [], abortSignal: undefined as any }
-      );
+      const result = await runTool(tools.getSavingsGoals, {});
       expect(result).toHaveProperty("goals");
       expect(result.goals.length).toBeGreaterThan(0);
       expect(result.goals[0]).toHaveProperty("name", "Holiday Fund");
@@ -391,10 +390,7 @@ describe("AI Financial Tools", () => {
 
   describe("getCategoryList", () => {
     it("returns categories with subcategories", async () => {
-      const result = await tools.getCategoryList.execute(
-        {},
-        { toolCallId: "test", messages: [], abortSignal: undefined as any }
-      );
+      const result = await runTool(tools.getCategoryList, {});
       expect(result).toHaveProperty("categories");
       expect(result).toHaveProperty("specialCategories");
       expect(result.categories.length).toBeGreaterThan(0);
@@ -405,10 +401,7 @@ describe("AI Financial Tools", () => {
 
   describe("getBudgetStatus", () => {
     it("returns budget vs actual comparison", async () => {
-      const result = await tools.getBudgetStatus.execute(
-        { month: "2025-06" },
-        { toolCallId: "test", messages: [], abortSignal: undefined as any }
-      );
+      const result = await runTool(tools.getBudgetStatus, { month: "2025-06" });
       expect(result).toHaveProperty("periodLabel");
       expect(result).toHaveProperty("periodType");
       expect(result).toHaveProperty("totalBudgeted");
@@ -420,10 +413,7 @@ describe("AI Financial Tools", () => {
 
   describe("getUpcomingBills", () => {
     it("returns bills with amounts and due dates", async () => {
-      const result = await tools.getUpcomingBills.execute(
-        {},
-        { toolCallId: "test", messages: [], abortSignal: undefined as any }
-      );
+      const result = await runTool(tools.getUpcomingBills, {});
       expect(result).toHaveProperty("billCount");
       expect(result).toHaveProperty("bills");
     });
@@ -431,10 +421,7 @@ describe("AI Financial Tools", () => {
 
   describe("getMonthlyTrends", () => {
     it("returns trends with averages", async () => {
-      const result = await tools.getMonthlyTrends.execute(
-        { months: 6 },
-        { toolCallId: "test", messages: [], abortSignal: undefined as any }
-      );
+      const result = await runTool(tools.getMonthlyTrends, { months: 6 });
       expect(result).toHaveProperty("periodMonths", 6);
       expect(result).toHaveProperty("averageMonthlySpending");
       expect(result).toHaveProperty("trends");
@@ -443,10 +430,7 @@ describe("AI Financial Tools", () => {
 
   describe("getMerchantSpending", () => {
     it("returns merchant breakdown", async () => {
-      const result = await tools.getMerchantSpending.execute(
-        { merchant: "Woolworths" },
-        { toolCallId: "test", messages: [], abortSignal: undefined as any }
-      );
+      const result = await runTool(tools.getMerchantSpending, { merchant: "Woolworths" });
       expect(result).toHaveProperty("merchant", "Woolworths");
       expect(result).toHaveProperty("totalSpent");
       expect(result).toHaveProperty("recentTransactions");
@@ -455,20 +439,14 @@ describe("AI Financial Tools", () => {
 
   describe("getPaySchedule", () => {
     it("returns pay schedule info", async () => {
-      const result = await tools.getPaySchedule.execute(
-        {},
-        { toolCallId: "test", messages: [], abortSignal: undefined as any }
-      );
+      const result = await runTool(tools.getPaySchedule, {});
       expect(result).toHaveProperty("incomeSources");
     });
   });
 
   describe("getDailySpending", () => {
     it("returns day-by-day breakdown", async () => {
-      const result = await tools.getDailySpending.execute(
-        { month: "2025-06" },
-        { toolCallId: "test", messages: [], abortSignal: undefined as any }
-      );
+      const result = await runTool(tools.getDailySpending, { month: "2025-06" });
       expect(result).toHaveProperty("month", "2025-06");
       expect(result).toHaveProperty("totalSpent");
       expect(result).toHaveProperty("averageDailySpend");
@@ -481,71 +459,50 @@ describe("AI Financial Tools", () => {
 
   describe("queryFinancialData", () => {
     it("rejects disallowed tables", async () => {
-      const result = await tools.queryFinancialData.execute(
-        { table: "users", select: "*" },
-        { toolCallId: "test", messages: [], abortSignal: undefined as any }
-      );
+      const result = await runTool(tools.queryFinancialData, { table: "users", select: "*" });
       expect(result).toHaveProperty("error");
       expect((result as { error: string }).error).toContain("not allowed");
     });
 
     it("queries allowed tables and returns data", async () => {
-      const result = await tools.queryFinancialData.execute(
-        { table: "transactions", select: "description, amount_cents, settled_at" },
-        { toolCallId: "test", messages: [], abortSignal: undefined as any }
-      );
+      const result = await runTool(tools.queryFinancialData, { table: "transactions", select: "description, amount_cents, settled_at" });
       expect(result).toHaveProperty("table", "transactions");
       expect(result).toHaveProperty("rowCount");
       expect(result).toHaveProperty("rows");
     });
 
     it("caps results at 500", async () => {
-      const result = await tools.queryFinancialData.execute(
-        { table: "transactions", limit: 9999 },
-        { toolCallId: "test", messages: [], abortSignal: undefined as any }
-      );
+      const result = await runTool(tools.queryFinancialData, { table: "transactions", limit: 9999 });
       // The tool should cap at 500, though mock won't actually enforce this
       expect(result).toHaveProperty("rows");
     });
 
     it("queries accounts table scoped to user's accounts", async () => {
-      const result = await tools.queryFinancialData.execute(
-        { table: "accounts", select: "display_name, balance_cents" },
-        { toolCallId: "test", messages: [], abortSignal: undefined as any }
-      );
+      const result = await runTool(tools.queryFinancialData, { table: "accounts", select: "display_name, balance_cents" });
       expect(result).toHaveProperty("table", "accounts");
       expect(result).toHaveProperty("rows");
     });
 
     it("queries savings_goals scoped to partnership", async () => {
-      const result = await tools.queryFinancialData.execute(
-        { table: "savings_goals" },
-        { toolCallId: "test", messages: [], abortSignal: undefined as any }
-      );
+      const result = await runTool(tools.queryFinancialData, { table: "savings_goals" });
       expect(result).toHaveProperty("table", "savings_goals");
     });
 
     it("queries category_mappings without scoping (global table)", async () => {
-      const result = await tools.queryFinancialData.execute(
-        { table: "category_mappings" },
-        { toolCallId: "test", messages: [], abortSignal: undefined as any }
-      );
+      const result = await runTool(tools.queryFinancialData, { table: "category_mappings" });
       expect(result).toHaveProperty("table", "category_mappings");
       expect(result).toHaveProperty("rows");
     });
 
     it("applies user-provided filters", async () => {
-      const result = await tools.queryFinancialData.execute(
-        {
+      const result = await runTool(tools.queryFinancialData, {
           table: "transactions",
           filters: [
             { column: "amount_cents", operator: "lt", value: 0 },
           ],
           orderBy: { column: "settled_at", ascending: true },
           limit: 1,
-        },
-        { toolCallId: "test", messages: [], abortSignal: undefined as any }
-      );
+        });
       expect(result).toHaveProperty("rows");
     });
   });
@@ -556,10 +513,7 @@ describe("AI Financial Tools", () => {
 
   describe("getSpendingVelocity", () => {
     it("returns burn rate analysis for current month", async () => {
-      const result = await tools.getSpendingVelocity.execute(
-        {},
-        { toolCallId: "test", messages: [], abortSignal: undefined as any }
-      );
+      const result = await runTool(tools.getSpendingVelocity, {});
       expect(result).toHaveProperty("dayOfMonth");
       expect(result).toHaveProperty("daysInMonth");
       expect(result).toHaveProperty("daysRemaining");
@@ -572,20 +526,14 @@ describe("AI Financial Tools", () => {
     });
 
     it("accepts a specific month parameter", async () => {
-      const result = await tools.getSpendingVelocity.execute(
-        { month: "2025-06" },
-        { toolCallId: "test", messages: [], abortSignal: undefined as any }
-      );
+      const result = await runTool(tools.getSpendingVelocity, { month: "2025-06" });
       expect(result).toHaveProperty("month", "2025-06");
     });
   });
 
   describe("getCashflowForecast", () => {
     it("returns projected balances", async () => {
-      const result = await tools.getCashflowForecast.execute(
-        {},
-        { toolCallId: "test", messages: [], abortSignal: undefined as any }
-      );
+      const result = await runTool(tools.getCashflowForecast, {});
       expect(result).toHaveProperty("currentBalance");
       expect(result).toHaveProperty("monthlyIncome");
       expect(result).toHaveProperty("monthlyFixedExpenses");
@@ -596,28 +544,19 @@ describe("AI Financial Tools", () => {
     });
 
     it("respects monthsAhead parameter", async () => {
-      const result = await tools.getCashflowForecast.execute(
-        { monthsAhead: 6 },
-        { toolCallId: "test", messages: [], abortSignal: undefined as any }
-      );
+      const result = await runTool(tools.getCashflowForecast, { monthsAhead: 6 });
       expect(result.projections.length).toBe(6);
     });
 
     it("caps at 6 months", async () => {
-      const result = await tools.getCashflowForecast.execute(
-        { monthsAhead: 12 },
-        { toolCallId: "test", messages: [], abortSignal: undefined as any }
-      );
+      const result = await runTool(tools.getCashflowForecast, { monthsAhead: 12 });
       expect(result.projections.length).toBe(6);
     });
   });
 
   describe("getSubscriptionCostTrajectory", () => {
     it("returns subscription analysis", async () => {
-      const result = await tools.getSubscriptionCostTrajectory.execute(
-        {},
-        { toolCallId: "test", messages: [], abortSignal: undefined as any }
-      );
+      const result = await runTool(tools.getSubscriptionCostTrajectory, {});
       expect(result).toHaveProperty("subscriptionCount");
       expect(result).toHaveProperty("totalMonthlyCost");
       expect(result).toHaveProperty("totalAnnualCost");
@@ -628,10 +567,7 @@ describe("AI Financial Tools", () => {
 
   describe("getCoupleSplitAnalysis", () => {
     it("returns split analysis", async () => {
-      const result = await tools.getCoupleSplitAnalysis.execute(
-        {},
-        { toolCallId: "test", messages: [], abortSignal: undefined as any }
-      );
+      const result = await runTool(tools.getCoupleSplitAnalysis, {});
       expect(result).toHaveProperty("incomeRatio");
       expect(result).toHaveProperty("totalSpent");
       expect(result).toHaveProperty("categoryBreakdown");
@@ -640,10 +576,7 @@ describe("AI Financial Tools", () => {
     it("returns error when no partnership", async () => {
       const supabase = createMockSupabase({});
       const noPartnerTools = createFinancialTools(supabase as any, ACCOUNT_IDS, null, USER_ID);
-      const result = await noPartnerTools.getCoupleSplitAnalysis.execute(
-        {},
-        { toolCallId: "test", messages: [], abortSignal: undefined as any }
-      );
+      const result = await runTool(noPartnerTools.getCoupleSplitAnalysis, {});
       expect(result).toHaveProperty("error");
     });
   });
@@ -663,7 +596,7 @@ describe("AI Financial Tools", () => {
         PARTNERSHIP_ID,
         USER_ID
       );
-      const result = await tools.detectRecurringExpenses.execute({ months: 6 }, { toolCallId: "test", messages: [] as any, abortSignal: undefined as any });
+      const result = await runTool(tools.detectRecurringExpenses, { months: 6 });
       expect(result).toHaveProperty("patterns");
       expect(Array.isArray((result as any).patterns)).toBe(true);
     });
@@ -683,7 +616,7 @@ describe("AI Financial Tools", () => {
         PARTNERSHIP_ID,
         USER_ID
       );
-      const result = await tools.detectRecurringExpenses.execute({ query: "Netflix", months: 6 }, { toolCallId: "test", messages: [] as any, abortSignal: undefined as any });
+      const result = await runTool(tools.detectRecurringExpenses, { query: "Netflix", months: 6 });
       expect(result).toHaveProperty("patterns");
     });
   });
@@ -703,7 +636,7 @@ describe("AI Financial Tools", () => {
         PARTNERSHIP_ID,
         USER_ID
       );
-      const result = await tools.detectIncomePatterns.execute({ months: 6 }, { toolCallId: "test", messages: [] as any, abortSignal: undefined as any });
+      const result = await runTool(tools.detectIncomePatterns, { months: 6 });
       expect(result).toHaveProperty("patterns");
       expect(Array.isArray((result as any).patterns)).toBe(true);
     });
@@ -723,7 +656,7 @@ describe("AI Financial Tools", () => {
         PARTNERSHIP_ID,
         USER_ID
       );
-      const result = await tools.detectIncomePatterns.execute({ query: "salary", months: 6 }, { toolCallId: "test", messages: [] as any, abortSignal: undefined as any });
+      const result = await runTool(tools.detectIncomePatterns, { query: "salary", months: 6 });
       expect(result).toHaveProperty("patterns");
     });
   });
@@ -740,10 +673,7 @@ describe("AI Financial Tools", () => {
         null,
         USER_ID
       );
-      const result = await tools.createBudget.execute(
-        { name: "Test Budget", budgetType: "personal" },
-        { toolCallId: "test", messages: [] as any, abortSignal: undefined as any }
-      );
+      const result = await runTool(tools.createBudget, { name: "Test Budget", budgetType: "personal" });
       expect(result).toHaveProperty("error");
     });
 
@@ -759,29 +689,20 @@ describe("AI Financial Tools", () => {
         PARTNERSHIP_ID,
         USER_ID
       );
-      const result = await tools.createBudget.execute(
-        { name: "Weekly Essentials", budgetType: "custom", periodType: "weekly" },
-        { toolCallId: "test", messages: [] as any, abortSignal: undefined as any }
-      );
+      const result = await runTool(tools.createBudget, { name: "Weekly Essentials", budgetType: "custom", periodType: "weekly" });
       expect(result).toHaveProperty("success");
     });
   });
 
   describe("createBudgetAssignment", () => {
     it("validates positive amount", async () => {
-      const result = await tools.createBudgetAssignment.execute(
-        { month: "2025-06", categoryName: "Groceries", amountDollars: -100 },
-        { toolCallId: "test", messages: [], abortSignal: undefined as any }
-      );
+      const result = await runTool(tools.createBudgetAssignment, { month: "2025-06", categoryName: "Groceries", amountDollars: -100 });
       expect(result).toHaveProperty("error");
       expect((result as { error: string }).error).toContain("negative");
     });
 
     it("validates month format", async () => {
-      const result = await tools.createBudgetAssignment.execute(
-        { month: "June 2025", categoryName: "Groceries", amountDollars: 600 },
-        { toolCallId: "test", messages: [], abortSignal: undefined as any }
-      );
+      const result = await runTool(tools.createBudgetAssignment, { month: "June 2025", categoryName: "Groceries", amountDollars: 600 });
       expect(result).toHaveProperty("error");
       expect((result as { error: string }).error).toContain("YYYY-MM");
     });
@@ -789,18 +710,12 @@ describe("AI Financial Tools", () => {
     it("returns error when no partnership", async () => {
       const supabase = createMockSupabase({});
       const noPartnerTools = createFinancialTools(supabase as any, ACCOUNT_IDS, null, USER_ID);
-      const result = await noPartnerTools.createBudgetAssignment.execute(
-        { month: "2025-06", categoryName: "Groceries", amountDollars: 600 },
-        { toolCallId: "test", messages: [], abortSignal: undefined as any }
-      );
+      const result = await runTool(noPartnerTools.createBudgetAssignment, { month: "2025-06", categoryName: "Groceries", amountDollars: 600 });
       expect(result).toHaveProperty("error");
     });
 
     it("creates assignment with valid input", async () => {
-      const result = await tools.createBudgetAssignment.execute(
-        { month: "2025-06", categoryName: "Groceries", amountDollars: 600 },
-        { toolCallId: "test", messages: [], abortSignal: undefined as any }
-      );
+      const result = await runTool(tools.createBudgetAssignment, { month: "2025-06", categoryName: "Groceries", amountDollars: 600 });
       expect(result).toHaveProperty("category", "Groceries");
       expect(result).toHaveProperty("amount", "$600.00");
     });
@@ -808,32 +723,26 @@ describe("AI Financial Tools", () => {
 
   describe("createExpenseDefinition", () => {
     it("validates positive amount", async () => {
-      const result = await tools.createExpenseDefinition.execute(
-        {
+      const result = await runTool(tools.createExpenseDefinition, {
           name: "Test",
           categoryName: "Entertainment",
           amountDollars: 0,
           recurrenceType: "monthly",
           nextDueDate: "2025-07-01",
-        },
-        { toolCallId: "test", messages: [], abortSignal: undefined as any }
-      );
+        });
       expect(result).toHaveProperty("error");
     });
 
     it("returns error when no partnership", async () => {
       const supabase = createMockSupabase({});
       const noPartnerTools = createFinancialTools(supabase as any, ACCOUNT_IDS, null, USER_ID);
-      const result = await noPartnerTools.createExpenseDefinition.execute(
-        {
+      const result = await runTool(noPartnerTools.createExpenseDefinition, {
           name: "Netflix",
           categoryName: "Entertainment",
           amountDollars: 22.99,
           recurrenceType: "monthly",
           nextDueDate: "2025-07-05",
-        },
-        { toolCallId: "test", messages: [], abortSignal: undefined as any }
-      );
+        });
       expect(result).toHaveProperty("error");
     });
 
@@ -848,10 +757,7 @@ describe("AI Financial Tools", () => {
         PARTNERSHIP_ID,
         USER_ID
       );
-      const result = await tools.createExpenseDefinition.execute(
-        { name: "Netflix", categoryName: "Entertainment", amountDollars: 22.99, recurrenceType: "monthly", nextDueDate: "2026-03-15" },
-        { toolCallId: "test", messages: [] as any, abortSignal: undefined as any }
-      );
+      const result = await runTool(tools.createExpenseDefinition, { name: "Netflix", categoryName: "Entertainment", amountDollars: 22.99, recurrenceType: "monthly", nextDueDate: "2026-03-15" });
       expect(result).toHaveProperty("error");
       expect((result as { error: string }).error).toContain("already exists");
     });
@@ -859,20 +765,14 @@ describe("AI Financial Tools", () => {
 
   describe("createSavingsGoal", () => {
     it("validates positive target", async () => {
-      const result = await tools.createSavingsGoal.execute(
-        { name: "Test", targetAmountDollars: 0 },
-        { toolCallId: "test", messages: [], abortSignal: undefined as any }
-      );
+      const result = await runTool(tools.createSavingsGoal, { name: "Test", targetAmountDollars: 0 });
       expect(result).toHaveProperty("error");
     });
 
     it("returns error when no partnership", async () => {
       const supabase = createMockSupabase({});
       const noPartnerTools = createFinancialTools(supabase as any, ACCOUNT_IDS, null, USER_ID);
-      const result = await noPartnerTools.createSavingsGoal.execute(
-        { name: "Holiday", targetAmountDollars: 5000 },
-        { toolCallId: "test", messages: [], abortSignal: undefined as any }
-      );
+      const result = await runTool(noPartnerTools.createSavingsGoal, { name: "Holiday", targetAmountDollars: 5000 });
       expect(result).toHaveProperty("error");
     });
 
@@ -887,10 +787,7 @@ describe("AI Financial Tools", () => {
         PARTNERSHIP_ID,
         USER_ID
       );
-      const result = await tools.createSavingsGoal.execute(
-        { name: "Holiday Fund", targetAmountDollars: 5000 },
-        { toolCallId: "test", messages: [] as any, abortSignal: undefined as any }
-      );
+      const result = await runTool(tools.createSavingsGoal, { name: "Holiday Fund", targetAmountDollars: 5000 });
       expect(result).toHaveProperty("error");
       expect((result as { error: string }).error).toContain("already exists");
     });
@@ -900,10 +797,7 @@ describe("AI Financial Tools", () => {
     it("returns error when goal not found", async () => {
       const supabase = createMockSupabase({ savings_goals: [] });
       const emptyTools = createFinancialTools(supabase as any, ACCOUNT_IDS, PARTNERSHIP_ID, USER_ID);
-      const result = await emptyTools.updateSavingsGoal.execute(
-        { goalName: "Nonexistent Goal", addFundsDollars: 100 },
-        { toolCallId: "test", messages: [], abortSignal: undefined as any }
-      );
+      const result = await runTool(emptyTools.updateSavingsGoal, { goalName: "Nonexistent Goal", addFundsDollars: 100 });
       expect(result).toHaveProperty("error");
       expect((result as { error: string }).error).toContain("No savings goal");
     });
@@ -920,10 +814,7 @@ describe("AI Financial Tools", () => {
         PARTNERSHIP_ID,
         USER_ID
       );
-      const result = await tools.updateSavingsGoal.execute(
-        { goalName: "Holiday" },
-        { toolCallId: "test", messages: [] as any, abortSignal: undefined as any }
-      );
+      const result = await runTool(tools.updateSavingsGoal, { goalName: "Holiday" });
       expect(result).toHaveProperty("error");
     });
   });
@@ -932,10 +823,7 @@ describe("AI Financial Tools", () => {
     it("returns error when transaction not found", async () => {
       const supabase = createMockSupabase({ transactions: [] });
       const emptyTools = createFinancialTools(supabase as any, ACCOUNT_IDS, PARTNERSHIP_ID, USER_ID);
-      const result = await emptyTools.recategorizeTransaction.execute(
-        { transactionDescription: "Nonexistent", newCategoryId: "groceries" },
-        { toolCallId: "test", messages: [], abortSignal: undefined as any }
-      );
+      const result = await runTool(emptyTools.recategorizeTransaction, { transactionDescription: "Nonexistent", newCategoryId: "groceries" });
       expect(result).toHaveProperty("error");
       expect((result as { error: string }).error).toContain("No transaction found");
     });
@@ -955,20 +843,14 @@ describe("AI Financial Tools", () => {
         PARTNERSHIP_ID,
         USER_ID
       );
-      const result = await tools.recategorizeTransaction.execute(
-        { transactionDescription: "ALDI", newCategoryId: "groceries" },
-        { toolCallId: "test", messages: [] as any, abortSignal: undefined as any }
-      );
+      const result = await runTool(tools.recategorizeTransaction, { transactionDescription: "ALDI", newCategoryId: "groceries" });
       expect(result).toHaveProperty("success");
     });
   });
 
   describe("createIncomeSource", () => {
     it("validates positive amount", async () => {
-      const result = await tools.createIncomeSource.execute(
-        { name: "Test", amountDollars: -500, sourceType: "recurring-salary" as const, frequency: "monthly" },
-        { toolCallId: "test", messages: [], abortSignal: undefined as any }
-      );
+      const result = await runTool(tools.createIncomeSource, { name: "Test", amountDollars: -500, sourceType: "recurring-salary" as const, frequency: "monthly" });
       expect(result).toHaveProperty("error");
       expect((result as { error: string }).error).toContain("positive");
     });
@@ -976,10 +858,7 @@ describe("AI Financial Tools", () => {
     it("returns error when no userId", async () => {
       const supabase = createMockSupabase({});
       const noUserTools = createFinancialTools(supabase as any, ACCOUNT_IDS, PARTNERSHIP_ID);
-      const result = await noUserTools.createIncomeSource.execute(
-        { name: "Salary", amountDollars: 5500, sourceType: "recurring-salary" as const, frequency: "fortnightly" },
-        { toolCallId: "test", messages: [], abortSignal: undefined as any }
-      );
+      const result = await runTool(noUserTools.createIncomeSource, { name: "Salary", amountDollars: 5500, sourceType: "recurring-salary" as const, frequency: "fortnightly" });
       expect(result).toHaveProperty("error");
     });
 
@@ -994,10 +873,7 @@ describe("AI Financial Tools", () => {
         PARTNERSHIP_ID,
         USER_ID
       );
-      const result = await tools.createIncomeSource.execute(
-        { name: "Salary", amountDollars: 5000, sourceType: "recurring-salary" as const, frequency: "fortnightly" },
-        { toolCallId: "test", messages: [] as any, abortSignal: undefined as any }
-      );
+      const result = await runTool(tools.createIncomeSource, { name: "Salary", amountDollars: 5000, sourceType: "recurring-salary" as const, frequency: "fortnightly" });
       expect(result).toHaveProperty("error");
       expect((result as { error: string }).error).toContain("already exists");
     });
@@ -1015,10 +891,7 @@ describe("AI Financial Tools", () => {
         PARTNERSHIP_ID,
         USER_ID
       );
-      const result = await tools.createInvestment.execute(
-        { assetType: "etf", name: "VDHG", currentValueDollars: 6200 },
-        { toolCallId: "test", messages: [] as any, abortSignal: undefined as any }
-      );
+      const result = await runTool(tools.createInvestment, { assetType: "etf", name: "VDHG", currentValueDollars: 6200 });
       expect(result).toHaveProperty("error");
       expect((result as { error: string }).error).toContain("already exists");
     });
@@ -1030,10 +903,7 @@ describe("AI Financial Tools", () => {
         null,
         USER_ID
       );
-      const result = await tools.createInvestment.execute(
-        { assetType: "etf", name: "VDHG", currentValueDollars: 6200 },
-        { toolCallId: "test", messages: [] as any, abortSignal: undefined as any }
-      );
+      const result = await runTool(tools.createInvestment, { assetType: "etf", name: "VDHG", currentValueDollars: 6200 });
       expect(result).toHaveProperty("error");
     });
   });
@@ -1045,81 +915,57 @@ describe("AI Financial Tools", () => {
   describe("User Question Scenarios", () => {
     it('"What was my first transaction?" — searchTransactions can find oldest', async () => {
       // The AI should use queryFinancialData with orderBy settled_at ascending, limit 1
-      const result = await tools.queryFinancialData.execute(
-        {
+      const result = await runTool(tools.queryFinancialData, {
           table: "transactions",
           select: "description, amount_cents, settled_at",
           orderBy: { column: "settled_at", ascending: true },
           limit: 1,
-        },
-        { toolCallId: "test", messages: [], abortSignal: undefined as any }
-      );
+        });
       expect(result).toHaveProperty("rows");
       expect((result as { rows: unknown[] }).rows.length).toBeGreaterThan(0);
     });
 
     it('"How much have I spent at Woolworths?" — getMerchantSpending', async () => {
-      const result = await tools.getMerchantSpending.execute(
-        { merchant: "Woolworths" },
-        { toolCallId: "test", messages: [], abortSignal: undefined as any }
-      );
+      const result = await runTool(tools.getMerchantSpending, { merchant: "Woolworths" });
       expect(result).toHaveProperty("totalSpent");
       expect(result.totalSpent).toMatch(/^\$/);
     });
 
     it('"What are my account balances?" — getAccountBalances', async () => {
-      const result = await tools.getAccountBalances.execute(
-        {},
-        { toolCallId: "test", messages: [], abortSignal: undefined as any }
-      );
+      const result = await runTool(tools.getAccountBalances, {});
       expect(result.accounts.length).toBe(2);
       expect(result).toHaveProperty("totalBalance");
     });
 
     it('"Am I spending too fast this month?" — getSpendingVelocity', async () => {
-      const result = await tools.getSpendingVelocity.execute(
-        {},
-        { toolCallId: "test", messages: [], abortSignal: undefined as any }
-      );
+      const result = await runTool(tools.getSpendingVelocity, {});
       expect(result).toHaveProperty("dailyBurnRate");
       expect(result).toHaveProperty("safeToSpendPerDay");
       expect(result).toHaveProperty("onTrack");
     });
 
     it('"Can I afford a holiday in March?" — getCashflowForecast', async () => {
-      const result = await tools.getCashflowForecast.execute(
-        { monthsAhead: 6 },
-        { toolCallId: "test", messages: [], abortSignal: undefined as any }
-      );
+      const result = await runTool(tools.getCashflowForecast, { monthsAhead: 6 });
       expect(result.projections.length).toBe(6);
       expect(result).toHaveProperty("currentBalance");
       expect(result).toHaveProperty("monthlySurplus");
     });
 
     it('"How much do I spend on subscriptions?" — getSubscriptionCostTrajectory', async () => {
-      const result = await tools.getSubscriptionCostTrajectory.execute(
-        {},
-        { toolCallId: "test", messages: [], abortSignal: undefined as any }
-      );
+      const result = await runTool(tools.getSubscriptionCostTrajectory, {});
       expect(result).toHaveProperty("subscriptionCount");
       expect(result).toHaveProperty("totalMonthlyCost");
       expect(result).toHaveProperty("totalAnnualCost");
     });
 
     it('"Show me my savings goals" — getSavingsGoals', async () => {
-      const result = await tools.getSavingsGoals.execute(
-        {},
-        { toolCallId: "test", messages: [], abortSignal: undefined as any }
-      );
+      const result = await runTool(tools.getSavingsGoals, {});
       expect(result.goals.length).toBeGreaterThan(0);
       expect(result.goals[0]).toHaveProperty("progress");
     });
 
     it('"How does my spending compare to last month?" — comparePeriods', async () => {
-      const result = await tools.comparePeriods.execute(
-        { month1: "2025-05", month2: "2025-06" },
-        { toolCallId: "test", messages: [], abortSignal: undefined as any }
-      );
+      const result = await runTool(tools.comparePeriods, { month1: "2025-05", month2: "2025-06" });
       expect(result).toHaveProperty("month1", "2025-05");
       expect(result).toHaveProperty("month2", "2025-06");
       expect(result).toHaveProperty("comparison");

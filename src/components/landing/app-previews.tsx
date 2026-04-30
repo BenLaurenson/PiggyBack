@@ -1050,7 +1050,7 @@ export function AIAgentPreview() {
               Penny
             </span>
             <span className="text-xs ml-1.5" style={{ color: "var(--text-tertiary)" }}>
-              29 financial tools
+              AI financial analyst
             </span>
           </div>
         </div>

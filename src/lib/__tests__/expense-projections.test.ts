@@ -269,7 +269,6 @@ describe('expense-projections', () => {
 
       it('should return empty array for expense with undefined matches', () => {
         const expense = createExpense();
-        // @ts-expect-error - testing undefined matches
         const instances = generatePaidInstances([expense], periodStart, periodEnd);
 
         expect(instances).toHaveLength(0);

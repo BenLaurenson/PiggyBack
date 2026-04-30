@@ -19,7 +19,7 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "PiggyBack",
   description:
-    "Your finances on autopilot with Up Bank. Auto-syncing transactions, budgets, savings goals, and a 25-tool AI assistant. Self-hosted on Vercel + Supabase. MIT licensed.",
+    "Your data lives in your Supabase. Your app runs on your Vercel. The first finance app that's genuinely yours — auto-syncing with Up Bank, with an AI assistant that respects your data. Cancel anytime, keep what you built. MIT licensed.",
   keywords: [
     "personal finance",
     "Up Bank",
@@ -36,7 +36,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "PiggyBack",
     description:
-      "Your finances on autopilot with Up Bank. Auto-syncing transactions, budgets, savings goals, and a 25-tool AI assistant. Self-hosted on Vercel + Supabase.",
+      "Your data lives in your Supabase. Your app runs on your Vercel. The first finance app that's genuinely yours — auto-syncing with Up Bank.",
     type: "website",
     locale: "en_AU",
     siteName: "PiggyBack",
@@ -49,7 +49,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "PiggyBack",
     description:
-      "Your finances on autopilot with Up Bank. Auto-syncing transactions, budgets, savings goals, and a 25-tool AI assistant. MIT licensed.",
+      "Your data lives in your Supabase. Your app runs on your Vercel. Cancel anytime, keep what you built.",
     images: ["/PiggyBackIcon.png"],
   },
 };

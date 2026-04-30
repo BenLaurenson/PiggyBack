@@ -10,6 +10,18 @@ permissions:
   contents: read
 
 jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v4
+      - uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+
   test:
     name: Test
     runs-on: ubuntu-latest
@@ -21,6 +33,55 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run test:run
+
+  e2e:
+    name: e2e (dev.piggyback.finance)
+    runs-on: ubuntu-latest
+    # Only run on push to dev — too flaky for PRs against main.
+    if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v4
+      - uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v4
+        with:
+          node-version: 20
+      - name: Install dev-browser
+        run: |
+          npm install -g dev-browser
+          dev-browser install
+      - name: Wait for dev deployment to settle
+        # Vercel typically finishes a build in ~3 min; give it 5.
+        run: sleep 180
+      - name: Run e2e suite
+        env:
+          BASE_URL: https://dev.piggyback.finance
+        run: bash tests/e2e/run-all.sh
+
+  lighthouse:
+    name: Lighthouse (dev.piggyback.finance)
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v4
+      - uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v4
+        with:
+          node-version: 20
+      - name: Install Chrome (for Lighthouse)
+        uses: browser-actions/setup-chrome@v1
+        id: chrome
+      - name: Wait for dev deployment to settle
+        run: sleep 180
+      - name: Run Lighthouse
+        env:
+          BASE_URL: https://dev.piggyback.finance
+          CHROME_PATH: ${{ steps.chrome.outputs.chrome-path }}
+        run: bash scripts/lighthouse.sh
+      - name: Upload reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lighthouse-reports
+          path: tests/lighthouse-reports/
+          retention-days: 14
 
   build:
     name: Build
@@ -44,8 +105,7 @@ jobs:
       - run: npm ci
       - run: npm run build
 
-  # Lint is intentionally NOT a CI gate today.
-  # eslint 9.39.2 + @eslint/eslintrc 3.3.3 + ajv have a known incompatibility
-  # ("NOT SUPPORTED: option missingRefs"). The lint step crashes before any
-  # rule runs — it's a config bug, not a real lint failure. Will re-enable
-  # once the eslint config is migrated off the legacy ajv path.
+  # Lint was previously broken by an open-ended `"ajv": ">=6.14.0"` override
+  # in package.json that let pnpm pick ajv 8.x — incompatible with
+  # @eslint/eslintrc 3.3.3 which expects ajv 6.x. Pinned to ^6.14.0 in the
+  # commit that re-enabled this job.
