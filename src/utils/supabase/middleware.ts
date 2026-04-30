@@ -81,8 +81,21 @@ export async function updateSession(request: NextRequest) {
     user = data.user;
   }
 
-  // API routes that handle their own auth (webhook uses HMAC, cron uses CRON_SECRET)
-  const selfAuthenticatedPaths = ["/api/upbank/webhook", "/api/cron/notifications"];
+  // API routes that handle their own auth or are intentionally public.
+  //   - /api/upbank/webhook : Up Bank HMAC signature
+  //   - /api/cron/notifications : CRON_SECRET bearer
+  //   - /api/admin/health-check : CRON_SECRET bearer (batch) or admin guard (single)
+  //   - /api/stripe/webhook : Stripe V1 signature
+  //   - /api/health : public probe for the orchestrator's per-tenant health checker
+  //   - /api/notify-launch : landing page email-capture form (anonymous)
+  const selfAuthenticatedPaths = [
+    "/api/upbank/webhook",
+    "/api/cron/notifications",
+    "/api/admin/health-check",
+    "/api/stripe/webhook",
+    "/api/health",
+    "/api/notify-launch",
+  ];
   const isApiRoute = request.nextUrl.pathname.startsWith("/api/");
   const isSelfAuthenticated = selfAuthenticatedPaths.some(p => request.nextUrl.pathname.startsWith(p));
 
