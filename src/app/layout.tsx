@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
+import { EnvironmentBanner } from "@/components/environment-banner";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -65,6 +66,7 @@ export default async function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
+        <EnvironmentBanner />
         {children}
         <Analytics />
         <SpeedInsights />

@@ -59,8 +59,10 @@ interface ExecutePayload {
   provisionId: string;
 }
 
-const HOSTED_REPO = "BenLaurenson/PiggyBack";
-const HOSTED_BRANCH = "release";
+const HOSTED_REPO = process.env.HOSTED_REPO ?? "BenLaurenson/PiggyBack";
+// Hosted users' Vercel projects track this branch. Default to `main` for prod;
+// staging orchestrators set HOSTED_TRACK_BRANCH=dev so test provisions track dev.
+const HOSTED_BRANCH = process.env.HOSTED_TRACK_BRANCH ?? "main";
 
 function generateDbPassword(): string {
   // 32-char base64url, dropped to alphanumerics for safety in URL forms.
