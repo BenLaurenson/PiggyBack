@@ -25,10 +25,24 @@ const dmSans = DM_Sans({
   weight: ["400", "500"]
 });
 
+// Australian IANA timezones offered to the user. Up Bank emits ISO UTC
+// timestamps; we render them in this zone. Default (NULL) = AEST/AEDT.
+const TIMEZONE_OPTIONS: Array<{ value: string; label: string }> = [
+  { value: "", label: "Default — AEST/AEDT (Melbourne, Sydney, Hobart)" },
+  { value: "Australia/Melbourne", label: "AEST/AEDT — Melbourne" },
+  { value: "Australia/Sydney", label: "AEST/AEDT — Sydney" },
+  { value: "Australia/Brisbane", label: "AEST — Brisbane (no DST)" },
+  { value: "Australia/Adelaide", label: "ACST/ACDT — Adelaide" },
+  { value: "Australia/Darwin", label: "ACST — Darwin (no DST)" },
+  { value: "Australia/Perth", label: "AWST — Perth" },
+  { value: "Australia/Hobart", label: "AEST/AEDT — Hobart" },
+];
+
 export default function ProfilePage() {
   const [displayName, setDisplayName] = useState("");
   const [avatarUrl, setAvatarUrl] = useState("");
   const [email, setEmail] = useState("");
+  const [timezone, setTimezone] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -52,6 +66,7 @@ export default function ProfilePage() {
         if (profile) {
           setDisplayName(profile.display_name || "");
           setAvatarUrl(profile.avatar_url || "");
+          setTimezone(profile.timezone || "");
         }
       }
 
@@ -71,6 +86,7 @@ export default function ProfilePage() {
       const result = await updateProfile({
         display_name: displayName,
         avatar_url: avatarUrl || null,
+        timezone: timezone || null,
       });
 
       if (result.error) {
@@ -187,6 +203,30 @@ export default function ProfilePage() {
               />
               <p className="font-[family-name:var(--font-dm-sans)] text-xs text-text-secondary">
                 Email cannot be changed
+              </p>
+            </div>
+
+            {/* Timezone */}
+            <div className="space-y-2">
+              <Label htmlFor="timezone" className="font-[family-name:var(--font-nunito)] font-bold text-text-primary">
+                Timezone
+              </Label>
+              <select
+                id="timezone"
+                value={timezone}
+                onChange={(e) => setTimezone(e.target.value)}
+                disabled={saving}
+                className="w-full h-12 rounded-xl border-2 px-3 font-[family-name:var(--font-dm-sans)] bg-background"
+              >
+                {TIMEZONE_OPTIONS.map((opt) => (
+                  <option key={opt.value || "default"} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+              <p className="font-[family-name:var(--font-dm-sans)] text-xs text-text-secondary">
+                Up Bank sends timestamps in UTC. Pick the timezone you want
+                them rendered in. Defaults to AEST/AEDT (Melbourne).
               </p>
             </div>
 
