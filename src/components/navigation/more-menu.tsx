@@ -12,6 +12,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import * as VisuallyHidden from "@radix-ui/react-visually-hidden";
+import { isFireEnabled } from "@/lib/feature-flags";
 
 interface MoreMenuItem {
   href: string;
@@ -22,7 +23,7 @@ interface MoreMenuItem {
   bgColor: string;
 }
 
-const menuItems: MoreMenuItem[] = [
+const baseMenuItems: MoreMenuItem[] = [
   {
     href: "/analysis",
     label: "Analysis",
@@ -48,6 +49,11 @@ const menuItems: MoreMenuItem[] = [
     bgColor: "var(--pastel-blue-light)",
   },
 ];
+
+// /plan is the FIRE gameplan UI — hidden until FIRE is feature-complete.
+const menuItems: MoreMenuItem[] = baseMenuItems.filter(
+  (item) => item.href !== "/plan" || isFireEnabled()
+);
 
 interface MoreMenuProps {
   open: boolean;

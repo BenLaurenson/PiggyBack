@@ -1,6 +1,8 @@
+import { redirect } from "next/navigation";
 import { createClient } from "@/utils/supabase/server";
 import { getUserPartnershipId } from "@/lib/get-user-partnership";
 import { getCurrentDate } from "@/lib/demo-guard";
+import { isFireEnabled } from "@/lib/feature-flags";
 import { PlanClient } from "@/components/plan/plan-client";
 import { classifySpending } from "@/lib/fire-spending-classifier";
 import {
@@ -29,6 +31,12 @@ function getCurrentFinancialYear(): number {
 }
 
 export default async function PlanPage() {
+  // /plan is the FIRE gameplan UI — hidden until FIRE is feature-complete.
+  // See /roadmap for the timeline.
+  if (!isFireEnabled()) {
+    redirect("/roadmap");
+  }
+
   const supabase = await createClient();
   const {
     data: { user },
