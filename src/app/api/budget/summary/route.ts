@@ -111,6 +111,7 @@ export async function GET(request: Request) {
       layoutResult,
       goalsResult,
       investmentsResult,
+      categoriesResult,
     ] = await Promise.all([
       // 1. Income sources — all active income for the partnership (any frequency).
       //    The engine normalizes each source to the budget's period type to compute
@@ -217,6 +218,15 @@ export async function GET(request: Request) {
         .select("id, name, asset_type, current_value_cents")
         .eq("partnership_id", partnershipId)
         .limit(100),
+
+      // 11. Categories — display-name fallback when category_mappings has no
+      //     curated row for a given category_id. Without this, transactions
+      //     in categories like good-life / home / personal / transport / any
+      //     inferred category would silently drop out of the budget total.
+      supabase
+        .from("categories")
+        .select("id, name, parent_category_id")
+        .limit(500),
     ]);
 
     // ── Check for critical query errors ────────────────────────────────
@@ -254,6 +264,10 @@ export async function GET(request: Request) {
     if (investmentsResult.error) {
       console.error("Investments query error:", investmentsResult.error);
       queryErrors.push("investments");
+    }
+    if (categoriesResult.error) {
+      console.error("Categories query error:", categoriesResult.error);
+      queryErrors.push("categories");
     }
     if (queryErrors.length > 0) {
       return NextResponse.json(
@@ -341,6 +355,24 @@ export async function GET(request: Request) {
       up_category_id: m.up_category_id,
       new_parent_name: m.new_parent_name,
       new_child_name: m.new_child_name,
+    }));
+
+    // Build the categoryFallbacks list for the budget engine. Resolves each
+    // category's parent display name via parent_category_id → categories.name.
+    const allCategories = (categoriesResult.data ?? []) as Array<{
+      id: string;
+      name: string;
+      parent_category_id: string | null;
+    }>;
+    const categoryNameById = new Map<string, string>(
+      allCategories.map((c) => [c.id, c.name])
+    );
+    const categoryFallbacks = allCategories.map((c) => ({
+      id: c.id,
+      name: c.name,
+      parent_name: c.parent_category_id
+        ? categoryNameById.get(c.parent_category_id) ?? null
+        : null,
     }));
 
     // Build a category lookup for inferring expense subcategories
@@ -523,6 +555,7 @@ export async function GET(request: Request) {
       expenseDefinitions,
       splitSettings,
       categoryMappings,
+      categoryFallbacks,
       carryoverFromPrevious,
       layoutSections,
       goals,

@@ -16,13 +16,18 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 describe("UpApiClient — typed errors + retry", () => {
   beforeEach(() => {
-    vi.useFakeTimers({ shouldAdvanceTime: true });
     vi.stubGlobal("fetch", vi.fn());
+    // Stub the retry sleep so tests run instantly without leaking timers
+    // into vitest's reporter (which would mark the suite as having errors).
+    vi.spyOn(global, "setTimeout").mockImplementation((fn: any) => {
+      fn();
+      return 0 as unknown as ReturnType<typeof setTimeout>;
+    });
   });
 
   afterEach(() => {
-    vi.useRealTimers();
     vi.unstubAllGlobals();
+    vi.restoreAllMocks();
     vi.clearAllMocks();
   });
 
@@ -57,10 +62,7 @@ describe("UpApiClient — typed errors + retry", () => {
         json: () => Promise.resolve({ meta: { id: "u", statusEmoji: "⚡️" } }),
       });
 
-    const promise = client.ping();
-    // Advance the fake retry timer
-    await vi.advanceTimersByTimeAsync(1000);
-    await expect(promise).resolves.toEqual({ meta: { id: "u", statusEmoji: "⚡️" } });
+    await expect(client.ping()).resolves.toEqual({ meta: { id: "u", statusEmoji: "⚡️" } });
     expect(global.fetch).toHaveBeenCalledTimes(2);
   });
 
@@ -75,9 +77,7 @@ describe("UpApiClient — typed errors + retry", () => {
       json: () => Promise.resolve({ errors: [{ status: "429", title: "Rate", detail: "Slow down" }] }),
     });
 
-    const promise = client.ping();
-    await vi.advanceTimersByTimeAsync(1000);
-    await expect(promise).rejects.toBeInstanceOf(UpRateLimitedError);
+    await expect(client.ping()).rejects.toBeInstanceOf(UpRateLimitedError);
     expect(global.fetch).toHaveBeenCalledTimes(2);
   });
 
@@ -98,9 +98,7 @@ describe("UpApiClient — typed errors + retry", () => {
         json: () => Promise.resolve({ meta: { id: "u", statusEmoji: "⚡️" } }),
       });
 
-    const promise = client.ping();
-    await vi.advanceTimersByTimeAsync(1000);
-    await expect(promise).resolves.toBeDefined();
+    await expect(client.ping()).resolves.toBeDefined();
     expect(global.fetch).toHaveBeenCalledTimes(2);
   });
 
@@ -115,9 +113,7 @@ describe("UpApiClient — typed errors + retry", () => {
       json: () => Promise.resolve({ errors: [{ status: "503", title: "Service Unavailable", detail: "" }] }),
     });
 
-    const promise = client.ping();
-    await vi.advanceTimersByTimeAsync(1000);
-    await expect(promise).rejects.toBeInstanceOf(UpServerError);
+    await expect(client.ping()).rejects.toBeInstanceOf(UpServerError);
   });
 
   it("throws UpClientError on generic 400", async () => {

@@ -28,7 +28,9 @@ interface NavItem {
   icon: React.ReactNode;
 }
 
-const navItems: NavItem[] = [
+import { isFireEnabled } from "@/lib/feature-flags";
+
+const baseNavItems: NavItem[] = [
   { href: "/home", label: "Home", icon: <Home className="h-5 w-5" /> },
   { href: "/activity", label: "Activity", icon: <Activity className="h-5 w-5" /> },
   { href: "/budget", label: "Budget", icon: <Wallet className="h-5 w-5" /> },
@@ -37,6 +39,11 @@ const navItems: NavItem[] = [
   { href: "/invest", label: "Invest", icon: <LineChart className="h-5 w-5" /> },
   { href: "/plan", label: "Plan", icon: <TrendingUp className="h-5 w-5" /> },
 ];
+
+// /plan is the FIRE gameplan UI — hidden until FIRE is feature-complete.
+const navItems: NavItem[] = baseNavItems.filter(
+  (item) => item.href !== "/plan" || isFireEnabled()
+);
 
 interface SidebarProps {
   user?: {
