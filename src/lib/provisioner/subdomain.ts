@@ -9,20 +9,10 @@
  * for 30 days after a vanity change to avoid breaking shared links.
  */
 
-import { randomBytes } from "crypto";
-
-// Crockford base32 alphabet — no I/L/O/U/0/1 to avoid visual confusion
-const BASE32 = "abcdefghjkmnpqrstvwxyz23456789";
-
-/** Generate a 6-character base32 short ID. ~30^6 ≈ 730M values. */
-export function generateShortId(length = 6): string {
-  const bytes = randomBytes(length);
-  let out = "";
-  for (let i = 0; i < length; i++) {
-    out += BASE32[bytes[i] % BASE32.length];
-  }
-  return out;
-}
+// Re-export the Node-only shortid generator so existing import sites keep
+// working. Edge code (middleware) only ever needs the validators and pure
+// helpers below, not the generator.
+export { generateShortId } from "./short-id";
 
 /**
  * DNS-safe, lowercase, 3–32 chars, starts and ends with alphanumeric.
@@ -33,29 +23,31 @@ const VANITY_REGEX = /^[a-z0-9]([a-z0-9-]{1,30}[a-z0-9])?$/;
 /**
  * Words and hostnames we never hand out. Includes infrastructure, common
  * routes on piggyback.finance, the founder's and mascot names, and short
- * names that we may want for ourselves.
+ * names that we may want for ourselves. The Phase 3.2 plan in
+ * docs/subdomain-system.md enumerates the canonical baseline; we keep a few
+ * extras here (mail aliases, DNS service names, etc.) for safety.
  */
-const RESERVED_VANITY_NAMES = new Set([
-  // Infrastructure
+export const RESERVED_VANITY_NAMES = new Set([
+  // ── Infrastructure / DNS / mail ───────────────────────────────────────────
   "admin", "api", "app", "auth", "blog", "cdn", "cms", "dashboard", "dns",
   "docs", "email", "ftp", "git", "help", "host", "hosting", "imap", "io",
   "kb", "ldap", "mail", "manage", "media", "mx", "ns", "ns1", "ns2", "ops",
   "pop", "pop3", "portal", "private", "public", "secure", "smtp", "ssh",
   "ssl", "static", "status", "support", "system", "test", "vpn", "webdav",
   "webmail", "www",
-  // Marketing/site routes
-  "about", "billing", "blog", "careers", "contact", "demo", "download",
-  "enterprise", "features", "get-started", "home", "login", "logout",
-  "marketing", "onboarding", "pricing", "privacy", "roadmap", "security",
-  "self-host", "selfhost", "settings", "signin", "signout", "signup", "terms",
-  "thank-you", "trial",
-  // Brand-specific
-  "ben", "buck", "penny", "piggy", "piggyback", "piggybackfinance",
-  "piggyback-finance", "hosted",
-  // Operational
-  "internal", "mcp", "openclaw", "production", "prod", "staging", "staging1",
-  "stg", "qa", "qa1", "dev", "dev1", "preview", "release",
-  // Legal / compliance
+  // ── Marketing / site routes ───────────────────────────────────────────────
+  "about", "account", "accounts", "billing", "careers", "contact", "demo",
+  "download", "enterprise", "features", "get-started", "home", "login",
+  "logout", "marketing", "oauth", "onboarding", "pricing", "privacy",
+  "roadmap", "security", "self-host", "selfhost", "settings", "signin",
+  "signout", "signup", "terms", "thank-you", "trial",
+  // ── Brand / mascots / founder ─────────────────────────────────────────────
+  "ben", "buck", "hosted", "penny", "piggy", "piggyback", "piggybackfinance",
+  "piggyback-finance",
+  // ── Operational / environments ────────────────────────────────────────────
+  "dev", "dev1", "internal", "mcp", "openclaw", "preview", "prod",
+  "production", "qa", "qa1", "release", "staging", "staging1", "stg",
+  // ── Legal / compliance / abuse ────────────────────────────────────────────
   "abuse", "compliance", "legal", "noreply", "no-reply", "postmaster",
   "robots", "root", "spam", "sysadmin", "webmaster",
 ]);
@@ -92,15 +84,41 @@ export function buildHostname(subdomain: string): string {
   return `${subdomain}.piggyback.finance`;
 }
 
+/** 30-day cooldown between vanity changes (used by `vanityChangeAllowedFrom`). */
+export const RENAME_COOLDOWN_MS = 30 * 24 * 60 * 60 * 1000;
+
+/** 30-day grace window during which the old subdomain 301-redirects to the new one. */
+export const ALIAS_GRACE_MS = 30 * 24 * 60 * 60 * 1000;
+
 /**
  * 30-day cooldown between vanity changes. Returns null if allowed; otherwise
- * an error message.
+ * an error message describing how long the user has to wait.
+ *
+ * Pure function so it tests cleanly with a `now` injection.
  */
-export function vanityChangeAllowedFrom(lastChangedAt: Date | null): string | null {
+export function vanityChangeAllowedFrom(
+  lastChangedAt: Date | null,
+  now: Date = new Date()
+): string | null {
   if (!lastChangedAt) return null;
-  const thirtyDays = 30 * 24 * 60 * 60 * 1000;
-  const elapsed = Date.now() - lastChangedAt.getTime();
-  if (elapsed >= thirtyDays) return null;
-  const daysRemaining = Math.ceil((thirtyDays - elapsed) / (24 * 60 * 60 * 1000));
+  const elapsed = now.getTime() - lastChangedAt.getTime();
+  if (elapsed >= RENAME_COOLDOWN_MS) return null;
+  const daysRemaining = Math.ceil((RENAME_COOLDOWN_MS - elapsed) / (24 * 60 * 60 * 1000));
   return `You can change your subdomain again in ${daysRemaining} day${daysRemaining === 1 ? "" : "s"}.`;
+}
+
+/**
+ * Compute the alias expiry timestamp for an alias created at `createdAt`.
+ * Pure helper, exported for tests.
+ */
+export function computeAliasExpiry(createdAt: Date = new Date()): Date {
+  return new Date(createdAt.getTime() + ALIAS_GRACE_MS);
+}
+
+/**
+ * True if the alias should still serve a 301 redirect at `now`.
+ * Used by middleware to decide redirect-vs-404 for old subdomains.
+ */
+export function isAliasActive(expiresAt: Date, now: Date = new Date()): boolean {
+  return expiresAt.getTime() > now.getTime();
 }
