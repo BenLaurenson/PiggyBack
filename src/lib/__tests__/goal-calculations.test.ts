@@ -7,6 +7,8 @@ import {
   classifyGoalStatus,
   getStartDateForPeriod,
   calculateSuggestedSavings,
+  calculateContributionVelocity,
+  projectGoalEndDate,
 } from "../goal-calculations";
 import type { GoalContribution, GoalForCalculation } from "../goal-calculations";
 
@@ -587,5 +589,273 @@ describe("calculateSuggestedSavings", () => {
     const result = calculateSuggestedSavings(50000, "2025-07-01", now);
     expect(result.weekly).toBeLessThan(result.fortnightly);
     expect(result.fortnightly).toBeLessThan(result.monthly);
+  });
+});
+
+// ============================================================================
+// calculateContributionVelocity (Phase 1 #52)
+// ============================================================================
+
+describe("calculateContributionVelocity", () => {
+  const now = new Date("2025-04-01T00:00:00Z");
+
+  it("returns zero velocity for empty contributions", () => {
+    const v = calculateContributionVelocity([], 60, now);
+    expect(v.centsPerDay).toBe(0);
+    expect(v.centsPerFortnight).toBe(0);
+    expect(v.centsPerMonth).toBe(0);
+    expect(v.sampleSize).toBe(0);
+    expect(v.windowDays).toBe(60);
+  });
+
+  it("returns zero for non-positive window", () => {
+    const v = calculateContributionVelocity(
+      [makeContribution({ amount_cents: 10000, created_at: "2025-03-30T00:00:00Z" })],
+      0,
+      now
+    );
+    expect(v.centsPerDay).toBe(0);
+    expect(v.windowDays).toBe(0);
+  });
+
+  it("computes daily/fortnightly/monthly rates from contributions in window", () => {
+    // Two $200 deposits within the last 30 days. With 60-day window, $400/60 ≈ 6.67/day.
+    const contributions = [
+      makeContribution({
+        id: "c1",
+        amount_cents: 20000,
+        created_at: "2025-03-15T00:00:00Z",
+        source: "manual",
+      }),
+      makeContribution({
+        id: "c2",
+        amount_cents: 20000,
+        created_at: "2025-03-30T00:00:00Z",
+        source: "manual",
+      }),
+    ];
+
+    const v = calculateContributionVelocity(contributions, 60, now);
+    expect(v.totalCents).toBe(40000);
+    expect(v.centsPerDay).toBeCloseTo(40000 / 60, 2);
+    expect(v.centsPerFortnight).toBe(Math.round((40000 / 60) * 14));
+    expect(v.centsPerMonth).toBe(Math.round((40000 / 60) * 30.44));
+    expect(v.sampleSize).toBe(2);
+  });
+
+  it("excludes contributions outside the window", () => {
+    const contributions = [
+      // Outside 60-day window from 2025-04-01 → cutoff 2025-01-31.
+      makeContribution({
+        id: "c1",
+        amount_cents: 99999,
+        created_at: "2025-01-01T00:00:00Z",
+      }),
+      // Inside window.
+      makeContribution({
+        id: "c2",
+        amount_cents: 30000,
+        created_at: "2025-03-15T00:00:00Z",
+      }),
+    ];
+
+    const v = calculateContributionVelocity(contributions, 60, now);
+    expect(v.totalCents).toBe(30000);
+    expect(v.sampleSize).toBe(1);
+  });
+
+  it("excludes 'initial' source backfill rows", () => {
+    const contributions = [
+      makeContribution({
+        id: "c1",
+        amount_cents: 50000,
+        created_at: "2025-03-15T00:00:00Z",
+        source: "initial", // backfill — not real saving activity
+      }),
+      makeContribution({
+        id: "c2",
+        amount_cents: 10000,
+        created_at: "2025-03-20T00:00:00Z",
+        source: "manual",
+      }),
+    ];
+
+    const v = calculateContributionVelocity(contributions, 60, now);
+    expect(v.totalCents).toBe(10000);
+    expect(v.sampleSize).toBe(1);
+  });
+
+  it("treats negative withdrawals as zero (only positive contributions count)", () => {
+    const contributions = [
+      makeContribution({
+        id: "c1",
+        amount_cents: -5000,
+        created_at: "2025-03-25T00:00:00Z",
+      }),
+      makeContribution({
+        id: "c2",
+        amount_cents: 20000,
+        created_at: "2025-03-15T00:00:00Z",
+      }),
+    ];
+
+    const v = calculateContributionVelocity(contributions, 60, now);
+    expect(v.totalCents).toBe(20000);
+  });
+});
+
+// ============================================================================
+// projectGoalEndDate (Phase 1 #52)
+// ============================================================================
+
+describe("projectGoalEndDate", () => {
+  const now = new Date("2025-04-01T00:00:00Z");
+
+  it("returns 'completed' state when goal already met", () => {
+    const goal = makeGoal({
+      current_amount_cents: 100000,
+      target_amount_cents: 100000,
+      is_completed: true,
+      deadline: "2025-06-01",
+    });
+
+    const projection = projectGoalEndDate(goal, [], { now });
+    expect(projection.state).toBe("completed");
+    expect(projection.daysToProjection).toBe(0);
+  });
+
+  it("returns 'no-velocity' when no contributions and target set", () => {
+    const goal = makeGoal({
+      current_amount_cents: 0,
+      target_amount_cents: 100000,
+      deadline: "2025-12-01",
+    });
+
+    const projection = projectGoalEndDate(goal, [], { now });
+    expect(projection.state).toBe("no-velocity");
+    expect(projection.projectedDate).toBeNull();
+    expect(projection.daysToProjection).toBeNull();
+  });
+
+  it("returns 'no-target' when no deadline set even with velocity", () => {
+    const goal = makeGoal({
+      current_amount_cents: 30000,
+      target_amount_cents: 100000,
+      deadline: null,
+    });
+    const contribs = [
+      makeContribution({
+        amount_cents: 10000,
+        created_at: "2025-03-15T00:00:00Z",
+      }),
+    ];
+
+    const projection = projectGoalEndDate(goal, contribs, { now });
+    expect(projection.state).toBe("no-target");
+    expect(projection.projectedDate).not.toBeNull();
+    expect(projection.deltaDays).toBeNull();
+  });
+
+  it("classifies as 'behind' when projected > target by more than 7 days", () => {
+    // Target: $1000 ($100,000c). Current: $200 ($20,000c). Need: $800 ($80,000c).
+    // Velocity: $100 ($10,000c) over 60 days = 166c/day.
+    // Days needed: 80,000 / 166 ≈ 482 days from 2025-04-01 → ~2026-08.
+    // Target deadline: 2025-06-01 → far behind.
+    const goal = makeGoal({
+      current_amount_cents: 20000,
+      target_amount_cents: 100000,
+      deadline: "2025-06-01",
+    });
+    const contribs = [
+      makeContribution({
+        amount_cents: 10000,
+        created_at: "2025-03-30T00:00:00Z",
+        source: "manual",
+      }),
+    ];
+
+    const projection = projectGoalEndDate(goal, contribs, { now });
+    expect(projection.state).toBe("behind");
+    expect(projection.deltaDays).not.toBeNull();
+    expect(projection.deltaDays!).toBeGreaterThan(7);
+  });
+
+  it("classifies as 'ahead' when projected < target by more than 7 days", () => {
+    // Goal nearly complete + steady high velocity = finish well before deadline.
+    const goal = makeGoal({
+      current_amount_cents: 95000,
+      target_amount_cents: 100000,
+      deadline: "2025-12-01",
+    });
+    const contribs = [
+      makeContribution({
+        amount_cents: 30000,
+        created_at: "2025-03-15T00:00:00Z",
+        source: "manual",
+      }),
+      makeContribution({
+        amount_cents: 30000,
+        created_at: "2025-03-25T00:00:00Z",
+        source: "manual",
+      }),
+    ];
+
+    const projection = projectGoalEndDate(goal, contribs, { now });
+    expect(projection.state).toBe("ahead");
+    expect(projection.deltaDays!).toBeLessThan(-7);
+  });
+
+  it("classifies as 'on-pace' within ±7 day jitter window", () => {
+    // Tune so projection lands within a week of the deadline.
+    const goal = makeGoal({
+      current_amount_cents: 0,
+      target_amount_cents: 60000,
+      deadline: "2025-04-15", // 14 days from `now`
+    });
+    // Need 60,000 in 14 days → 4286/day. Match that velocity exactly.
+    // 60-day total = 60,000 / 14 * 60 = 257,143
+    const contribs = [
+      makeContribution({
+        amount_cents: 257143,
+        created_at: "2025-03-25T00:00:00Z",
+        source: "manual",
+      }),
+    ];
+
+    const projection = projectGoalEndDate(goal, contribs, { now });
+    expect(projection.state).toBe("on-pace");
+    expect(Math.abs(projection.deltaDays!)).toBeLessThanOrEqual(7);
+  });
+
+  it("a chunky one-off contribution shifts projection forward (acceptance)", () => {
+    // Acceptance: "add a chunky one-off contribution, watch the projection update".
+    const goal = makeGoal({
+      current_amount_cents: 20000,
+      target_amount_cents: 100000,
+      deadline: "2025-08-01",
+    });
+    const baseContribs = [
+      makeContribution({
+        id: "base",
+        amount_cents: 10000,
+        created_at: "2025-03-25T00:00:00Z",
+      }),
+    ];
+
+    const before = projectGoalEndDate(goal, baseContribs, { now });
+
+    // Add a $500 chunky one-off
+    const afterContribs = [
+      ...baseContribs,
+      makeContribution({
+        id: "chunky",
+        amount_cents: 50000,
+        created_at: "2025-03-31T00:00:00Z",
+      }),
+    ];
+    const after = projectGoalEndDate(goal, afterContribs, { now });
+
+    // After should project closer (or at) target than before.
+    expect(after.daysToProjection!).toBeLessThan(before.daysToProjection!);
   });
 });

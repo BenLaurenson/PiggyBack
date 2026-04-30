@@ -388,6 +388,164 @@ export function calculateSuggestedSavings(
   };
 }
 
+// ============================================================================
+// Velocity-based projection
+// ============================================================================
+
+export interface ContributionVelocity {
+  /** Trailing window in days that produced this rate. */
+  windowDays: number;
+  /** Sum of net contributions (positive only) within the window, in cents. */
+  totalCents: number;
+  /** Net cents per day. 0 when no contributions in window. */
+  centsPerDay: number;
+  /** Cents per fortnight (14d) — useful for AU paycheck-aligned UX. */
+  centsPerFortnight: number;
+  /** Cents per month (30.44d). */
+  centsPerMonth: number;
+  /** Number of contributions counted in the window. */
+  sampleSize: number;
+}
+
+/**
+ * Trailing-window contribution velocity. Defaults to 60 days (Phase 1 #52
+ * brief's "trailing 60-day net contribution rate"). Excludes "initial"
+ * source rows because those backfill historical balances rather than
+ * representing fresh saving activity.
+ */
+export function calculateContributionVelocity(
+  contributions: GoalContribution[],
+  windowDays: number = 60,
+  now: Date = new Date()
+): ContributionVelocity {
+  if (windowDays <= 0) {
+    return {
+      windowDays: 0,
+      totalCents: 0,
+      centsPerDay: 0,
+      centsPerFortnight: 0,
+      centsPerMonth: 0,
+      sampleSize: 0,
+    };
+  }
+
+  const cutoff = new Date(now.getTime() - windowDays * 24 * 60 * 60 * 1000);
+  const recent = contributions.filter(
+    (c) => c.source !== "initial" && new Date(c.created_at) >= cutoff
+  );
+  const totalCents = recent.reduce(
+    (sum, c) => sum + Math.max(0, c.amount_cents),
+    0
+  );
+  const centsPerDay = totalCents / windowDays;
+  return {
+    windowDays,
+    totalCents,
+    centsPerDay,
+    centsPerFortnight: Math.round(centsPerDay * 14),
+    centsPerMonth: Math.round(centsPerDay * 30.44),
+    sampleSize: recent.length,
+  };
+}
+
+export interface GoalEndDateProjection {
+  /** Projected completion date based on current velocity (null when no velocity). */
+  projectedDate: Date | null;
+  /** Days from `now` until projection (null when no velocity). */
+  daysToProjection: number | null;
+  /** User-set target end date (echoed back for convenience). */
+  targetDate: Date | null;
+  /**
+   * Calendar-day delta: projected − target. Positive = behind schedule.
+   * Null when target or projection missing.
+   */
+  deltaDays: number | null;
+  /**
+   * UX state. "ahead" / "on-pace" / "behind" / "no-velocity" / "no-target".
+   * "on-pace" tolerates ±7 days of jitter — same buffer classifyGoalStatus uses.
+   */
+  state: "ahead" | "on-pace" | "behind" | "no-velocity" | "no-target" | "completed";
+  /** The velocity readout that produced this projection. */
+  velocity: ContributionVelocity;
+}
+
+/**
+ * Project when a goal will hit `target_amount_cents` based on the trailing
+ * 60-day net contribution rate. Replaces the user-set end date as a *live*
+ * projection — the UI should render BOTH and the delta between them.
+ */
+export function projectGoalEndDate(
+  goal: GoalForCalculation,
+  contributions: GoalContribution[],
+  options: { windowDays?: number; now?: Date } = {}
+): GoalEndDateProjection {
+  const now = options.now ?? new Date();
+  const velocity = calculateContributionVelocity(
+    contributions,
+    options.windowDays ?? 60,
+    now
+  );
+
+  const targetDate = goal.deadline ? new Date(goal.deadline) : null;
+  const remaining = goal.target_amount_cents - goal.current_amount_cents;
+
+  if (goal.is_completed || remaining <= 0) {
+    return {
+      projectedDate: now,
+      daysToProjection: 0,
+      targetDate,
+      deltaDays: targetDate
+        ? Math.round((now.getTime() - targetDate.getTime()) / (1000 * 60 * 60 * 24))
+        : null,
+      state: "completed",
+      velocity,
+    };
+  }
+
+  if (velocity.centsPerDay <= 0) {
+    return {
+      projectedDate: null,
+      daysToProjection: null,
+      targetDate,
+      deltaDays: null,
+      state: targetDate ? "no-velocity" : "no-target",
+      velocity,
+    };
+  }
+
+  const daysToProjection = Math.ceil(remaining / velocity.centsPerDay);
+  const projectedDate = new Date(now.getTime() + daysToProjection * 24 * 60 * 60 * 1000);
+
+  if (!targetDate) {
+    return {
+      projectedDate,
+      daysToProjection,
+      targetDate: null,
+      deltaDays: null,
+      state: "no-target",
+      velocity,
+    };
+  }
+
+  const deltaDays = Math.round(
+    (projectedDate.getTime() - targetDate.getTime()) / (1000 * 60 * 60 * 24)
+  );
+
+  let state: GoalEndDateProjection["state"];
+  if (deltaDays <= -7) state = "ahead";
+  else if (deltaDays >= 7) state = "behind";
+  else state = "on-pace";
+
+  return {
+    projectedDate,
+    daysToProjection,
+    targetDate,
+    deltaDays,
+    state,
+    velocity,
+  };
+}
+
 /**
  * Get the start date for a given time period.
  * Re-exported from portfolio-aggregation for consistency.

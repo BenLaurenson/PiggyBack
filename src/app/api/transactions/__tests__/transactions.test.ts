@@ -235,7 +235,7 @@ describe('transactions route', () => {
       // we just verify it isn't being called with limit-25 ranges for the
       // main page query.)
       const mainQueryRangeCall = rangeSpy.mock.calls.find(
-        ([from, to]) => from === 0 && to === 24
+        (args: unknown[]) => args[0] === 0 && args[1] === 24
       );
       expect(mainQueryRangeCall).toBeUndefined();
     });

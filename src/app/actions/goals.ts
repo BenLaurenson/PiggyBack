@@ -6,6 +6,13 @@ import { demoActionGuard } from "@/lib/demo-guard";
 import { createNotification, isNotificationEnabled } from "@/lib/create-notification";
 import { getUserPartnershipId } from "@/lib/get-user-partnership";
 import { safeErrorMessage } from "@/lib/safe-error";
+import {
+  buildTaskInputSignature,
+  evaluateTaskCache,
+  generateFallbackGoalTasks,
+  packGeneratedTasks,
+} from "@/lib/goal-tasks";
+import type { GoalContribution, GoalForCalculation } from "@/lib/goal-calculations";
 
 const MILESTONE_THRESHOLDS = [25, 50, 75, 100];
 
@@ -232,6 +239,12 @@ export async function addFundsToGoal(goalId: string, amountCents: number) {
     goalBefore.target_amount_cents
   );
 
+  // Phase 1 #52 — a contribution moves current_amount_cents which is in
+  // the task input signature, so kick a background regeneration. We pass
+  // through evaluateTaskCache; signature change forces fresh tasks even
+  // inside the 24h TTL.
+  void maybeRegenerateGoalTasksAfterChange(goalId);
+
   revalidatePath("/goals");
   revalidatePath("/home");
   revalidatePath("/plan");
@@ -441,6 +454,17 @@ export async function updateGoal(
     return { error: safeErrorMessage(error, "Failed to update goal") };
   }
 
+  // Phase 1 #52 — if any signature-relevant field changed (target,
+  // current, deadline, linked saver) regenerate tasks in the background.
+  if (
+    target_amount_cents !== undefined ||
+    current_amount_cents !== undefined ||
+    deadline !== undefined ||
+    linked_account_id !== undefined
+  ) {
+    void maybeRegenerateGoalTasksAfterChange(goalId);
+  }
+
   revalidatePath("/goals");
   revalidatePath("/home");
   revalidatePath("/plan");
@@ -492,5 +516,172 @@ export async function toggleGoalChecklistItem(
 
   revalidatePath("/goals");
   revalidatePath("/plan");
+  return { success: true };
+}
+
+// ============================================================================
+// Phase 1 #52 — Generated tasks regeneration
+// ============================================================================
+
+/**
+ * Regenerates the AI-suggested next-step task list for a goal. Reads
+ * CURRENT goal state (never a snapshot), respects the 24h cache, and
+ * persists the result with an opaque input signature. Callable as both
+ * a manual server action ("Refresh tasks" button) and an automated
+ * trigger from addFundsToGoal / updateGoal.
+ *
+ * `force=true` bypasses the cache (used by the manual refresh button).
+ */
+export async function regenerateGoalTasks(
+  goalId: string,
+  options: { force?: boolean } = {}
+) {
+  const blocked = demoActionGuard();
+  if (blocked) return blocked;
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: "Not authenticated" };
+
+  const partnershipId = await getUserPartnershipId(supabase, user.id);
+  if (!partnershipId) return { error: "Could not find partnership" };
+
+  // Read CURRENT goal state — the whole point of this work is to never
+  // trust a snapshot from goal creation.
+  const { data: goalRow, error: goalErr } = await supabase
+    .from("savings_goals")
+    .select(
+      "id, name, icon, color, target_amount_cents, current_amount_cents, deadline, is_completed, created_at, linked_account_id, generated_tasks, tasks_generated_at, tasks_input_signature"
+    )
+    .eq("id", goalId)
+    .eq("partnership_id", partnershipId)
+    .maybeSingle();
+
+  if (goalErr || !goalRow) {
+    return { error: "Goal not found" };
+  }
+
+  const liveSignature = buildTaskInputSignature({
+    current_amount_cents: goalRow.current_amount_cents,
+    target_amount_cents: goalRow.target_amount_cents,
+    deadline: goalRow.deadline,
+    is_completed: goalRow.is_completed,
+    linked_account_id: goalRow.linked_account_id,
+  });
+
+  if (!options.force) {
+    const cacheStatus = evaluateTaskCache(
+      {
+        tasks_generated_at: goalRow.tasks_generated_at,
+        tasks_input_signature: goalRow.tasks_input_signature,
+        generated_tasks: goalRow.generated_tasks,
+      },
+      liveSignature
+    );
+    if (cacheStatus.isFresh) {
+      return { success: true, cached: true, reason: cacheStatus.reason };
+    }
+  }
+
+  // Pull recent contributions so velocity reflects CURRENT pace.
+  const { data: contribRows } = await supabase
+    .from("goal_contributions")
+    .select("id, goal_id, amount_cents, balance_after_cents, source, created_at")
+    .eq("goal_id", goalId)
+    .order("created_at", { ascending: false })
+    .limit(60);
+
+  const contributions: GoalContribution[] = (contribRows || []).map((c: Record<string, unknown>) => ({
+    id: (c.id as string) || "",
+    goal_id: c.goal_id as string,
+    amount_cents: c.amount_cents as number,
+    balance_after_cents: c.balance_after_cents as number,
+    source: c.source as GoalContribution["source"],
+    created_at: c.created_at as string,
+  }));
+
+  const goalForCalc: GoalForCalculation = {
+    id: goalRow.id,
+    name: goalRow.name,
+    icon: goalRow.icon || "",
+    color: goalRow.color || "",
+    current_amount_cents: goalRow.current_amount_cents,
+    target_amount_cents: goalRow.target_amount_cents,
+    deadline: goalRow.deadline,
+    is_completed: goalRow.is_completed,
+    created_at: goalRow.created_at,
+  };
+
+  // For now we use the deterministic fallback generator. The brief
+  // explicitly says "use the Penny tool or similar" — when the user has
+  // an AI provider configured we could route through generateGoalTasks,
+  // but doing that on every state change would burn credits. The
+  // fallback is good enough as the persistent cached layer; the AI tool
+  // is on-demand (chat) for richer suggestions.
+  const tasks = generateFallbackGoalTasks(goalForCalc, contributions, {
+    hasLinkedSaver: !!goalRow.linked_account_id,
+  });
+  const payload = packGeneratedTasks(tasks, liveSignature, "fallback");
+
+  const { error: updateErr } = await supabase
+    .from("savings_goals")
+    .update({
+      generated_tasks: payload,
+      tasks_generated_at: payload.generatedAt,
+      tasks_input_signature: liveSignature,
+    })
+    .eq("id", goalId)
+    .eq("partnership_id", partnershipId);
+
+  if (updateErr) {
+    return { error: safeErrorMessage(updateErr, "Failed to save generated tasks") };
+  }
+
+  revalidatePath(`/goals/${goalId}`);
+  revalidatePath("/goals");
+  return { success: true, cached: false, taskCount: tasks.length };
+}
+
+/**
+ * Internal helper — invoked by addFundsToGoal / updateGoal whenever the
+ * input signature has plausibly changed. Fire-and-forget: we never want
+ * task regeneration to block the user-visible write.
+ */
+async function maybeRegenerateGoalTasksAfterChange(goalId: string) {
+  // Intentionally not awaited by callers — they `void`-discard.
+  try {
+    await regenerateGoalTasks(goalId, { force: false });
+  } catch (err) {
+    console.error("Background goal task regeneration failed:", err);
+  }
+}
+
+/**
+ * Setting toggle: weekday-only saving cadence (Phase 1 #52). When true,
+ * "X days to go" math skips Saturdays and Sundays.
+ */
+export async function setGoalWeekdayOnlyCadence(
+  goalId: string,
+  weekdayOnly: boolean
+) {
+  const blocked = demoActionGuard();
+  if (blocked) return blocked;
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: "Not authenticated" };
+
+  const partnershipId = await getUserPartnershipId(supabase, user.id);
+  if (!partnershipId) return { error: "Could not find partnership" };
+
+  const { error } = await supabase
+    .from("savings_goals")
+    .update({ weekday_only_cadence: weekdayOnly, updated_at: new Date().toISOString() })
+    .eq("id", goalId)
+    .eq("partnership_id", partnershipId);
+
+  if (error) {
+    return { error: safeErrorMessage(error, "Failed to update cadence preference") };
+  }
+
+  revalidatePath(`/goals/${goalId}`);
   return { success: true };
 }

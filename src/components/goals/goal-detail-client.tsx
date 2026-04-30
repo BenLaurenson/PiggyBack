@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { motion } from "framer-motion";
@@ -8,7 +8,6 @@ import {
   ArrowLeft,
   Edit,
   TrendingUp,
-  Calendar,
   CheckCircle2,
   Plus,
   Wallet,
@@ -16,6 +15,10 @@ import {
   AlertTriangle,
   Zap,
   LinkIcon,
+  RefreshCw,
+  Sparkles,
+  CalendarDays,
+  Sun,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -28,13 +31,21 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
-import { addFundsToGoal, markGoalComplete, reopenGoal, toggleGoalChecklistItem } from "@/app/actions/goals";
+import {
+  addFundsToGoal,
+  markGoalComplete,
+  reopenGoal,
+  toggleGoalChecklistItem,
+  regenerateGoalTasks,
+  setGoalWeekdayOnlyCadence,
+} from "@/app/actions/goals";
 import { GoalActionsMenu } from "./goal-actions-menu";
 import { TagPicker } from "@/components/shared/tag-picker";
 
 import type { GoalDataPoint, GoalStatus, GoalStatusType } from "@/lib/goal-calculations";
 import { calculateSuggestedSavings } from "@/lib/goal-calculations";
 import { goalProgressPercent, goalRemainingCents } from "@/lib/goal-progress";
+import type { GoalTask } from "@/lib/goal-tasks";
 
 // ============================================================================
 // Types
@@ -74,14 +85,55 @@ interface ContributionRecord {
   created_at: string;
 }
 
+interface ProjectionInfo {
+  projectedDateIso: string | null;
+  targetDateIso: string | null;
+  deltaDays: number | null;
+  state: "ahead" | "on-pace" | "behind" | "no-velocity" | "no-target" | "completed";
+  velocity: {
+    centsPerDay: number;
+    centsPerFortnight: number;
+    centsPerMonth: number;
+    sampleSize: number;
+    windowDays: number;
+  };
+}
+
+interface CalendarInfo {
+  weekdayOnlyCadence: boolean;
+  calendarDaysToDeadline: number | null;
+  cadenceDaysToDeadline: number | null;
+}
+
+interface PaydayInfo {
+  frequency: "weekly" | "fortnightly" | "monthly" | "bi-monthly" | "unknown";
+  nextPaydayIso: string | null;
+  daysUntil: number | null;
+  confidence: "high" | "medium" | "low";
+}
+
+interface GeneratedTasksInfo {
+  tasks: GoalTask[];
+  source: "ai" | "fallback";
+  generatedAt: string;
+  isCached: boolean;
+  cacheReason: "no-cache" | "expired" | "signature-changed" | "fresh";
+}
+
 interface GoalDetailClientProps {
-  goal: Goal;
+  goal: Goal & {
+    weekday_only_cadence?: boolean;
+  };
   historyData: GoalDataPoint[];
   currentPeriod: string;
   status: GoalStatus;
   budgetAllocationCents: number;
   recentContributions: ContributionRecord[];
   initialTags?: string[];
+  projection: ProjectionInfo;
+  calendar: CalendarInfo;
+  payday: PaydayInfo;
+  generatedTasks: GeneratedTasksInfo;
 }
 
 // ============================================================================
@@ -203,6 +255,10 @@ export function GoalDetailClient({
   budgetAllocationCents,
   recentContributions,
   initialTags = [],
+  projection,
+  calendar,
+  payday,
+  generatedTasks,
 }: GoalDetailClientProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -211,6 +267,8 @@ export function GoalDetailClient({
   const [showAddFunds, setShowAddFunds] = useState(false);
   const [completing, setCompleting] = useState(false);
   const [reopening, setReopening] = useState(false);
+  const [refreshingTasks, startRefreshTransition] = useTransition();
+  const [, startCadenceTransition] = useTransition();
 
   const progress = goalProgressPercent(goal);
   const remaining = goalRemainingCents(goal);
@@ -255,6 +313,22 @@ export function GoalDetailClient({
     await reopenGoal(goal.id);
     setReopening(false);
     router.refresh();
+  };
+
+  // Phase 1 #52 — manual task refresh button. Force=true bypasses the 24h
+  // cache. Transition keeps the page interactive while the regen runs.
+  const handleRefreshTasks = () => {
+    startRefreshTransition(async () => {
+      await regenerateGoalTasks(goal.id, { force: true });
+      router.refresh();
+    });
+  };
+
+  const handleToggleWeekdayCadence = (next: boolean) => {
+    startCadenceTransition(async () => {
+      await setGoalWeekdayOnlyCadence(goal.id, next);
+      router.refresh();
+    });
   };
 
   // Chart data
@@ -767,22 +841,18 @@ export function GoalDetailClient({
                   </span>
                 </div>
                 <div className="p-5 space-y-3">
-                  {status.projectedCompletionDate && (
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs" style={{ color: "var(--text-tertiary)" }}>
-                        Est. Completion
-                      </span>
-                      <span
-                        className="text-sm font-semibold"
-                        style={{ color: "var(--text-primary)" }}
-                      >
-                        {status.projectedCompletionDate.toLocaleDateString("en-AU", {
-                          month: "short",
-                          year: "numeric",
-                        })}
-                      </span>
-                    </div>
+                  {/* Live velocity-based projection vs target — Phase 1 #52 */}
+                  <ProjectionRow
+                    projection={projection}
+                    calendar={calendar}
+                  />
+                  {payday.nextPaydayIso && payday.daysUntil !== null && payday.confidence !== "low" && (
+                    <PaydayRow payday={payday} />
                   )}
+                  <CadenceToggleRow
+                    weekdayOnly={calendar.weekdayOnlyCadence}
+                    onToggle={handleToggleWeekdayCadence}
+                  />
                   {(() => {
                     const remaining = goal.target_amount_cents - goal.current_amount_cents;
                     const suggested = calculateSuggestedSavings(remaining, goal.deadline);
@@ -876,6 +946,97 @@ export function GoalDetailClient({
                       {linkedAccount.display_name} &middot; Balance auto-syncs
                     </p>
                   </div>
+                </div>
+              </div>
+            </motion.div>
+          )}
+
+          {/* AI Suggested Tasks — Phase 1 #52 */}
+          {!goal.is_completed && generatedTasks.tasks.length > 0 && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.085 }}
+            >
+              <div
+                className="border-0 shadow-sm rounded-2xl overflow-hidden"
+                style={{ backgroundColor: "var(--surface-elevated)" }}
+              >
+                <div
+                  className="px-5 py-3.5 border-b flex items-center justify-between"
+                  style={{ borderColor: "var(--border)" }}
+                >
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="h-4 w-4" style={{ color: "var(--pastel-purple-dark)" }} />
+                    <span
+                      className="text-base font-semibold"
+                      style={{ color: "var(--text-primary)" }}
+                    >
+                      Suggested next steps
+                    </span>
+                  </div>
+                  <Button
+                    onClick={handleRefreshTasks}
+                    disabled={refreshingTasks}
+                    variant="ghost"
+                    size="sm"
+                    className="rounded-lg text-xs h-7 cursor-pointer"
+                    style={{ color: "var(--text-tertiary)" }}
+                    title="Refresh suggestions"
+                  >
+                    <RefreshCw
+                      className={`h-3 w-3 mr-1 ${refreshingTasks ? "animate-spin" : ""}`}
+                    />
+                    {refreshingTasks ? "Refreshing" : "Refresh tasks"}
+                  </Button>
+                </div>
+                <div className="px-5 py-3 space-y-2.5">
+                  {generatedTasks.tasks.map((task) => (
+                    <div
+                      key={task.id}
+                      className="flex items-start gap-2.5"
+                    >
+                      <div
+                        className="mt-1 h-1.5 w-1.5 rounded-full flex-shrink-0"
+                        style={{
+                          backgroundColor:
+                            task.priority === "high"
+                              ? "var(--pastel-coral-dark)"
+                              : task.priority === "medium"
+                                ? "var(--pastel-yellow-dark)"
+                                : "var(--pastel-mint-dark)",
+                        }}
+                      />
+                      <div className="min-w-0 flex-1">
+                        <p
+                          className="text-sm font-medium"
+                          style={{ color: "var(--text-primary)" }}
+                        >
+                          {task.text}
+                        </p>
+                        {task.detail && (
+                          <p
+                            className="text-[11px] mt-0.5"
+                            style={{ color: "var(--text-tertiary)" }}
+                          >
+                            {task.detail}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                  <p
+                    className="text-[10px] pt-2 border-t mt-2"
+                    style={{
+                      color: "var(--text-tertiary)",
+                      borderColor: "var(--border)",
+                    }}
+                  >
+                    {generatedTasks.source === "ai" ? "Penny" : "Auto-generated"}
+                    {" · "}
+                    {formatRelativeTime(generatedTasks.generatedAt)}
+                    {!generatedTasks.isCached && " · stale, hit refresh"}
+                  </p>
                 </div>
               </div>
             </motion.div>
@@ -1051,4 +1212,212 @@ export function GoalDetailClient({
       </div>
     </div>
   );
+}
+
+// ============================================================================
+// Phase 1 #52 — Sub-components for the projection/payday/cadence UI
+// ============================================================================
+
+function ProjectionRow({
+  projection,
+  calendar,
+}: {
+  projection: ProjectionInfo;
+  calendar: CalendarInfo;
+}) {
+  const targetLabel = projection.targetDateIso
+    ? new Date(projection.targetDateIso).toLocaleDateString("en-AU", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      })
+    : "No target set";
+
+  const projectedLabel = projection.projectedDateIso
+    ? new Date(projection.projectedDateIso).toLocaleDateString("en-AU", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      })
+    : "—";
+
+  const stateColor =
+    projection.state === "behind"
+      ? "var(--pastel-coral-dark)"
+      : projection.state === "ahead"
+        ? "var(--pastel-mint-dark)"
+        : projection.state === "on-pace"
+          ? "var(--text-primary)"
+          : "var(--text-tertiary)";
+
+  const stateLabel =
+    projection.state === "behind"
+      ? "Behind pace"
+      : projection.state === "ahead"
+        ? "Ahead of pace"
+        : projection.state === "on-pace"
+          ? "On pace"
+          : projection.state === "no-velocity"
+            ? "No recent contributions"
+            : projection.state === "no-target"
+              ? "No target set"
+              : "Completed";
+
+  // Days to deadline — uses cadence-aware count when toggle is on.
+  const daysLabel = (() => {
+    if (calendar.cadenceDaysToDeadline === null) return null;
+    const n = calendar.cadenceDaysToDeadline;
+    if (n < 0) return `${Math.abs(n)} days overdue`;
+    const suffix = calendar.weekdayOnlyCadence ? " weekdays to go" : " days to go";
+    return `${n}${suffix}`;
+  })();
+
+  return (
+    <div className="space-y-2.5">
+      <div className="flex items-center justify-between">
+        <span className="text-xs" style={{ color: "var(--text-tertiary)" }}>
+          Target end
+        </span>
+        <span
+          className="text-sm font-semibold tabular-nums"
+          style={{ color: "var(--text-primary)" }}
+        >
+          {targetLabel}
+        </span>
+      </div>
+      <div className="flex items-center justify-between">
+        <span className="text-xs" style={{ color: "var(--text-tertiary)" }}>
+          At current pace
+        </span>
+        <span
+          className="text-sm font-semibold tabular-nums"
+          style={{ color: stateColor }}
+        >
+          {projectedLabel}
+        </span>
+      </div>
+      {projection.deltaDays !== null && projection.state !== "completed" && (
+        <div
+          className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs"
+          style={{
+            backgroundColor:
+              projection.state === "behind"
+                ? "var(--pastel-coral-light)"
+                : projection.state === "ahead"
+                  ? "var(--pastel-mint-light)"
+                  : "var(--surface-sunken)",
+            color: stateColor,
+          }}
+        >
+          {projection.state === "behind" ? (
+            <AlertTriangle className="h-3.5 w-3.5 flex-shrink-0" />
+          ) : projection.state === "ahead" ? (
+            <TrendingUp className="h-3.5 w-3.5 flex-shrink-0" />
+          ) : (
+            <CheckCircle2 className="h-3.5 w-3.5 flex-shrink-0" />
+          )}
+          <span className="font-medium">
+            {projection.state === "behind"
+              ? `At current pace, you'll arrive ${projection.deltaDays} day${
+                  projection.deltaDays === 1 ? "" : "s"
+                } late.`
+              : projection.state === "ahead"
+                ? `On track to finish ${Math.abs(projection.deltaDays)} day${
+                    projection.deltaDays === -1 ? "" : "s"
+                  } early.`
+                : "On pace with the target."}
+          </span>
+        </div>
+      )}
+      {projection.state === "no-velocity" && (
+        <p
+          className="text-xs px-3 py-2 rounded-lg"
+          style={{
+            backgroundColor: "var(--surface-sunken)",
+            color: "var(--text-tertiary)",
+          }}
+        >
+          {stateLabel} — start adding funds to see a projected date.
+        </p>
+      )}
+      {daysLabel && (
+        <div className="flex items-center justify-between">
+          <span className="text-xs" style={{ color: "var(--text-tertiary)" }}>
+            Time remaining
+          </span>
+          <span
+            className="text-sm font-semibold tabular-nums"
+            style={{ color: "var(--text-primary)" }}
+          >
+            {daysLabel}
+          </span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PaydayRow({ payday }: { payday: PaydayInfo }) {
+  if (!payday.nextPaydayIso || payday.daysUntil === null) return null;
+  const dateLabel = new Date(payday.nextPaydayIso).toLocaleDateString("en-AU", {
+    month: "short",
+    day: "numeric",
+  });
+  return (
+    <div
+      className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs"
+      style={{
+        backgroundColor: "var(--pastel-blue-light)",
+        color: "var(--pastel-blue-dark)",
+      }}
+    >
+      <CalendarDays className="h-3.5 w-3.5 flex-shrink-0" />
+      <span className="font-medium">
+        Next payday in {payday.daysUntil} day{payday.daysUntil === 1 ? "" : "s"} ({dateLabel}) ·{" "}
+        {payday.frequency}
+      </span>
+    </div>
+  );
+}
+
+function CadenceToggleRow({
+  weekdayOnly,
+  onToggle,
+}: {
+  weekdayOnly: boolean;
+  onToggle: (next: boolean) => void;
+}) {
+  return (
+    <label
+      className="flex items-center justify-between gap-2 cursor-pointer"
+      title="When on, 'days to go' counts only weekdays."
+    >
+      <span
+        className="text-xs flex items-center gap-1.5"
+        style={{ color: "var(--text-tertiary)" }}
+      >
+        <Sun className="h-3 w-3" />
+        Weekday-only cadence
+      </span>
+      <input
+        type="checkbox"
+        checked={weekdayOnly}
+        onChange={(e) => onToggle(e.target.checked)}
+        className="cursor-pointer"
+      />
+    </label>
+  );
+}
+
+function formatRelativeTime(iso: string): string {
+  const then = new Date(iso).getTime();
+  const now = Date.now();
+  const diffMs = now - then;
+  const diffMin = Math.round(diffMs / 60000);
+  if (diffMin < 1) return "just now";
+  if (diffMin < 60) return `${diffMin} min${diffMin === 1 ? "" : "s"} ago`;
+  const diffHr = Math.round(diffMin / 60);
+  if (diffHr < 24) return `${diffHr} hr${diffHr === 1 ? "" : "s"} ago`;
+  const diffDay = Math.round(diffHr / 24);
+  return `${diffDay} day${diffDay === 1 ? "" : "s"} ago`;
 }
