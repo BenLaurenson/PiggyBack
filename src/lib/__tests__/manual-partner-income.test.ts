@@ -110,7 +110,7 @@ describe('Budget View Filtering with Manual Partner Income', () => {
 
   it('individual view should exclude manual partner income from recurring', () => {
     const incomeSources = createIncomeSources();
-    const view = 'individual';
+    const view: 'individual' | 'shared' = 'individual' as 'individual' | 'shared';
 
     const recurringSources = incomeSources
       .filter(s => s.source_type === 'recurring-salary')
@@ -126,7 +126,7 @@ describe('Budget View Filtering with Manual Partner Income', () => {
 
   it('shared view should include ALL income including manual partner', () => {
     const incomeSources = createIncomeSources();
-    const view = 'shared';
+    const view: 'individual' | 'shared' = 'shared' as 'individual' | 'shared';
 
     const recurringSources = incomeSources
       .filter(s => s.source_type === 'recurring-salary')
@@ -145,7 +145,7 @@ describe('Budget View Filtering with Manual Partner Income', () => {
 
   it('individual view should exclude manual partner one-off income', () => {
     const incomeSources = createIncomeSources();
-    const view = 'individual';
+    const view: 'individual' | 'shared' = 'individual' as 'individual' | 'shared';
 
     const oneOffSources = incomeSources
       .filter(s => s.source_type === 'one-off' && s.is_received && s.received_date)
@@ -160,7 +160,7 @@ describe('Budget View Filtering with Manual Partner Income', () => {
 
   it('shared view should include manual partner one-off income', () => {
     const incomeSources = createIncomeSources();
-    const view = 'shared';
+    const view: 'individual' | 'shared' = 'shared' as 'individual' | 'shared';
 
     const oneOffSources = incomeSources
       .filter(s => s.source_type === 'one-off' && s.is_received && s.received_date)
@@ -175,7 +175,7 @@ describe('Budget View Filtering with Manual Partner Income', () => {
 
   it('individual view total should only include user income', () => {
     const incomeSources = createIncomeSources();
-    const view = 'individual';
+    const view: 'individual' | 'shared' = 'individual' as 'individual' | 'shared';
 
     const recurringTotal = incomeSources
       .filter(s => s.source_type === 'recurring-salary')
@@ -191,7 +191,7 @@ describe('Budget View Filtering with Manual Partner Income', () => {
 
   it('shared view total should include all income', () => {
     const incomeSources = createIncomeSources();
-    const view = 'shared';
+    const view: 'individual' | 'shared' = 'shared' as 'individual' | 'shared';
 
     const recurringTotal = incomeSources
       .filter(s => s.source_type === 'recurring-salary')
@@ -234,10 +234,16 @@ describe('IncomeSource interface', () => {
   });
 
   it('should default is_manual_partner_income to false', () => {
-    const defaultIncome = {
+    const defaultIncome: {
+      user_id: string;
+      name: string;
+      source_type: 'recurring-salary';
+      amount_cents: number;
+      is_manual_partner_income?: boolean;
+    } = {
       user_id: 'user-1',
       name: 'My Salary',
-      source_type: 'recurring-salary' as const,
+      source_type: 'recurring-salary',
       amount_cents: 500000,
       // is_manual_partner_income not provided
     };
@@ -292,7 +298,7 @@ describe('Manual Partner Income Edge Cases', () => {
     expect(partnerIncome).toHaveLength(2);
 
     // Individual view should show zero income
-    const view = 'individual';
+    const view: 'individual' | 'shared' = 'individual' as 'individual' | 'shared';
     const individualTotal = incomeSources
       .filter(s => s.source_type === 'recurring-salary')
       .filter(s => {
