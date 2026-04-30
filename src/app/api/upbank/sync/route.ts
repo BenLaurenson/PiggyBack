@@ -17,6 +17,7 @@
  */
 
 import { createClient } from "@/utils/supabase/server";
+import { createServiceRoleClient } from "@/utils/supabase/service-role";
 import { getPlaintextToken } from "@/lib/token-encryption";
 import { ensureInferredCategories } from "@/lib/infer-category";
 import { syncLimiter, getClientIp, rateLimitKey } from "@/lib/rate-limiter";
@@ -32,6 +33,10 @@ import {
   type BatchResolverContext,
 } from "@/lib/resolve-category";
 import type { UpAccount, UpCategory, UpTransaction } from "@/lib/up-types";
+import {
+  loadMerchantDefaultRules,
+  recordRuleApplications,
+} from "@/lib/merchant-default-rules";
 
 export const maxDuration = 300; // 5 minutes per sync run
 
@@ -220,23 +225,35 @@ export async function POST(request: Request) {
 
         const { data: merchantRules } = await supabase
           .from("merchant_category_rules")
-          .select("merchant_description, category_id, parent_category_id")
+          .select("id, merchant_description, category_id, parent_category_id")
           .eq("user_id", user.id);
         const merchantRulesByDesc = new Map(
           (merchantRules || []).map((r) => [
             r.merchant_description as string,
             {
+              id: r.id as string,
               category_id: r.category_id as string,
               parent_category_id: r.parent_category_id as string | null,
             },
           ])
         );
 
+        // Load global merchant default rules (admin-curated). These act as
+        // a fallback when the user has no personal rule for a description.
+        const { byPattern: defaultRulesByPattern } =
+          await loadMerchantDefaultRules();
+
         const resolverCtx: BatchResolverContext = {
           overridesByTxnId,
           merchantRulesByDesc,
           upAccountIdToDbId,
+          defaultRulesByPattern,
         };
+
+        // Track rule applications during this sync so we can bump
+        // last_applied_at / applied_count at the end.
+        const userRuleAppliedIds = new Set<string>();
+        const defaultRuleAppliedCounts = new Map<string, number>();
 
         // ─── Transactions (chunked-window) ───────────────────────────────────
         send({
@@ -297,6 +314,8 @@ export async function POST(request: Request) {
               send,
               startCount: totalTxns,
               errors,
+              userRuleAppliedIds,
+              defaultRuleAppliedCounts,
             });
 
             totalTxns = windowSyncResult.newTotal;
@@ -339,6 +358,22 @@ export async function POST(request: Request) {
         if (configUpdateError) {
           console.error("Failed to update last_synced_at:", configUpdateError);
           errors.push(`Failed to update sync timestamp: ${configUpdateError.message}`);
+        }
+
+        // Bump rule application stats (fire-and-forget; errors logged).
+        if (defaultRuleAppliedCounts.size > 0) {
+          await recordRuleApplications(defaultRuleAppliedCounts);
+        }
+        if (userRuleAppliedIds.size > 0) {
+          try {
+            const adminClient = createServiceRoleClient();
+            await adminClient.rpc(
+              "touch_merchant_category_rules_applied",
+              { p_rule_ids: Array.from(userRuleAppliedIds) }
+            );
+          } catch (err) {
+            console.error("Failed to touch user merchant rules:", err);
+          }
         }
 
         if (errors.length > 0) {
@@ -390,6 +425,10 @@ interface WindowSyncOptions {
   send: SendFn;
   startCount: number;
   errors: string[];
+  /** Accumulator: user merchant_category_rules.id values applied during this sync. */
+  userRuleAppliedIds: Set<string>;
+  /** Accumulator: merchant_default_rules.id → count of applications during this sync. */
+  defaultRuleAppliedCounts: Map<string, number>;
 }
 
 /**
@@ -431,11 +470,20 @@ async function syncTransactionWindow(opts: WindowSyncOptions): Promise<{ newTota
       : null;
 
     const existingId = opts.txnIdByUpId.get(txn.id) ?? null;
-    const { categoryId, parentCategoryId } = resolveCategoryBatch(
-      txn,
-      opts.resolverCtx,
-      existingId
-    );
+    const {
+      categoryId,
+      parentCategoryId,
+      appliedUserRuleId,
+      appliedDefaultRuleId,
+    } = resolveCategoryBatch(txn, opts.resolverCtx, existingId);
+
+    if (appliedUserRuleId) opts.userRuleAppliedIds.add(appliedUserRuleId);
+    if (appliedDefaultRuleId) {
+      opts.defaultRuleAppliedCounts.set(
+        appliedDefaultRuleId,
+        (opts.defaultRuleAppliedCounts.get(appliedDefaultRuleId) ?? 0) + 1
+      );
+    }
 
     txnRows.push({
       account_id: opts.savedAccountId,

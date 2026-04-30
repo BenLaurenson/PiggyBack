@@ -1,12 +1,13 @@
 /**
- * Three-tier category resolution for Up Bank transactions.
+ * Category resolution for Up Bank transactions.
  *
  * Precedence (highest first):
  *   1. User override (transaction_category_overrides table)
  *   2. User merchant rule (merchant_category_rules table)
  *   3. Up Bank's category (transaction.relationships.category)
- *   4. Inferred category (round-up, salary, transfer, etc. — see infer-category.ts)
- *   5. null (genuinely uncategorized — eligible for AI fallback)
+ *   4. Global default rule (merchant_default_rules table — admin-curated)
+ *   5. Inferred category (round-up, salary, transfer, etc. — see infer-category.ts)
+ *   6. null (genuinely uncategorized — eligible for AI fallback)
  *
  * Used by both the webhook handler (single transaction) and the sync route
  * (batch transactions). The batch shape pre-loads overrides/rules to avoid
@@ -17,10 +18,19 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { inferCategoryId } from "./infer-category";
 import type { UpTransaction } from "./up-types";
+import {
+  findDefaultRuleForDescription,
+  loadMerchantDefaultRules,
+  type MerchantDefaultRule,
+} from "./merchant-default-rules";
 
 export interface CategoryResolution {
   categoryId: string | null;
   parentCategoryId: string | null;
+  /** ID of the user merchant_category_rules row applied, if any. */
+  appliedUserRuleId: string | null;
+  /** ID of the global merchant_default_rules row applied, if any. */
+  appliedDefaultRuleId: string | null;
 }
 
 /**
@@ -30,10 +40,12 @@ export interface CategoryResolution {
 export interface BatchResolverContext {
   /** Map: existing transaction.id (PiggyBack PK) → override row. */
   overridesByTxnId: Map<string, { override_category_id: string; override_parent_category_id: string | null }>;
-  /** Map: merchant_description → rule row. */
-  merchantRulesByDesc: Map<string, { category_id: string; parent_category_id: string | null }>;
+  /** Map: merchant_description → user rule row. */
+  merchantRulesByDesc: Map<string, { id: string; category_id: string; parent_category_id: string | null }>;
   /** Map: up_account_id → PiggyBack accounts.id, for transfer-account resolution. */
   upAccountIdToDbId: Map<string, string>;
+  /** Pre-loaded global default rules (from merchant_default_rules). */
+  defaultRulesByPattern: Map<string, MerchantDefaultRule>;
 }
 
 /**
@@ -56,16 +68,20 @@ export function resolveCategoryBatch(
       return {
         categoryId: override.override_category_id,
         parentCategoryId: override.override_parent_category_id,
+        appliedUserRuleId: null,
+        appliedDefaultRuleId: null,
       };
     }
   }
 
-  // Tier 2: merchant rule
+  // Tier 2: user merchant rule
   const merchantRule = ctx.merchantRulesByDesc.get(txn.attributes.description);
   if (merchantRule) {
     return {
       categoryId: merchantRule.category_id,
       parentCategoryId: merchantRule.parent_category_id,
+      appliedUserRuleId: merchantRule.id,
+      appliedDefaultRuleId: null,
     };
   }
 
@@ -74,10 +90,28 @@ export function resolveCategoryBatch(
     return {
       categoryId: txn.relationships.category.data.id,
       parentCategoryId: txn.relationships.parentCategory.data?.id ?? null,
+      appliedUserRuleId: null,
+      appliedDefaultRuleId: null,
     };
   }
 
-  // Tier 4: PiggyBack-side inference
+  // Tier 4: global default rule (admin-curated, only when Up has no category)
+  if (txn.attributes.description) {
+    const defaultRule = findDefaultRuleForDescription(
+      txn.attributes.description,
+      ctx.defaultRulesByPattern
+    );
+    if (defaultRule) {
+      return {
+        categoryId: defaultRule.category_id,
+        parentCategoryId: defaultRule.parent_category_id,
+        appliedUserRuleId: null,
+        appliedDefaultRuleId: defaultRule.id,
+      };
+    }
+  }
+
+  // Tier 5: PiggyBack-side inference
   const transferAccountId = txn.relationships.transferAccount?.data?.id
     ? ctx.upAccountIdToDbId.get(txn.relationships.transferAccount.data.id) ?? null
     : null;
@@ -94,6 +128,8 @@ export function resolveCategoryBatch(
   return {
     categoryId: inferred,
     parentCategoryId: null,
+    appliedUserRuleId: null,
+    appliedDefaultRuleId: null,
   };
 }
 
@@ -127,14 +163,16 @@ export async function resolveCategorySingle(
       return {
         categoryId: override.override_category_id,
         parentCategoryId: override.override_parent_category_id,
+        appliedUserRuleId: null,
+        appliedDefaultRuleId: null,
       };
     }
   }
 
-  // Tier 2: merchant rule
+  // Tier 2: user merchant rule
   const { data: merchantRule } = await ctx.supabase
     .from("merchant_category_rules")
-    .select("category_id, parent_category_id")
+    .select("id, category_id, parent_category_id")
     .eq("user_id", ctx.userId)
     .eq("merchant_description", txn.attributes.description)
     .maybeSingle();
@@ -142,6 +180,8 @@ export async function resolveCategorySingle(
     return {
       categoryId: merchantRule.category_id,
       parentCategoryId: merchantRule.parent_category_id,
+      appliedUserRuleId: merchantRule.id,
+      appliedDefaultRuleId: null,
     };
   }
 
@@ -150,10 +190,29 @@ export async function resolveCategorySingle(
     return {
       categoryId: txn.relationships.category.data.id,
       parentCategoryId: txn.relationships.parentCategory.data?.id ?? null,
+      appliedUserRuleId: null,
+      appliedDefaultRuleId: null,
     };
   }
 
-  // Tier 4: inference
+  // Tier 4: global default rule (admin-curated, only when Up has no category)
+  if (txn.attributes.description) {
+    const { byPattern } = await loadMerchantDefaultRules();
+    const defaultRule = findDefaultRuleForDescription(
+      txn.attributes.description,
+      byPattern
+    );
+    if (defaultRule) {
+      return {
+        categoryId: defaultRule.category_id,
+        parentCategoryId: defaultRule.parent_category_id,
+        appliedUserRuleId: null,
+        appliedDefaultRuleId: defaultRule.id,
+      };
+    }
+  }
+
+  // Tier 5: inference
   const inferred = inferCategoryId({
     upCategoryId: null,
     transferAccountId: ctx.transferAccountId,
@@ -166,6 +225,8 @@ export async function resolveCategorySingle(
   return {
     categoryId: inferred,
     parentCategoryId: null,
+    appliedUserRuleId: null,
+    appliedDefaultRuleId: null,
   };
 }
 

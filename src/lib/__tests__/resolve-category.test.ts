@@ -1,12 +1,13 @@
 /**
- * Tests for the three-tier category resolver.
+ * Tests for the category resolver.
  *
  * Precedence (highest first):
  *   1. User override
- *   2. Merchant rule
+ *   2. User merchant rule
  *   3. Up's category
- *   4. Inferred (round-up, salary, transfer, etc.)
- *   5. null
+ *   4. Global default rule (admin-curated)
+ *   5. Inferred (round-up, salary, transfer, etc.)
+ *   6. null
  */
 
 import { describe, expect, it } from "vitest";
@@ -49,6 +50,7 @@ const emptyCtx = (): BatchResolverContext => ({
   overridesByTxnId: new Map(),
   merchantRulesByDesc: new Map(),
   upAccountIdToDbId: new Map(),
+  defaultRulesByPattern: new Map(),
 });
 
 describe("resolveCategoryBatch precedence", () => {
@@ -61,6 +63,7 @@ describe("resolveCategoryBatch precedence", () => {
       override_parent_category_id: "user-pinned-parent",
     });
     ctx.merchantRulesByDesc.set("Coffee Shop", {
+      id: "rule-1",
       category_id: "merchant-rule",
       parent_category_id: null,
     });
@@ -68,6 +71,8 @@ describe("resolveCategoryBatch precedence", () => {
     expect(resolveCategoryBatch(txn, ctx, "local-id-1")).toEqual({
       categoryId: "user-pinned",
       parentCategoryId: "user-pinned-parent",
+      appliedUserRuleId: null,
+      appliedDefaultRuleId: null,
     });
   });
 
@@ -76,6 +81,7 @@ describe("resolveCategoryBatch precedence", () => {
     txn.relationships.category.data = { type: "categories", id: "good-life" };
     const ctx = emptyCtx();
     ctx.merchantRulesByDesc.set("Coffee Shop", {
+      id: "rule-1",
       category_id: "merchant-rule",
       parent_category_id: "merchant-rule-parent",
     });
@@ -83,6 +89,8 @@ describe("resolveCategoryBatch precedence", () => {
     expect(resolveCategoryBatch(txn, ctx, null)).toEqual({
       categoryId: "merchant-rule",
       parentCategoryId: "merchant-rule-parent",
+      appliedUserRuleId: "rule-1",
+      appliedDefaultRuleId: null,
     });
   });
 
@@ -94,20 +102,60 @@ describe("resolveCategoryBatch precedence", () => {
     expect(resolveCategoryBatch(txn, emptyCtx(), null)).toEqual({
       categoryId: "good-life",
       parentCategoryId: "lifestyle",
+      appliedUserRuleId: null,
+      appliedDefaultRuleId: null,
     });
   });
 
-  it("Tier 4 (round-up): inference fires when Up's category is null", () => {
+  it("Tier 4: global default rule wins when Up has no category", () => {
+    const txn = baseTxn({ description: "Coffee Shop" });
+    const ctx = emptyCtx();
+    ctx.defaultRulesByPattern.set("coffee", {
+      id: "default-rule-1",
+      merchant_pattern: "coffee",
+      category_id: "default-coffee",
+      parent_category_id: "lifestyle",
+      source: "curated",
+      is_active: true,
+    });
+
+    expect(resolveCategoryBatch(txn, ctx, null)).toEqual({
+      categoryId: "default-coffee",
+      parentCategoryId: "lifestyle",
+      appliedUserRuleId: null,
+      appliedDefaultRuleId: "default-rule-1",
+    });
+  });
+
+  it("Tier 4 default rule does NOT override Up's category", () => {
+    const txn = baseTxn({ description: "Coffee Shop" });
+    txn.relationships.category.data = { type: "categories", id: "good-life" };
+    const ctx = emptyCtx();
+    ctx.defaultRulesByPattern.set("coffee", {
+      id: "default-rule-1",
+      merchant_pattern: "coffee",
+      category_id: "default-coffee",
+      parent_category_id: null,
+      source: "curated",
+      is_active: true,
+    });
+
+    expect(resolveCategoryBatch(txn, ctx, null).categoryId).toBe("good-life");
+  });
+
+  it("Tier 5 (round-up): inference fires when Up's category is null", () => {
     const txn = baseTxn({
       roundUp: { amount: { currencyCode: "AUD", value: "-0.50", valueInBaseUnits: -50 }, boostPortion: null },
     });
     expect(resolveCategoryBatch(txn, emptyCtx(), null)).toEqual({
       categoryId: "round-up",
       parentCategoryId: null,
+      appliedUserRuleId: null,
+      appliedDefaultRuleId: null,
     });
   });
 
-  it("Tier 4 (transfer): internal-transfer when transferAccount resolves locally", () => {
+  it("Tier 5 (transfer): internal-transfer when transferAccount resolves locally", () => {
     const txn = baseTxn();
     txn.relationships.transferAccount.data = { type: "accounts", id: "up-acc-2" };
     const ctx = emptyCtx();
@@ -116,19 +164,23 @@ describe("resolveCategoryBatch precedence", () => {
     expect(resolveCategoryBatch(txn, ctx, null)).toEqual({
       categoryId: "internal-transfer",
       parentCategoryId: null,
+      appliedUserRuleId: null,
+      appliedDefaultRuleId: null,
     });
   });
 
-  it("Tier 4 (salary): salary-income when transactionType=Salary", () => {
+  it("Tier 5 (salary): salary-income when transactionType=Salary", () => {
     const txn = baseTxn({ transactionType: "Salary", amount: { currencyCode: "AUD", value: "100", valueInBaseUnits: 10_000 } });
     expect(resolveCategoryBatch(txn, emptyCtx(), null).categoryId).toBe("salary-income");
   });
 
-  it("Tier 5: returns null when nothing resolves", () => {
+  it("Tier 6: returns null when nothing resolves", () => {
     const txn = baseTxn(); // category null, no roundUp, no transferAccount, no salary marker
     expect(resolveCategoryBatch(txn, emptyCtx(), null)).toEqual({
       categoryId: null,
       parentCategoryId: null,
+      appliedUserRuleId: null,
+      appliedDefaultRuleId: null,
     });
   });
 
@@ -146,6 +198,8 @@ describe("resolveCategoryBatch precedence", () => {
     expect(resolveCategoryBatch(txn, ctx, null)).toEqual({
       categoryId: "good-life",
       parentCategoryId: null,
+      appliedUserRuleId: null,
+      appliedDefaultRuleId: null,
     });
   });
 });

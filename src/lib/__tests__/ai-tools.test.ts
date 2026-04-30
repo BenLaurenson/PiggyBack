@@ -978,10 +978,7 @@ describe("AI Financial Tools", () => {
 
   describe("comparePeriods", () => {
     it("returns side-by-side spending breakdown with totals and per-category diffs", async () => {
-      const result = await tools.comparePeriods.execute(
-        { month1: "2025-05", month2: "2025-06" },
-        { toolCallId: "test", messages: [], abortSignal: undefined as any }
-      );
+      const result = await runTool(tools.comparePeriods, { month1: "2025-05", month2: "2025-06" });
       expect(result).toHaveProperty("month1", "2025-05");
       expect(result).toHaveProperty("month2", "2025-06");
       expect(result).toHaveProperty("month1Total");
@@ -1005,10 +1002,7 @@ describe("AI Financial Tools", () => {
         PARTNERSHIP_ID,
         USER_ID
       );
-      const result = await emptyTools.comparePeriods.execute(
-        { month1: "2025-05", month2: "2025-06" },
-        { toolCallId: "test", messages: [], abortSignal: undefined as any }
-      );
+      const result = await runTool(emptyTools.comparePeriods, { month1: "2025-05", month2: "2025-06" });
       expect(result.comparison).toEqual([]);
       expect(result.month1Total).toBe("$0.00");
       expect(result.month2Total).toBe("$0.00");
@@ -1017,10 +1011,7 @@ describe("AI Financial Tools", () => {
 
   describe("getTopMerchants", () => {
     it("returns ranked merchant list with totals, visit counts, and averages", async () => {
-      const result = await tools.getTopMerchants.execute(
-        { limit: 5 },
-        { toolCallId: "test", messages: [], abortSignal: undefined as any }
-      );
+      const result = await runTool(tools.getTopMerchants, { limit: 5 });
       expect(result).toHaveProperty("period", "all time");
       expect(result).toHaveProperty("merchants");
       expect(Array.isArray(result.merchants)).toBe(true);
@@ -1035,10 +1026,7 @@ describe("AI Financial Tools", () => {
     });
 
     it("filters by month when provided", async () => {
-      const result = await tools.getTopMerchants.execute(
-        { month: "2025-06", limit: 3 },
-        { toolCallId: "test", messages: [], abortSignal: undefined as any }
-      );
+      const result = await runTool(tools.getTopMerchants, { month: "2025-06", limit: 3 });
       expect(result).toHaveProperty("period", "2025-06");
       expect(result.merchants.length).toBeLessThanOrEqual(3);
     });
@@ -1051,10 +1039,7 @@ describe("AI Financial Tools", () => {
         PARTNERSHIP_ID,
         USER_ID
       );
-      const result = await emptyTools.getTopMerchants.execute(
-        {},
-        { toolCallId: "test", messages: [], abortSignal: undefined as any }
-      );
+      const result = await runTool(emptyTools.getTopMerchants, {});
       expect(result.merchants).toEqual([]);
     });
   });
@@ -1076,10 +1061,7 @@ describe("AI Financial Tools", () => {
         PARTNERSHIP_ID,
         USER_ID
       );
-      const result = await tools.updateInvestment.execute(
-        { investmentName: "VDHG", currentValueDollars: 6500 },
-        { toolCallId: "test", messages: [] as any, abortSignal: undefined as any }
-      );
+      const result = await runTool(tools.updateInvestment, { investmentName: "VDHG", currentValueDollars: 6500 });
       expect(result).toHaveProperty("success", true);
       expect(result).toHaveProperty("name", "VDHG");
       expect(result).toHaveProperty("previousValue", "$6000.00");
@@ -1095,10 +1077,7 @@ describe("AI Financial Tools", () => {
         PARTNERSHIP_ID,
         USER_ID
       );
-      const result = await emptyTools.updateInvestment.execute(
-        { investmentName: "Nonexistent", currentValueDollars: 100 },
-        { toolCallId: "test", messages: [] as any, abortSignal: undefined as any }
-      );
+      const result = await runTool(emptyTools.updateInvestment, { investmentName: "Nonexistent", currentValueDollars: 100 });
       expect(result).toHaveProperty("error");
       expect((result as { error: string }).error).toContain("No investment found");
     });
@@ -1111,10 +1090,7 @@ describe("AI Financial Tools", () => {
         null,
         USER_ID
       );
-      const result = await noPartnerTools.updateInvestment.execute(
-        { investmentName: "VDHG", currentValueDollars: 6500 },
-        { toolCallId: "test", messages: [] as any, abortSignal: undefined as any }
-      );
+      const result = await runTool(noPartnerTools.updateInvestment, { investmentName: "VDHG", currentValueDollars: 6500 });
       expect(result).toHaveProperty("error");
     });
 
@@ -1130,10 +1106,7 @@ describe("AI Financial Tools", () => {
         PARTNERSHIP_ID,
         USER_ID
       );
-      const result = await tools.updateInvestment.execute(
-        { investmentName: "VDHG", currentValueDollars: 6500 },
-        { toolCallId: "test", messages: [] as any, abortSignal: undefined as any }
-      );
+      const result = await runTool(tools.updateInvestment, { investmentName: "VDHG", currentValueDollars: 6500 });
       expect(result).toHaveProperty("error");
       expect((result as { error: string }).error).toContain("Multiple");
     });
@@ -1158,10 +1131,7 @@ describe("AI Financial Tools", () => {
         PARTNERSHIP_ID,
         USER_ID
       );
-      const result = await tools.getFinancialHealth.execute(
-        { months: 3 },
-        { toolCallId: "test", messages: [] as any, abortSignal: undefined as any }
-      );
+      const result = await runTool(tools.getFinancialHealth, { months: 3 });
       expect(result).toHaveProperty("metrics");
       expect(result).toHaveProperty("recommendations");
       expect(result).toHaveProperty("summary");
@@ -1183,10 +1153,7 @@ describe("AI Financial Tools", () => {
         null,
         USER_ID
       );
-      const result = await noPartnerTools.getFinancialHealth.execute(
-        {},
-        { toolCallId: "test", messages: [], abortSignal: undefined as any }
-      );
+      const result = await runTool(noPartnerTools.getFinancialHealth, {});
       expect(result).toHaveProperty("error");
     });
   });
@@ -1206,10 +1173,7 @@ describe("AI Financial Tools", () => {
         PARTNERSHIP_ID,
         USER_ID
       );
-      const result = await tools.getNetWorthHistory.execute(
-        { period: "1Y" },
-        { toolCallId: "test", messages: [] as any, abortSignal: undefined as any }
-      );
+      const result = await runTool(tools.getNetWorthHistory, { period: "1Y" });
       expect(result).toHaveProperty("period", "1Y");
       expect(result).toHaveProperty("latestNetWorth");
       expect(result).toHaveProperty("changeOverPeriod");
@@ -1230,10 +1194,7 @@ describe("AI Financial Tools", () => {
         PARTNERSHIP_ID,
         USER_ID
       );
-      const result = await emptyTools.getNetWorthHistory.execute(
-        {},
-        { toolCallId: "test", messages: [], abortSignal: undefined as any }
-      );
+      const result = await runTool(emptyTools.getNetWorthHistory, {});
       expect(result).toHaveProperty("dataPoints", []);
       expect(result).toHaveProperty("message");
     });
@@ -1246,20 +1207,14 @@ describe("AI Financial Tools", () => {
         null,
         USER_ID
       );
-      const result = await noPartnerTools.getNetWorthHistory.execute(
-        {},
-        { toolCallId: "test", messages: [], abortSignal: undefined as any }
-      );
+      const result = await runTool(noPartnerTools.getNetWorthHistory, {});
       expect(result).toHaveProperty("error");
     });
   });
 
   describe("getGoalDetails", () => {
     it("returns enriched goal details with progress, status, and budget allocation", async () => {
-      const result = await tools.getGoalDetails.execute(
-        {},
-        { toolCallId: "test", messages: [], abortSignal: undefined as any }
-      );
+      const result = await runTool(tools.getGoalDetails, {});
       expect(result).toHaveProperty("goals");
       const goals = (result as any).goals as Array<Record<string, unknown>>;
       expect(Array.isArray(goals)).toBe(true);
@@ -1284,10 +1239,7 @@ describe("AI Financial Tools", () => {
         PARTNERSHIP_ID,
         USER_ID
       );
-      const result = await emptyTools.getGoalDetails.execute(
-        { goalName: "Holiday" },
-        { toolCallId: "test", messages: [], abortSignal: undefined as any }
-      );
+      const result = await runTool(emptyTools.getGoalDetails, { goalName: "Holiday" });
       expect(result).toHaveProperty("goals", []);
       expect(result).toHaveProperty("message");
     });
@@ -1300,10 +1252,7 @@ describe("AI Financial Tools", () => {
         null,
         USER_ID
       );
-      const result = await noPartnerTools.getGoalDetails.execute(
-        {},
-        { toolCallId: "test", messages: [], abortSignal: undefined as any }
-      );
+      const result = await runTool(noPartnerTools.getGoalDetails, {});
       expect(result).toHaveProperty("error");
     });
   });
@@ -1340,10 +1289,7 @@ describe("AI Financial Tools", () => {
         PARTNERSHIP_ID,
         USER_ID
       );
-      const result = await tools.getInvestmentPortfolio.execute(
-        {},
-        { toolCallId: "test", messages: [] as any, abortSignal: undefined as any }
-      );
+      const result = await runTool(tools.getInvestmentPortfolio, {});
       expect(result).toHaveProperty("totalValue");
       expect(result).toHaveProperty("totalCost");
       expect(result).toHaveProperty("totalGain");
@@ -1365,10 +1311,7 @@ describe("AI Financial Tools", () => {
         PARTNERSHIP_ID,
         USER_ID
       );
-      const result = await emptyTools.getInvestmentPortfolio.execute(
-        {},
-        { toolCallId: "test", messages: [], abortSignal: undefined as any }
-      );
+      const result = await runTool(emptyTools.getInvestmentPortfolio, {});
       expect(result).toHaveProperty("investments", []);
       expect(result).toHaveProperty("message");
     });
@@ -1381,10 +1324,7 @@ describe("AI Financial Tools", () => {
         null,
         USER_ID
       );
-      const result = await noPartnerTools.getInvestmentPortfolio.execute(
-        {},
-        { toolCallId: "test", messages: [], abortSignal: undefined as any }
-      );
+      const result = await runTool(noPartnerTools.getInvestmentPortfolio, {});
       expect(result).toHaveProperty("error");
     });
   });

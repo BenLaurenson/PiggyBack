@@ -28,6 +28,7 @@ import {
 } from "@/lib/up-constants";
 import type { UpAccount, UpTransaction, UpWebhookEvent } from "@/lib/up-types";
 import { ensureCategoryExists, resolveCategorySingle } from "@/lib/resolve-category";
+import { recordRuleApplications } from "@/lib/merchant-default-rules";
 
 /**
  * Verify the webhook signature using HMAC SHA-256.
@@ -358,14 +359,20 @@ async function processTransaction(
     .eq("up_transaction_id", txn.id)
     .maybeSingle();
 
-  // 5. Resolve category via three-tier resolver
-  const { categoryId: finalCategoryId, parentCategoryId: finalParentCategoryId } =
-    await resolveCategorySingle(txn, {
-      userId,
-      supabase,
-      transferAccountId,
-      existingTxnId: existingTxn?.id ?? null,
-    });
+  // 5. Resolve category via the centralized resolver.
+  //    Returns the IDs of any user/default merchant rules applied, so we
+  //    can bump their `last_applied_at` / `applied_count` for the admin UI.
+  const {
+    categoryId: finalCategoryId,
+    parentCategoryId: finalParentCategoryId,
+    appliedUserRuleId,
+    appliedDefaultRuleId,
+  } = await resolveCategorySingle(txn, {
+    userId,
+    supabase,
+    transferAccountId,
+    existingTxnId: existingTxn?.id ?? null,
+  });
 
   const { data: savedTransaction, error: txnError } = await supabase
     .from("transactions")
@@ -422,6 +429,21 @@ async function processTransaction(
   if (txnError) {
     console.error("Error upserting transaction:", txnError);
     return;
+  }
+
+  // Track rule application stats for the admin UI's "Last applied"
+  // column. Fire-and-forget; failures are logged but don't fail the webhook.
+  if (appliedDefaultRuleId) {
+    void recordRuleApplications(new Map([[appliedDefaultRuleId, 1]]));
+  }
+  if (appliedUserRuleId) {
+    void supabase
+      .rpc("touch_merchant_category_rules_applied", {
+        p_rule_ids: [appliedUserRuleId],
+      })
+      .then(({ error }) => {
+        if (error) console.error("Failed to touch user merchant rule:", error);
+      });
   }
 
   // 4. Handle tags
