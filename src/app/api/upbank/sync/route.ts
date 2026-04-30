@@ -377,13 +377,23 @@ export async function POST(request: Request) {
         // ─── Finishing ───────────────────────────────────────────────────────
         send({ phase: "finishing", message: "Finishing up...", txnCount: totalTxns });
 
-        const { error: configUpdateError } = await supabase
+        // Use the service-role client for this internal housekeeping update.
+        // The user-scoped client has occasionally silent-no-op'd on this write
+        // (RLS check doesn't fail loudly when 0 rows match), leaving
+        // `last_synced_at` perma-null on first sync. Service role bypasses RLS
+        // — the upstream auth check has already validated the session.
+        const adminClientForSync = createServiceRoleClient();
+        const { data: configUpdateRows, error: configUpdateError } = await adminClientForSync
           .from("up_api_configs")
           .update({ last_synced_at: new Date().toISOString() })
-          .eq("user_id", user.id);
+          .eq("user_id", user.id)
+          .select("user_id");
         if (configUpdateError) {
           console.error("Failed to update last_synced_at:", configUpdateError);
           errors.push(`Failed to update sync timestamp: ${configUpdateError.message}`);
+        } else if (!configUpdateRows || configUpdateRows.length === 0) {
+          console.error("last_synced_at update matched 0 rows for user", user.id);
+          errors.push("Failed to record sync timestamp (no matching config row)");
         }
 
         // Bump rule application stats (fire-and-forget; errors logged).
