@@ -21,6 +21,12 @@ export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   const offset = parseInt(searchParams.get("offset") || "0");
   const limit = Math.min(parseInt(searchParams.get("limit") || "25", 10) || 25, 200);
+  // Cursor pagination: pass `?cursor=<created_at_iso>` to get the next page
+  // without OFFSET (which gets slow at depth on large activity feeds).
+  // The caller should pass the `created_at` of the last row from the previous
+  // page; we return rows with `created_at < cursor`. When cursor is set,
+  // `offset` is ignored.
+  const cursor = searchParams.get("cursor");
   const search = searchParams.get("search") || "";
   const accountId = searchParams.get("accountId");
   const categoryId = searchParams.get("categoryId");
@@ -96,7 +102,9 @@ export async function GET(request: NextRequest) {
 
   const accountIds = accounts?.map(a => a.id) || [];
 
-  // Build query
+  // Build query — exclude soft-deleted rows by default (TRANSACTION_DELETED
+  // events from Up Bank set deleted_at; we still keep the rows for budget
+  // history but they should not show up in the activity list).
   let query = supabase
     .from("transactions")
     .select(`
@@ -106,7 +114,8 @@ export async function GET(request: NextRequest) {
       transaction_tags(tag_name),
       transaction_notes(id, note, is_partner_visible, user_id)
     `, { count: "exact" })
-    .in("account_id", accountIds);
+    .in("account_id", accountIds)
+    .is("deleted_at", null);
 
   // Apply filters
   if (search) {
@@ -222,10 +231,25 @@ export async function GET(request: NextRequest) {
   // They're just a field (round_up_amount_cents) on regular transactions
   // So there's no "Include Round-ups" filter - round-ups always show as badges
 
-  // Execute query with pagination
-  const { data: transactions, error, count } = await query
-    .order("created_at", { ascending: false })
-    .range(offset, offset + limit - 1);
+  // Execute query with pagination.
+  // Prefer cursor-based pagination when a cursor is supplied — it stays fast
+  // at depth because PG can use the (account_id, created_at DESC) index to
+  // seek directly past the previous page, instead of scanning OFFSET rows.
+  if (cursor) {
+    // Validate cursor: must be a parseable ISO timestamp.
+    const cursorDate = new Date(cursor);
+    if (Number.isNaN(cursorDate.getTime())) {
+      return NextResponse.json(
+        { error: "Invalid cursor — must be an ISO timestamp" },
+        { status: 400 }
+      );
+    }
+    query = query.lt("created_at", cursorDate.toISOString());
+  }
+
+  const { data: transactions, error, count } = await (cursor
+    ? query.order("created_at", { ascending: false }).limit(limit)
+    : query.order("created_at", { ascending: false }).range(offset, offset + limit - 1));
 
   if (error) {
     console.error("Failed to fetch transactions:", error);
@@ -247,7 +271,8 @@ export async function GET(request: NextRequest) {
     let query = supabase
       .from("transactions")
       .select("amount_cents, is_income")
-      .in("account_id", accountIds);
+      .in("account_id", accountIds)
+      .is("deleted_at", null);
 
     // Re-apply all the same filters
     if (search) {
@@ -392,10 +417,27 @@ export async function GET(request: NextRequest) {
 
   const spendingCount = allMatchingTransactions?.filter(t => t.amount_cents < 0).length || 0;
 
+  // Compute the cursor for the next page (created_at of the last row).
+  // Callers can pass this back via `?cursor=` to fetch the next page.
+  const lastRow = transactionsWithAccounts.length > 0
+    ? transactionsWithAccounts[transactionsWithAccounts.length - 1]
+    : null;
+  const nextCursor = lastRow?.created_at ?? null;
+
+  // hasMorePages semantics:
+  //   - With OFFSET: based on the exact `count` from the query.
+  //   - With cursor: we don't have an exact count for the remaining slice;
+  //     `hasMorePages` is true iff we filled the page (heuristic — caller can
+  //     keep paging until the response is shorter than `limit`).
+  const hasMorePages = cursor
+    ? transactionsWithAccounts.length === limit
+    : (count || 0) > offset + limit;
+
   return NextResponse.json({
     transactions: transactionsWithAccounts,
     total: count || 0,
-    hasMore: (count || 0) > offset + limit,
+    hasMore: hasMorePages,
+    nextCursor,
     summary: {
       spending: totalSpending,
       income: totalIncome,
