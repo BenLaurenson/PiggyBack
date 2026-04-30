@@ -40,8 +40,24 @@ export function TransactionCard({ transaction, index, onClick, showCategory = tr
   // Detect if this is a transfer
   const isTransfer = transaction.transfer_account_id !== null && transaction.transfer_account_id !== undefined;
 
-  // Get display name (merchant or transfer recipient/sender)
-  const displayName = transaction.description;
+  // Activity-overrides: prefer the user's renamed merchant if present.
+  const overrideRow = Array.isArray(transaction.activity_overrides)
+    ? transaction.activity_overrides[0]
+    : transaction.activity_overrides;
+  const merchantOverride: string | null = overrideRow?.merchant_display_name ?? null;
+  const subtitleOverride: string | null = overrideRow?.subtitle ?? null;
+  const isExcludedFromBudget: boolean = overrideRow?.exclude_from_budget === true;
+  const hasOverride: boolean =
+    !!overrideRow &&
+    (merchantOverride !== null ||
+      subtitleOverride !== null ||
+      overrideRow.exclude_from_budget === true ||
+      overrideRow.exclude_from_net_worth === true);
+
+  // Get display name: user override > original bank merchant.
+  const displayName = merchantOverride ?? transaction.description;
+  const hasNote = !!transaction.note_text;
+  const hasAttachment = transaction.has_attachment === true;
 
   // Get UP Bank category IDs
   const upCategoryId = transaction.category?.id || transaction.category_id;
@@ -168,7 +184,55 @@ export function TransactionCard({ transaction, index, onClick, showCategory = tr
                 by {transaction.performing_customer}
               </span>
             )}
+
+            {hasAttachment && (
+              <span
+                className="font-[family-name:var(--font-dm-sans)] text-xs"
+                style={{ color: 'var(--text-tertiary)' }}
+                title="This transaction has a receipt attached in Up"
+              >
+                📎
+              </span>
+            )}
+
+            {hasNote && (
+              <span
+                className="font-[family-name:var(--font-dm-sans)] text-xs"
+                style={{ color: 'var(--text-tertiary)' }}
+                title={transaction.note_text}
+              >
+                📝
+              </span>
+            )}
+
+            {isExcludedFromBudget && (
+              <span
+                className="font-[family-name:var(--font-dm-sans)] text-xs px-1.5 py-0.5 rounded-full"
+                style={{ backgroundColor: 'var(--pastel-yellow-light)', color: 'var(--pastel-yellow-dark)' }}
+                title="This transaction is excluded from your budget"
+              >
+                Off-budget
+              </span>
+            )}
+
+            {hasOverride && !isExcludedFromBudget && (
+              <span
+                className="font-[family-name:var(--font-dm-sans)] text-xs px-1.5 py-0.5 rounded-full"
+                style={{ backgroundColor: 'var(--pastel-mint-light)', color: 'var(--pastel-mint-dark)' }}
+                title="You've edited this transaction's display"
+              >
+                Edited
+              </span>
+            )}
           </div>
+          {subtitleOverride && (
+            <p
+              className="font-[family-name:var(--font-dm-sans)] text-xs italic mt-0.5"
+              style={{ color: 'var(--text-tertiary)' }}
+            >
+              {subtitleOverride}
+            </p>
+          )}
         </div>
 
         {/* Actions - View merchant history */}
