@@ -17,7 +17,12 @@ interface SimpleCategoryPickerProps {
   currentCategoryId: string | null;
   currentParentId: string | null;
   merchantDescription: string;
-  onCategoryChange: (categoryId: string | null, parentId: string | null, applyToMerchant: boolean) => Promise<void>;
+  onCategoryChange: (
+    categoryId: string | null,
+    parentId: string | null,
+    applyToMerchant: boolean,
+    shareWithEveryone?: boolean
+  ) => Promise<void>;
   onCancel: () => void;
   open: boolean;
 }
@@ -49,6 +54,7 @@ export function SimpleCategoryPicker({
   const [saving, setSaving] = useState<"single" | "merchant" | "remove" | false>(false);
   const [search, setSearch] = useState("");
   const [pendingCategory, setPendingCategory] = useState<PendingCategory | null>(null);
+  const [shareWithEveryone, setShareWithEveryone] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -62,6 +68,7 @@ export function SimpleCategoryPicker({
     if (!open) {
       setPendingCategory(null);
       setSearch("");
+      setShareWithEveryone(false);
     }
   }, [open]);
 
@@ -95,12 +102,18 @@ export function SimpleCategoryPicker({
     if (!pendingCategory) return;
     setSaving(applyToMerchant ? "merchant" : "single");
     try {
-      await onCategoryChange(pendingCategory.categoryId, null, applyToMerchant);
+      await onCategoryChange(
+        pendingCategory.categoryId,
+        null,
+        applyToMerchant,
+        applyToMerchant ? shareWithEveryone : false
+      );
     } catch (error) {
       console.error("Failed to change category:", error);
     } finally {
       setSaving(false);
       setPendingCategory(null);
+      setShareWithEveryone(false);
     }
   };
 
@@ -233,6 +246,35 @@ export function SimpleCategoryPicker({
                   >
                     {saving === "merchant" ? "Saving…" : `All "${merchantDescription}" transactions`}
                   </Button>
+
+                  {/* Share with everyone (only relevant when applying to all) */}
+                  <label
+                    className="flex items-start gap-2.5 px-3 py-2.5 rounded-xl cursor-pointer select-none"
+                    style={{ backgroundColor: 'var(--surface-secondary)' }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={shareWithEveryone}
+                      onChange={(e) => setShareWithEveryone(e.target.checked)}
+                      disabled={!!saving}
+                      className="mt-0.5"
+                      aria-label="Share with everyone"
+                    />
+                    <span className="flex flex-col">
+                      <span
+                        className="text-sm font-[family-name:var(--font-nunito)] font-bold"
+                        style={{ color: 'var(--text-primary)' }}
+                      >
+                        Share this rule with everyone
+                      </span>
+                      <span
+                        className="text-xs font-[family-name:var(--font-dm-sans)]"
+                        style={{ color: 'var(--text-tertiary)' }}
+                      >
+                        Suggests it for the global default rules. An admin reviews suggestions before they apply to other users.
+                      </span>
+                    </span>
+                  </label>
 
                   <button
                     onClick={() => setPendingCategory(null)}

@@ -44,11 +44,13 @@ export async function PATCH(
   const recategorizeSchema = z.object({
     category_id: z.string().max(100).nullable(),
     apply_to_merchant: z.boolean().optional(),
+    share_with_everyone: z.boolean().optional(),
     notes: z.string().max(500).optional(),
   });
   const parsed = await parseBody(request, recategorizeSchema);
   if (parsed.response) return parsed.response;
-  const { category_id, apply_to_merchant, notes } = parsed.data;
+  const { category_id, apply_to_merchant, share_with_everyone, notes } =
+    parsed.data;
 
   try {
     // Resolve the correct parent_category_id from the categories table
@@ -169,7 +171,9 @@ export async function PATCH(
     let merchantRuleCreated = false;
 
     if (apply_to_merchant && category_id && transaction.description) {
-      // a) Upsert merchant rule
+      // a) Upsert merchant rule. share_with_everyone is opt-in; the
+      //    admin queue (`/admin/merchant-rules`) reviews these and
+      //    promotes them into the global default set.
       const { error: ruleError } = await supabase
         .from("merchant_category_rules")
         .upsert(
@@ -178,6 +182,7 @@ export async function PATCH(
             merchant_description: transaction.description,
             category_id: category_id,
             parent_category_id: resolvedParentCategoryId,
+            share_with_everyone: share_with_everyone === true,
           },
           { onConflict: "user_id,merchant_description" }
         );

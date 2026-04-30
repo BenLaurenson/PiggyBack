@@ -1,8 +1,14 @@
 import { createClient } from "@/utils/supabase/server";
+import { createServiceRoleClient } from "@/utils/supabase/service-role";
 import { getPlaintextToken } from "@/lib/token-encryption";
 import { inferCategoryId, ensureInferredCategories } from "@/lib/infer-category";
 import { syncLimiter, getClientIp, rateLimitKey } from "@/lib/rate-limiter";
 import { validateUpApiUrl } from "@/lib/up-api";
+import {
+  loadMerchantDefaultRules,
+  findDefaultRuleForDescription,
+  recordRuleApplications,
+} from "@/lib/merchant-default-rules";
 
 export const maxDuration = 300; // 5 minutes for long syncs
 
@@ -190,12 +196,22 @@ export async function POST(request: Request) {
 
         const { data: merchantRules } = await supabase
           .from("merchant_category_rules")
-          .select("merchant_description, category_id, parent_category_id")
+          .select("id, merchant_description, category_id, parent_category_id")
           .eq("user_id", user.id);
 
         const merchantRulesByDesc = new Map(
           (merchantRules || []).map((r: any) => [r.merchant_description, r])
         );
+
+        // Load global merchant default rules (admin-curated). These act as
+        // a fallback when the user has no personal rule for a description.
+        const { byPattern: defaultRulesByPattern } =
+          await loadMerchantDefaultRules();
+
+        // Track rule applications during this sync so we can bump
+        // last_applied_at / applied_count at the end.
+        const userRuleAppliedIds = new Set<string>();
+        const defaultRuleAppliedCounts = new Map<string, number>();
 
         // Phase: Sync transactions
         send({
@@ -273,10 +289,33 @@ export async function POST(request: Request) {
 
               const merchantRule = merchantRulesByDesc.get(
                 txn.attributes.description
-              );
+              ) as
+                | { id: string; category_id: string; parent_category_id: string | null }
+                | undefined;
               if (merchantRule) {
                 finalCategoryId = merchantRule.category_id;
                 finalParentCategoryId = merchantRule.parent_category_id;
+                userRuleAppliedIds.add(merchantRule.id);
+              } else if (txn.attributes.description) {
+                // Fall back to admin-curated global default rules. Only
+                // applied when the transaction has no Up category and no
+                // user rule (we don't want defaults to override Up's own
+                // categorization or a user override).
+                const upCatId = txn.relationships.category.data?.id || null;
+                if (!upCatId) {
+                  const defaultRule = findDefaultRuleForDescription(
+                    txn.attributes.description,
+                    defaultRulesByPattern
+                  );
+                  if (defaultRule) {
+                    finalCategoryId = defaultRule.category_id;
+                    finalParentCategoryId = defaultRule.parent_category_id;
+                    defaultRuleAppliedCounts.set(
+                      defaultRule.id,
+                      (defaultRuleAppliedCounts.get(defaultRule.id) || 0) + 1
+                    );
+                  }
+                }
               }
 
               const existingId = txnIdByUpId.get(txn.id);
@@ -427,6 +466,22 @@ export async function POST(request: Request) {
         if (configUpdateError) {
           console.error("Failed to update last_synced_at:", configUpdateError);
           errors.push(`Failed to update sync timestamp: ${configUpdateError.message}`);
+        }
+
+        // Bump rule application stats (fire-and-forget; errors logged).
+        if (defaultRuleAppliedCounts.size > 0) {
+          await recordRuleApplications(defaultRuleAppliedCounts);
+        }
+        if (userRuleAppliedIds.size > 0) {
+          try {
+            const adminClient = createServiceRoleClient();
+            await adminClient.rpc(
+              "touch_merchant_category_rules_applied",
+              { p_rule_ids: Array.from(userRuleAppliedIds) }
+            );
+          } catch (err) {
+            console.error("Failed to touch user merchant rules:", err);
+          }
         }
 
         if (errors.length > 0) {

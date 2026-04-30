@@ -24,6 +24,15 @@ vi.mock("@/lib/token-encryption", () => ({
   getPlaintextToken: vi.fn((token: string) => token),
 }));
 
+vi.mock("@/lib/merchant-default-rules", () => ({
+  loadMerchantDefaultRules: vi.fn(() =>
+    Promise.resolve({ rules: [], byPattern: new Map() })
+  ),
+  findDefaultRuleForDescription: vi.fn(() => null),
+  recordRuleApplications: vi.fn(),
+  invalidateMerchantDefaultRulesCache: vi.fn(),
+}));
+
 vi.mock("next/cache", () => ({
   revalidatePath: vi.fn(),
   revalidateTag: vi.fn(),

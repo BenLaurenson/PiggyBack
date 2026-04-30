@@ -15,6 +15,11 @@ import { inferCategoryId, ensureInferredCategories } from "@/lib/infer-category"
 import { aiCategorizeTransaction } from "@/lib/ai-categorize";
 import { getPlaintextToken } from "@/lib/token-encryption";
 import { webhookLimiter, getClientIp } from "@/lib/rate-limiter";
+import {
+  loadMerchantDefaultRules,
+  findDefaultRuleForDescription,
+  recordRuleApplications,
+} from "@/lib/merchant-default-rules";
 
 // Up Bank Webhook Event Types
 type WebhookEventType =
@@ -471,14 +476,32 @@ async function processTransaction(
 
   const { data: merchantRule } = await supabase
     .from("merchant_category_rules")
-    .select("category_id, parent_category_id")
+    .select("id, category_id, parent_category_id")
     .eq("user_id", userId)
     .eq("merchant_description", txn.attributes.description)
     .maybeSingle();
 
+  let appliedDefaultRuleId: string | null = null;
+  let appliedUserRuleId: string | null = null;
   if (merchantRule) {
     finalCategoryId = merchantRule.category_id;
     finalParentCategoryId = merchantRule.parent_category_id;
+    appliedUserRuleId = merchantRule.id;
+  } else if (
+    !txn.relationships.category.data?.id &&
+    txn.attributes.description
+  ) {
+    // No Up category and no user rule - try the global default rules.
+    const { byPattern } = await loadMerchantDefaultRules();
+    const defaultRule = findDefaultRuleForDescription(
+      txn.attributes.description,
+      byPattern
+    );
+    if (defaultRule) {
+      finalCategoryId = defaultRule.category_id;
+      finalParentCategoryId = defaultRule.parent_category_id;
+      appliedDefaultRuleId = defaultRule.id;
+    }
   }
 
   // Check if this transaction already exists with a user override (highest priority)
@@ -554,6 +577,21 @@ async function processTransaction(
   if (txnError) {
     console.error("Error upserting transaction:", txnError);
     return;
+  }
+
+  // Track rule application stats for the admin UI's "Last applied"
+  // column. Fire-and-forget; failures are logged but don't fail the webhook.
+  if (appliedDefaultRuleId) {
+    void recordRuleApplications(new Map([[appliedDefaultRuleId, 1]]));
+  }
+  if (appliedUserRuleId) {
+    void supabase
+      .rpc("touch_merchant_category_rules_applied", {
+        p_rule_ids: [appliedUserRuleId],
+      })
+      .then(({ error }) => {
+        if (error) console.error("Failed to touch user merchant rule:", error);
+      });
   }
 
   // 4. Handle tags

@@ -134,7 +134,12 @@ export function TransactionDetailModal({
   // Get category icon from mapping using UP Bank category ID
   const categoryIcon = getIcon(upCategoryId) || "📂";
 
-  const handleRecategorize = async (categoryId: string | null, parentId: string | null, applyToMerchant: boolean) => {
+  const handleRecategorize = async (
+    categoryId: string | null,
+    parentId: string | null,
+    applyToMerchant: boolean,
+    shareWithEveryone: boolean = false
+  ) => {
     setRecategorizing(true);
     setError(null);
 
@@ -145,6 +150,7 @@ export function TransactionDetailModal({
         body: JSON.stringify({
           category_id: categoryId,
           apply_to_merchant: applyToMerchant,
+          share_with_everyone: shareWithEveryone,
         }),
       });
 
