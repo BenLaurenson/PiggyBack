@@ -132,7 +132,7 @@ export async function updateSession(request: NextRequest) {
   }
 
   // Protected routes - redirect to login if not authenticated
-  const protectedPaths = ["/home", "/settings", "/goals", "/plan", "/activity", "/budget", "/invest", "/onboarding", "/analysis", "/notifications", "/dev"];
+  const protectedPaths = ["/home", "/settings", "/goals", "/plan", "/activity", "/budget", "/invest", "/onboarding", "/analysis", "/notifications", "/dev", "/admin", "/account"];
   const isProtectedPath = protectedPaths.some((path) =>
     request.nextUrl.pathname.startsWith(path)
   );
@@ -167,7 +167,7 @@ export async function updateSession(request: NextRequest) {
   if (!isDemoMode && user && isProtectedPath && !request.nextUrl.pathname.startsWith("/onboarding")) {
     const { data: profile } = await supabase
       .from("profiles")
-      .select("has_onboarded")
+      .select("has_onboarded, last_seen_at")
       .eq("id", user.id)
       .maybeSingle();
 
@@ -175,6 +175,24 @@ export async function updateSession(request: NextRequest) {
       const url = request.nextUrl.clone();
       url.pathname = "/onboarding";
       return NextResponse.redirect(url);
+    }
+
+    // Phase 4 instrumentation: bump profiles.last_seen_at at most once per
+    // hour so the cron-based returned_d1/d7/d30 events have something to
+    // compute against. We only update on real page navigations
+    // (request.method === "GET" and not an /api or _next path), and we
+    // throttle by checking the existing timestamp.
+    if (request.method === "GET" && !request.nextUrl.pathname.startsWith("/api")) {
+      const lastSeenAt = profile?.last_seen_at ? new Date(profile.last_seen_at).getTime() : 0;
+      const now = Date.now();
+      if (!lastSeenAt || now - lastSeenAt > 60 * 60 * 1000) {
+        // Fire-and-forget — do not block the response on this write.
+        void supabase
+          .from("profiles")
+          .update({ last_seen_at: new Date(now).toISOString() })
+          .eq("id", user.id)
+          .then(() => undefined);
+      }
     }
   }
 
