@@ -15,6 +15,7 @@ import { installLogScrubber } from "@/lib/log-scrubber";
 installLogScrubber();
 import { createHmac, timingSafeEqual } from "crypto";
 import { matchSingleTransactionToExpenses, matchSingleTransactionToIncomeSources } from "@/lib/match-expense-transactions";
+import { matchTransactionToRecurringInvestments } from "@/lib/match-recurring-investments";
 import { ensureInferredCategories } from "@/lib/infer-category";
 import { aiCategorizeTransaction } from "@/lib/ai-categorize";
 import { getPlaintextToken } from "@/lib/token-encryption";
@@ -451,6 +452,32 @@ async function processTransaction(
       txn.attributes.settledAt || txn.attributes.createdAt,
       txn.attributes.amount.valueInBaseUnits
     );
+
+    // 5a. Match to recurring investment rules (debits only — see docs in
+    // match-recurring-investments.ts). Resolve the partnership for this
+    // user once and pass it through.
+    try {
+      const { data: membership } = await supabase
+        .from("partnership_members")
+        .select("partnership_id")
+        .eq("user_id", userId)
+        .maybeSingle();
+
+      if (membership?.partnership_id) {
+        await matchTransactionToRecurringInvestments({
+          supabase,
+          transactionId: savedTransaction.id,
+          description: txn.attributes.description,
+          amountCents: txn.attributes.amount.valueInBaseUnits,
+          partnershipId: membership.partnership_id,
+          contributedAt:
+            txn.attributes.settledAt || txn.attributes.createdAt,
+        });
+      }
+    } catch (err) {
+      // Detection is best-effort — never block the rest of the pipeline.
+      console.error("[recurring-invest] match error:", err);
+    }
   } else if (savedTransaction && txn.attributes.amount.valueInBaseUnits > 0) {
     await matchSingleTransactionToIncomeSources(
       savedTransaction.id,
@@ -693,6 +720,7 @@ export async function POST(request: Request) {
     revalidatePath("/goals");
     revalidatePath("/activity");
     revalidatePath("/analysis");
+    revalidatePath("/invest");
 
     // Always return 200 OK to acknowledge receipt
     return NextResponse.json({ success: true }, { status: 200 });
