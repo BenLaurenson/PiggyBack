@@ -166,29 +166,11 @@ export function ActivityOverrideSection({ transactionId, initial, bankMerchant }
           />
         </div>
 
-        {/* Exclude from net worth */}
-        <div className="flex items-center justify-between">
-          <div>
-            <label
-              htmlFor="override-networth"
-              className="block font-[family-name:var(--font-dm-sans)] text-sm cursor-pointer"
-              style={{ color: "var(--text-primary)" }}
-            >
-              Exclude from net worth
-            </label>
-            <p
-              className="font-[family-name:var(--font-dm-sans)] text-xs"
-              style={{ color: "var(--text-tertiary)" }}
-            >
-              For one-off transfers, business expenses, etc.
-            </p>
-          </div>
-          <Switch
-            id="override-networth"
-            checked={excludeFromNetWorth}
-            onCheckedChange={setExcludeFromNetWorth}
-          />
-        </div>
+        {/* exclude_from_net_worth — schema column reserved, but net worth is
+            currently derived from accounts.balance_cents rather than from
+            individual transactions, so this toggle would not affect anything
+            today. Hidden until the net-worth aggregator can subtract excluded
+            transactions. Tracked in /roadmap. */}
 
         {/* Actions */}
         <div className="flex gap-2 pt-2">
