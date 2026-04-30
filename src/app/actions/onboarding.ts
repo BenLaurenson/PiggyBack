@@ -5,6 +5,38 @@ import { demoActionGuard } from "@/lib/demo-guard";
 import { track } from "@/lib/analytics/server";
 import { FunnelEvent } from "@/lib/analytics/events";
 
+/**
+ * Persist a single completed step to profiles.onboarding_steps_completed.
+ * Fire-and-forget from the wizard so closing the tab mid-flow doesn't
+ * lose progress. Idempotent — duplicates are deduped.
+ */
+export async function persistOnboardingStep(stepId: string) {
+  const blocked = demoActionGuard();
+  if (blocked) return blocked;
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: "Not authenticated" };
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("onboarding_steps_completed")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  const existing: string[] = profile?.onboarding_steps_completed || [];
+  if (existing.includes(stepId)) {
+    return { ok: true };
+  }
+  const next = [...existing, stepId];
+  const { error } = await supabase
+    .from("profiles")
+    .update({ onboarding_steps_completed: next })
+    .eq("id", user.id);
+
+  if (error) return { error: error.message };
+  return { ok: true };
+}
+
 export async function completeOnboarding(stepsCompleted: string[]) {
   const blocked = demoActionGuard(); if (blocked) return blocked;
   const supabase = await createClient();

@@ -13,7 +13,7 @@ import { BankStep } from "./steps/bank-step";
 import { IncomeStep } from "./steps/income-step";
 import { AiStep } from "./steps/ai-step";
 import { CompleteStep } from "./steps/complete-step";
-import { completeOnboarding } from "@/app/actions/onboarding";
+import { completeOnboarding, persistOnboardingStep } from "@/app/actions/onboarding";
 
 const steps = [
   { id: "welcome", label: "Welcome" },
@@ -32,8 +32,28 @@ interface OnboardingWizardProps {
   bankAccountCount?: number;
 }
 
+/**
+ * Pick the first step the user hasn't completed yet, so reopening
+ * /onboarding mid-flow lands on the next thing to do (rather than
+ * always restarting at Welcome).
+ *
+ * Order: welcome → profile → bank → income → ai → complete.
+ * 'welcome' has no DB-side persistence so we skip past it whenever
+ * any other step is already done.
+ */
+function pickInitialStep(stepsCompleted: string[]): number {
+  // If profile is done, skip Welcome too — they've clearly been past it.
+  if (stepsCompleted.includes("profile")) {
+    if (!stepsCompleted.includes("bank")) return 2;
+    if (!stepsCompleted.includes("income")) return 3;
+    if (!stepsCompleted.includes("ai")) return 4;
+    return 5; // Everything done → land on the Complete step.
+  }
+  return 0; // Brand-new user → Welcome.
+}
+
 export function OnboardingWizard({ userId, email, existingDisplayName, stepsCompleted, bankAccountCount = 0 }: OnboardingWizardProps) {
-  const [currentStep, setCurrentStep] = useState(0);
+  const [currentStep, setCurrentStep] = useState(() => pickInitialStep(stepsCompleted));
   const [completedSteps, setCompletedSteps] = useState<string[]>(stepsCompleted);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
@@ -41,7 +61,14 @@ export function OnboardingWizard({ userId, email, existingDisplayName, stepsComp
   const progress = ((currentStep + 1) / steps.length) * 100;
 
   const markStepComplete = (stepId: string) => {
-    setCompletedSteps(prev => prev.includes(stepId) ? prev : [...prev, stepId]);
+    setCompletedSteps((prev) => {
+      if (prev.includes(stepId)) return prev;
+      // Fire-and-forget DB persist so closing the tab mid-flow doesn't
+      // lose progress. The /onboarding page will re-derive on next load
+      // anyway, but this lets other parts of the app see the truth sooner.
+      void persistOnboardingStep(stepId);
+      return [...prev, stepId];
+    });
   };
 
   const handleNext = () => {

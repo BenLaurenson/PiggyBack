@@ -12,12 +12,6 @@ export default async function OnboardingPage() {
     redirect("/login");
   }
 
-  // Phase 4 funnel: tenant_provisioning_started fires once the user reaches
-  // the onboarding wizard for the first time (before has_onboarded flips
-  // to true). Idempotent because we only fire when has_onboarded === false.
-  // Note: in the multi-tenant world this will move to a dedicated provisioning
-  // route that runs *before* the user reaches the onboarding wizard.
-
   // Fetch profile and actual DB state in parallel to hydrate steps correctly
   const [
     { data: profile },
@@ -47,15 +41,25 @@ export default async function OnboardingPage() {
       .eq("is_active", true),
   ]);
 
+  // If the user has already finished onboarding, send them straight to /home
+  // instead of dropping them back into the wizard. Onboarding here is a
+  // setup flow, not a settings page.
+  if (profile?.has_onboarded === true) {
+    redirect("/home");
+  }
+
   if (profile && profile.has_onboarded === false) {
-    // Fire-and-forget; the page render shouldn't block on it.
+    // Phase 4 funnel: tenant_provisioning_started fires once the user reaches
+    // the onboarding wizard for the first time. Fire-and-forget.
     void track(FunnelEvent.TENANT_PROVISIONING_STARTED, {
       userId: user.id,
       tenantId: user.id,
     });
   }
 
-  // Merge stored steps with actual DB state (handles hard-refresh mid-onboarding)
+  // Merge stored steps with actual DB state (handles hard-refresh mid-onboarding
+  // OR a closed tab — the wizard previously only persisted on Final Done click,
+  // so DB-side reality is the authoritative signal of what's done).
   const storedSteps = profile?.onboarding_steps_completed || [];
   const hydratedSteps = [...storedSteps];
 
@@ -67,6 +71,20 @@ export default async function OnboardingPage() {
   }
   if ((incomeCount ?? 0) > 0 && !hydratedSteps.includes("income")) {
     hydratedSteps.push("income");
+  }
+
+  // Persist the hydrated steps back to the profile so subsequent renders
+  // don't have to re-derive them (and so other parts of the app that look at
+  // onboarding_steps_completed see the truth). Fire-and-forget — if it fails
+  // we'll just re-derive next time.
+  if (
+    hydratedSteps.length > storedSteps.length ||
+    hydratedSteps.some((s) => !storedSteps.includes(s))
+  ) {
+    void supabase
+      .from("profiles")
+      .update({ onboarding_steps_completed: hydratedSteps })
+      .eq("id", user.id);
   }
 
   return (
