@@ -99,3 +99,6 @@ kubeconfig
 gitleaks-report.json
 .continue/
 # tool cache
+MASTER_TODO.md
+
+# Personal hand-off notes — never commit
