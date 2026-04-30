@@ -1,30 +1,59 @@
+/**
+ * Up Bank Sync — categories, accounts, transactions, tags.
+ *
+ * @see https://developer.up.com.au/ — official Up developer docs
+ *
+ * Streams progress as NDJSON (one JSON object per line) so the UI can
+ * show real-time phase updates. Re-syncs are idempotent (upsert-everywhere).
+ *
+ * Strategy:
+ *   1. Categories — single GET /categories call (Up doesn't paginate this).
+ *   2. Accounts   — getAllPages of /accounts (small list, page[size]=100).
+ *   3. Transactions — TIME-WINDOW CHUNKING. Walk one month at a time per
+ *      account using filter[since] / filter[until]. Bounded memory, naturally
+ *      resumable on timeout: a partial sync just leaves last_synced_at unchanged
+ *      so the next run picks up from there.
+ *   4. Tags — getAllPages of /tags into tags_canonical for the UI tag picker.
+ */
+
 import { createClient } from "@/utils/supabase/server";
 import { getPlaintextToken } from "@/lib/token-encryption";
-import { inferCategoryId, ensureInferredCategories } from "@/lib/infer-category";
+import { ensureInferredCategories } from "@/lib/infer-category";
 import { syncLimiter, getClientIp, rateLimitKey } from "@/lib/rate-limiter";
-import { validateUpApiUrl } from "@/lib/up-api";
+import {
+  createUpApiClient,
+  UpUnauthorizedError,
+  type UpApiClient,
+} from "@/lib/up-api";
+import { PAGE_SIZE_DEFAULT, SYNC_WINDOW_DAYS } from "@/lib/up-constants";
+import {
+  ensureCategoryExists,
+  resolveCategoryBatch,
+  type BatchResolverContext,
+} from "@/lib/resolve-category";
+import type { UpAccount, UpCategory, UpTransaction } from "@/lib/up-types";
 
-export const maxDuration = 300; // 5 minutes for long syncs
+export const maxDuration = 300; // 5 minutes per sync run
 
-function sortCategoriesParentFirst(categories: any[]): any[] {
-  const sorted: any[] = [];
+type SendFn = (data: Record<string, unknown>) => void;
+
+function sortCategoriesParentFirst(categories: UpCategory[]): UpCategory[] {
+  const sorted: UpCategory[] = [];
   const remaining = [...categories];
   const processedIds = new Set<string>();
 
   while (remaining.length > 0) {
     const beforeLength = remaining.length;
-
     for (let i = remaining.length - 1; i >= 0; i--) {
       const category = remaining[i];
       const parentId = category.relationships.parent.data?.id;
-
       if (!parentId || processedIds.has(parentId)) {
         sorted.push(category);
         processedIds.add(category.id);
         remaining.splice(i, 1);
       }
     }
-
+    // If a cycle is detected (no progress), break and append remainder.
     if (remaining.length === beforeLength) {
       sorted.push(...remaining);
       break;
@@ -49,7 +78,10 @@ export async function POST(request: Request) {
   if (!rateLimitResult.allowed) {
     return Response.json(
       { error: "Too many requests. Please try again later." },
-      { status: 429, headers: { "Retry-After": String(Math.ceil((rateLimitResult.retryAfterMs ?? 0) / 1000)) } }
+      {
+        status: 429,
+        headers: { "Retry-After": String(Math.ceil((rateLimitResult.retryAfterMs ?? 0) / 1000)) },
+      }
     );
   }
 
@@ -73,73 +105,69 @@ export async function POST(request: Request) {
     );
   }
 
+  const client = createUpApiClient(apiToken);
+
   const encoder = new TextEncoder();
   const stream = new ReadableStream({
     async start(controller) {
-      const send = (data: Record<string, unknown>) => {
+      const send: SendFn = (data) => {
         controller.enqueue(encoder.encode(JSON.stringify(data) + "\n"));
       };
 
       try {
         const errors: string[] = [];
 
-        // Phase: Sync categories
+        // ─── Categories ──────────────────────────────────────────────────────
         send({ phase: "syncing-categories", message: "Syncing categories..." });
-
-        const categoriesRes = await fetch(
-          "https://api.up.com.au/api/v1/categories",
-          { headers: { Authorization: `Bearer ${apiToken}` } }
-        );
-        if (categoriesRes.ok) {
-          const { data: upCategories } = await categoriesRes.json();
-          const sortedCategories = sortCategoriesParentFirst(upCategories);
-          // Batch upsert categories (parents first due to sort)
+        try {
+          const categoriesRes = await client.getCategories();
+          const sortedCategories = sortCategoriesParentFirst(categoriesRes.data);
           for (let i = 0; i < sortedCategories.length; i += 50) {
-            const batch = sortedCategories.slice(i, i + 50).map((category: any) => ({
-              id: category.id,
-              name: category.attributes.name,
-              parent_category_id:
-                category.relationships.parent.data?.id || null,
+            const batch = sortedCategories.slice(i, i + 50).map((c) => ({
+              id: c.id,
+              name: c.attributes.name,
+              parent_category_id: c.relationships.parent.data?.id || null,
             }));
-            const { error: categoryError } = await supabase.from("categories").upsert(batch, { onConflict: "id" });
-            if (categoryError) {
-              console.error("Failed to upsert categories batch:", categoryError);
-              errors.push(`Failed to upsert categories: ${categoryError.message}`);
+            const { error } = await supabase
+              .from("categories")
+              .upsert(batch, { onConflict: "id" });
+            if (error) {
+              console.error("Failed to upsert categories batch:", error);
+              errors.push(`Failed to upsert categories: ${error.message}`);
             }
           }
-        }
-
-        // Ensure inferred categories exist (internal-transfer, round-up, etc.)
-        await ensureInferredCategories(supabase);
-
-        // Phase: Sync accounts (with pagination)
-        send({ phase: "syncing-accounts", message: "Syncing your accounts..." });
-
-        const upAccounts: any[] = [];
-        let accountsNextUrl: string | null =
-          "https://api.up.com.au/api/v1/accounts?page[size]=100";
-
-        while (accountsNextUrl) {
-          validateUpApiUrl(accountsNextUrl);
-          const accountsRes: Response = await fetch(accountsNextUrl, {
-            headers: { Authorization: `Bearer ${apiToken}` },
-          });
-          if (!accountsRes.ok) {
-            send({
-              phase: "error",
-              message: "Failed to fetch accounts from Up Bank",
-            });
+        } catch (error) {
+          if (error instanceof UpUnauthorizedError) {
+            send({ phase: "error", message: "Up Bank rejected your token. Please reconnect." });
             controller.close();
             return;
           }
-          const accountsPage: any = await accountsRes.json();
-          upAccounts.push(...accountsPage.data);
-          accountsNextUrl = accountsPage.links?.next || null;
+          send({ phase: "error", message: "Failed to fetch categories from Up Bank" });
+          controller.close();
+          return;
         }
 
-        // Upsert all accounts and build up_account_id → db_id map
-        const upAccountIdToDbId = new Map<string, string>();
+        await ensureInferredCategories(supabase);
 
+        // ─── Accounts ────────────────────────────────────────────────────────
+        send({ phase: "syncing-accounts", message: "Syncing your accounts..." });
+
+        let upAccounts: UpAccount[];
+        try {
+          const initial = await client.getAccounts({ pageSize: PAGE_SIZE_DEFAULT });
+          upAccounts = await client.getAllPages(initial);
+        } catch (error) {
+          if (error instanceof UpUnauthorizedError) {
+            send({ phase: "error", message: "Up Bank rejected your token. Please reconnect." });
+            controller.close();
+            return;
+          }
+          send({ phase: "error", message: "Failed to fetch accounts from Up Bank" });
+          controller.close();
+          return;
+        }
+
+        const upAccountIdToDbId = new Map<string, string>();
         for (const account of upAccounts) {
           const { data: savedAccount, error: accountError } = await supabase
             .from("accounts")
@@ -158,7 +186,7 @@ export async function POST(request: Request) {
               },
               { onConflict: "user_id,up_account_id" }
             )
-            .select()
+            .select("id")
             .single();
 
           if (!savedAccount) {
@@ -173,31 +201,44 @@ export async function POST(request: Request) {
             });
             continue;
           }
-
           upAccountIdToDbId.set(account.id, savedAccount.id);
         }
 
-        // Pre-load overrides and merchant rules for category resolution
+        // ─── Pre-load resolver context (overrides + merchant rules) ──────────
         const { data: allOverrides } = await supabase
           .from("transaction_category_overrides")
-          .select(
-            "transaction_id, override_category_id, override_parent_category_id"
-          );
-
+          .select("transaction_id, override_category_id, override_parent_category_id");
         const overridesByTxnId = new Map(
-          (allOverrides || []).map((o: any) => [o.transaction_id, o])
+          (allOverrides || []).map((o) => [
+            o.transaction_id as string,
+            {
+              override_category_id: o.override_category_id as string,
+              override_parent_category_id: o.override_parent_category_id as string | null,
+            },
+          ])
         );
 
         const { data: merchantRules } = await supabase
           .from("merchant_category_rules")
           .select("merchant_description, category_id, parent_category_id")
           .eq("user_id", user.id);
-
         const merchantRulesByDesc = new Map(
-          (merchantRules || []).map((r: any) => [r.merchant_description, r])
+          (merchantRules || []).map((r) => [
+            r.merchant_description as string,
+            {
+              category_id: r.category_id as string,
+              parent_category_id: r.parent_category_id as string | null,
+            },
+          ])
         );
 
-        // Phase: Sync transactions
+        const resolverCtx: BatchResolverContext = {
+          overridesByTxnId,
+          merchantRulesByDesc,
+          upAccountIdToDbId,
+        };
+
+        // ─── Transactions (chunked-window) ───────────────────────────────────
         send({
           phase: "syncing-transactions",
           message: "Syncing transactions...",
@@ -205,15 +246,15 @@ export async function POST(request: Request) {
         });
 
         let totalTxns = 0;
+        const seenCategories = new Set<string>();
 
         const twelveMonthsAgo = new Date();
         twelveMonthsAgo.setMonth(twelveMonthsAgo.getMonth() - 12);
-
         const lastSyncTime = config.last_synced_at
           ? new Date(config.last_synced_at)
           : twelveMonthsAgo;
-        const sinceDate =
-          lastSyncTime > twelveMonthsAgo ? lastSyncTime : twelveMonthsAgo;
+        const sinceDate = lastSyncTime > twelveMonthsAgo ? lastSyncTime : twelveMonthsAgo;
+        const now = new Date();
 
         for (const account of upAccounts) {
           const savedAccountId = upAccountIdToDbId.get(account.id);
@@ -225,200 +266,71 @@ export async function POST(request: Request) {
             txnCount: totalTxns,
           });
 
-          // Pre-load existing transaction IDs for override lookup
           const { data: existingTxns } = await supabase
             .from("transactions")
             .select("id, up_transaction_id")
             .eq("account_id", savedAccountId);
-
           const txnIdByUpId = new Map(
-            (existingTxns || []).map((t: any) => [t.up_transaction_id, t.id])
+            (existingTxns || []).map((t) => [t.up_transaction_id as string, t.id as string])
           );
 
-          let nextUrl: string | null = `https://api.up.com.au/api/v1/accounts/${account.id}/transactions?page[size]=100&filter[since]=${sinceDate.toISOString()}`;
+          // Walk time windows: [sinceDate, sinceDate + N days), advancing forward.
+          for (
+            const cursor = new Date(sinceDate);
+            cursor < now;
+          ) {
+            const windowEnd = new Date(cursor);
+            windowEnd.setDate(windowEnd.getDate() + SYNC_WINDOW_DAYS);
+            const upperBound = windowEnd > now ? now : windowEnd;
 
-          while (nextUrl) {
-            validateUpApiUrl(nextUrl);
-            const transactionsRes = await fetch(nextUrl, {
-              headers: { Authorization: `Bearer ${apiToken}` },
+            const windowSyncResult = await syncTransactionWindow({
+              client,
+              accountId: account.id,
+              accountDisplayName: account.attributes.displayName,
+              savedAccountId,
+              since: cursor.toISOString(),
+              until: upperBound.toISOString(),
+              resolverCtx,
+              txnIdByUpId,
+              seenCategories,
+              supabase,
+              send,
+              startCount: totalTxns,
+              errors,
             });
 
-            if (!transactionsRes.ok) break;
-
-            const txnData: any = await transactionsRes.json();
-
-            // Build batch of transaction rows and collect tag data
-            const txnRows: any[] = [];
-            const tagData: { upTxnId: string; tagName: string }[] = [];
-
-            for (const txn of txnData.data) {
-              // Transfer lookup from in-memory map (no DB query)
-              const transferAccountId = txn.relationships.transferAccount?.data?.id
-                ? upAccountIdToDbId.get(txn.relationships.transferAccount.data.id) || null
-                : null;
-
-              // Resolve category: override > merchant rule > infer
-              let finalCategoryId = inferCategoryId({
-                upCategoryId:
-                  txn.relationships.category.data?.id || null,
-                transferAccountId,
-                roundUpAmountCents:
-                  txn.attributes.roundUp?.amount?.valueInBaseUnits || null,
-                transactionType: txn.attributes.transactionType || null,
-                description: txn.attributes.description,
-                amountCents: txn.attributes.amount.valueInBaseUnits,
-              });
-              let finalParentCategoryId =
-                txn.relationships.parentCategory.data?.id || null;
-
-              const merchantRule = merchantRulesByDesc.get(
-                txn.attributes.description
-              );
-              if (merchantRule) {
-                finalCategoryId = merchantRule.category_id;
-                finalParentCategoryId = merchantRule.parent_category_id;
-              }
-
-              const existingId = txnIdByUpId.get(txn.id);
-              if (existingId) {
-                const override = overridesByTxnId.get(existingId);
-                if (override) {
-                  finalCategoryId = override.override_category_id;
-                  finalParentCategoryId =
-                    override.override_parent_category_id;
-                }
-              }
-
-              txnRows.push({
-                account_id: savedAccountId,
-                up_transaction_id: txn.id,
-                description: txn.attributes.description,
-                raw_text: txn.attributes.rawText,
-                message: txn.attributes.message,
-                amount_cents: txn.attributes.amount.valueInBaseUnits,
-                currency_code: txn.attributes.amount.currencyCode,
-                status: txn.attributes.status,
-                category_id: finalCategoryId,
-                parent_category_id: finalParentCategoryId,
-                settled_at: txn.attributes.settledAt,
-                created_at: txn.attributes.createdAt,
-                hold_info_amount_cents:
-                  txn.attributes.holdInfo?.amount?.valueInBaseUnits || null,
-                hold_info_foreign_amount_cents:
-                  txn.attributes.holdInfo?.foreignAmount?.valueInBaseUnits ||
-                  null,
-                hold_info_foreign_currency_code:
-                  txn.attributes.holdInfo?.foreignAmount?.currencyCode || null,
-                round_up_amount_cents:
-                  txn.attributes.roundUp?.amount?.valueInBaseUnits || null,
-                round_up_boost_cents:
-                  txn.attributes.roundUp?.boostPortion?.valueInBaseUnits ||
-                  null,
-                cashback_amount_cents:
-                  txn.attributes.cashback?.amount?.valueInBaseUnits || null,
-                cashback_description:
-                  txn.attributes.cashback?.description || null,
-                foreign_amount_cents:
-                  txn.attributes.foreignAmount?.valueInBaseUnits || null,
-                foreign_currency_code:
-                  txn.attributes.foreignAmount?.currencyCode || null,
-                card_purchase_method:
-                  txn.attributes.cardPurchaseMethod?.method || null,
-                card_number_suffix:
-                  txn.attributes.cardPurchaseMethod?.cardNumberSuffix || null,
-                transfer_account_id: transferAccountId,
-                is_categorizable: txn.attributes.isCategorizable ?? true,
-                transaction_type: txn.attributes.transactionType || null,
-                deep_link_url: txn.attributes.deepLinkURL || null,
-              });
-
-              // Collect tags
-              if (
-                txn.relationships.tags?.data &&
-                Array.isArray(txn.relationships.tags.data)
-              ) {
-                for (const tag of txn.relationships.tags.data) {
-                  tagData.push({ upTxnId: txn.id, tagName: tag.id });
-                }
-              }
-            }
-
-            // Batch upsert all transactions in this page
-            if (txnRows.length > 0) {
-              const { error: txnError } = await supabase
-                .from("transactions")
-                .upsert(txnRows, { onConflict: "account_id,up_transaction_id" });
-              if (txnError) {
-                console.error("Failed to upsert transactions:", txnError);
-                errors.push(`Failed to upsert transactions for ${account.attributes.displayName}: ${txnError.message}`);
-              }
-            }
-
-            // Batch sync tags
-            if (tagData.length > 0) {
-              // Batch upsert unique tag names
-              const uniqueTagNames = [...new Set(tagData.map((t) => t.tagName))];
-              const { error: tagsError } = await supabase
-                .from("tags")
-                .upsert(
-                  uniqueTagNames.map((name) => ({ name })),
-                  { onConflict: "name" }
-                );
-              if (tagsError) {
-                console.error("Failed to upsert tags:", tagsError);
-                errors.push(`Failed to upsert tags: ${tagsError.message}`);
-              }
-
-              // Look up the DB IDs for transactions that have tags
-              const tagUpTxnIds = [...new Set(tagData.map((t) => t.upTxnId))];
-              const { data: tagTxns } = await supabase
-                .from("transactions")
-                .select("id, up_transaction_id")
-                .eq("account_id", savedAccountId)
-                .in("up_transaction_id", tagUpTxnIds);
-
-              const tagTxnIdMap = new Map(
-                (tagTxns || []).map((t: any) => [t.up_transaction_id, t.id])
-              );
-
-              // Batch upsert tag associations
-              const tagAssociations = tagData
-                .filter((t) => tagTxnIdMap.has(t.upTxnId))
-                .map((t) => ({
-                  transaction_id: tagTxnIdMap.get(t.upTxnId),
-                  tag_name: t.tagName,
-                }));
-
-              if (tagAssociations.length > 0) {
-                const { error: tagAssocError } = await supabase
-                  .from("transaction_tags")
-                  .upsert(tagAssociations, {
-                    onConflict: "transaction_id,tag_name",
-                  });
-                if (tagAssocError) {
-                  console.error("Failed to upsert transaction tags:", tagAssocError);
-                  errors.push(`Failed to upsert transaction tags: ${tagAssocError.message}`);
-                }
-              }
-            }
-
-            totalTxns += txnData.data.length;
-            send({
-              phase: "syncing-transactions",
-              message: `Syncing ${account.attributes.displayName}... ${totalTxns} transactions`,
-              txnCount: totalTxns,
-            });
-
-            nextUrl = txnData.links?.next || null;
+            totalTxns = windowSyncResult.newTotal;
+            cursor.setDate(cursor.getDate() + SYNC_WINDOW_DAYS);
           }
         }
 
-        // Phase: Finishing
-        send({
-          phase: "finishing",
-          message: "Finishing up...",
-          txnCount: totalTxns,
-        });
+        // ─── Tags canonical sync ─────────────────────────────────────────────
+        send({ phase: "syncing-tags", message: "Syncing tag list..." });
+        try {
+          const initialTags = await client.getTags({ pageSize: PAGE_SIZE_DEFAULT });
+          const allTags = await client.getAllPages(initialTags);
+          if (allTags.length > 0) {
+            const rows = allTags.map((tag) => ({
+              id: tag.id,
+              user_id: user.id,
+              last_synced_at: new Date().toISOString(),
+            }));
+            const { error: tagsError } = await supabase
+              .from("tags_canonical")
+              .upsert(rows, { onConflict: "user_id,id" });
+            if (tagsError) {
+              console.error("Failed to upsert tags_canonical:", tagsError);
+              errors.push(`Failed to upsert canonical tags: ${tagsError.message}`);
+            }
+          }
+        } catch (error) {
+          // Tag sync is best-effort — the activity page falls back to the
+          // organically-populated `tags` table.
+          console.error("Tag canonical sync failed:", error);
+        }
+
+        // ─── Finishing ───────────────────────────────────────────────────────
+        send({ phase: "finishing", message: "Finishing up...", txnCount: totalTxns });
 
         const { error: configUpdateError } = await supabase
           .from("up_api_configs")
@@ -444,11 +356,12 @@ export async function POST(request: Request) {
           });
         }
       } catch (err) {
-        console.error("Sync error:", err);
-        send({
-          phase: "error",
-          message: "Sync failed. Please try again later.",
-        });
+        if (err instanceof UpUnauthorizedError) {
+          send({ phase: "error", message: "Up Bank rejected your token. Please reconnect." });
+        } else {
+          console.error("Sync error:", err);
+          send({ phase: "error", message: "Sync failed. Please try again later." });
+        }
       } finally {
         controller.close();
       }
@@ -461,4 +374,167 @@ export async function POST(request: Request) {
       "Cache-Control": "no-cache",
     },
   });
+}
+
+interface WindowSyncOptions {
+  client: UpApiClient;
+  accountId: string;
+  accountDisplayName: string;
+  savedAccountId: string;
+  since: string;
+  until: string;
+  resolverCtx: BatchResolverContext;
+  txnIdByUpId: Map<string, string>;
+  seenCategories: Set<string>;
+  supabase: Awaited<ReturnType<typeof createClient>>;
+  send: SendFn;
+  startCount: number;
+  errors: string[];
+}
+
+/**
+ * Sync one [since, until) window of transactions for one account.
+ * Walks all pages within the window using getAllPages internally.
+ */
+async function syncTransactionWindow(opts: WindowSyncOptions): Promise<{ newTotal: number }> {
+  const initial = await opts.client.getAccountTransactions(opts.accountId, {
+    pageSize: PAGE_SIZE_DEFAULT,
+    filterSince: opts.since,
+    filterUntil: opts.until,
+  });
+  const allTxns: UpTransaction[] = await opts.client.getAllPages(initial);
+
+  let total = opts.startCount;
+  if (allTxns.length === 0) return { newTotal: total };
+
+  // Defensive: ensure any unknown category IDs Up returns are inserted before
+  // we reference them. Cache by id to avoid redundant upserts.
+  for (const txn of allTxns) {
+    const catId = txn.relationships.category.data?.id ?? null;
+    const parentId = txn.relationships.parentCategory.data?.id ?? null;
+    if (catId && !opts.seenCategories.has(catId)) {
+      await ensureCategoryExists(opts.supabase, catId);
+      opts.seenCategories.add(catId);
+    }
+    if (parentId && !opts.seenCategories.has(parentId)) {
+      await ensureCategoryExists(opts.supabase, parentId);
+      opts.seenCategories.add(parentId);
+    }
+  }
+
+  const txnRows: Record<string, unknown>[] = [];
+  const tagData: { upTxnId: string; tagName: string }[] = [];
+
+  for (const txn of allTxns) {
+    const transferAccountId = txn.relationships.transferAccount?.data?.id
+      ? opts.resolverCtx.upAccountIdToDbId.get(txn.relationships.transferAccount.data.id) ?? null
+      : null;
+
+    const existingId = opts.txnIdByUpId.get(txn.id) ?? null;
+    const { categoryId, parentCategoryId } = resolveCategoryBatch(
+      txn,
+      opts.resolverCtx,
+      existingId
+    );
+
+    txnRows.push({
+      account_id: opts.savedAccountId,
+      up_transaction_id: txn.id,
+      description: txn.attributes.description,
+      raw_text: txn.attributes.rawText,
+      message: txn.attributes.message,
+      amount_cents: txn.attributes.amount.valueInBaseUnits,
+      currency_code: txn.attributes.amount.currencyCode,
+      status: txn.attributes.status,
+      category_id: categoryId,
+      parent_category_id: parentCategoryId,
+      settled_at: txn.attributes.settledAt,
+      created_at: txn.attributes.createdAt,
+      hold_info_amount_cents: txn.attributes.holdInfo?.amount?.valueInBaseUnits ?? null,
+      hold_info_foreign_amount_cents:
+        txn.attributes.holdInfo?.foreignAmount?.valueInBaseUnits ?? null,
+      hold_info_foreign_currency_code:
+        txn.attributes.holdInfo?.foreignAmount?.currencyCode ?? null,
+      round_up_amount_cents: txn.attributes.roundUp?.amount?.valueInBaseUnits ?? null,
+      round_up_boost_cents: txn.attributes.roundUp?.boostPortion?.valueInBaseUnits ?? null,
+      cashback_amount_cents: txn.attributes.cashback?.amount?.valueInBaseUnits ?? null,
+      cashback_description: txn.attributes.cashback?.description ?? null,
+      foreign_amount_cents: txn.attributes.foreignAmount?.valueInBaseUnits ?? null,
+      foreign_currency_code: txn.attributes.foreignAmount?.currencyCode ?? null,
+      card_purchase_method: txn.attributes.cardPurchaseMethod?.method ?? null,
+      card_number_suffix: txn.attributes.cardPurchaseMethod?.cardNumberSuffix ?? null,
+      transfer_account_id: transferAccountId,
+      is_categorizable: txn.attributes.isCategorizable ?? true,
+      transaction_type: txn.attributes.transactionType,
+      deep_link_url: txn.attributes.deepLinkURL ?? null,
+      note_text: txn.attributes.note?.text ?? null,
+      has_attachment: txn.relationships.attachment?.data !== null,
+      performing_customer: txn.attributes.performingCustomer?.displayName ?? null,
+    });
+
+    if (txn.relationships.tags?.data) {
+      for (const tag of txn.relationships.tags.data) {
+        tagData.push({ upTxnId: txn.id, tagName: tag.id });
+      }
+    }
+  }
+
+  if (txnRows.length > 0) {
+    const { error: txnError } = await opts.supabase
+      .from("transactions")
+      .upsert(txnRows, { onConflict: "account_id,up_transaction_id" });
+    if (txnError) {
+      console.error("Failed to upsert transactions:", txnError);
+      opts.errors.push(
+        `Failed to upsert transactions for ${opts.accountDisplayName}: ${txnError.message}`
+      );
+    }
+  }
+
+  if (tagData.length > 0) {
+    const uniqueTagNames = [...new Set(tagData.map((t) => t.tagName))];
+    const { error: tagsError } = await opts.supabase
+      .from("tags")
+      .upsert(uniqueTagNames.map((name) => ({ name })), { onConflict: "name" });
+    if (tagsError) {
+      console.error("Failed to upsert tags:", tagsError);
+      opts.errors.push(`Failed to upsert tags: ${tagsError.message}`);
+    }
+
+    const tagUpTxnIds = [...new Set(tagData.map((t) => t.upTxnId))];
+    const { data: tagTxns } = await opts.supabase
+      .from("transactions")
+      .select("id, up_transaction_id")
+      .eq("account_id", opts.savedAccountId)
+      .in("up_transaction_id", tagUpTxnIds);
+    const tagTxnIdMap = new Map(
+      (tagTxns || []).map((t) => [t.up_transaction_id as string, t.id as string])
+    );
+
+    const tagAssociations = tagData
+      .filter((t) => tagTxnIdMap.has(t.upTxnId))
+      .map((t) => ({
+        transaction_id: tagTxnIdMap.get(t.upTxnId),
+        tag_name: t.tagName,
+      }));
+
+    if (tagAssociations.length > 0) {
+      const { error: tagAssocError } = await opts.supabase
+        .from("transaction_tags")
+        .upsert(tagAssociations, { onConflict: "transaction_id,tag_name" });
+      if (tagAssocError) {
+        console.error("Failed to upsert transaction tags:", tagAssocError);
+        opts.errors.push(`Failed to upsert transaction tags: ${tagAssocError.message}`);
+      }
+    }
+  }
+
+  total += allTxns.length;
+  opts.send({
+    phase: "syncing-transactions",
+    message: `Syncing ${opts.accountDisplayName}... ${total} transactions`,
+    txnCount: total,
+  });
+
+  return { newTotal: total };
 }
