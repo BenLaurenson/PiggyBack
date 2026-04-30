@@ -2858,6 +2858,137 @@ IMPORTANT: For date ordering on transactions, use 'settled_at' or 'created_at' �
       },
     }),
 
+    generateGoalTasks: tool({
+      description:
+        "Generate or refresh the AI-suggested next-step task list for a savings goal. " +
+        "Reads CURRENT goal state from the database (current_amount, target, deadline, " +
+        "linked saver, recent contribution velocity) — never trust a snapshot from goal " +
+        "creation. Returns 3-5 short action items the user can act on. Use when the user " +
+        "asks 'what should I do next on goal X' or to refresh stale tasks.",
+      inputSchema: z.object({
+        goalName: z.string().describe(
+          "Name of the goal to generate tasks for (partial match accepted)"
+        ),
+      }),
+      inputExamples: [
+        { input: { goalName: "Holiday Fund" } },
+        { input: { goalName: "Emergency" } },
+      ],
+      execute: async ({ goalName }) => {
+        if (!partnershipId) return { error: "No partnership configured" };
+
+        // 1. Resolve goal by name. We do NOT accept caller-supplied amounts /
+        //    deadlines — the brief explicitly requires reading current state.
+        const { data: matches } = await supabase
+          .from("savings_goals")
+          .select(
+            "id, name, icon, color, target_amount_cents, current_amount_cents, deadline, is_completed, created_at, linked_account_id"
+          )
+          .eq("partnership_id", partnershipId)
+          .ilike("name", `%${escapeLikePattern(goalName)}%`)
+          .limit(2);
+
+        const goalRows = (matches || []) as Array<{
+          id: string;
+          name: string;
+          icon: string | null;
+          color: string | null;
+          target_amount_cents: number;
+          current_amount_cents: number;
+          deadline: string | null;
+          is_completed: boolean;
+          created_at: string;
+          linked_account_id: string | null;
+        }>;
+
+        if (goalRows.length === 0) {
+          return { error: `No goal found matching '${goalName}'` };
+        }
+        if (goalRows.length > 1) {
+          return {
+            error: `Multiple goals match '${goalName}': ${goalRows.map((g) => g.name).join(", ")}. Be more specific.`,
+          };
+        }
+        const goal = goalRows[0];
+
+        // 2. Pull recent contributions so velocity reflects CURRENT pace.
+        const { data: contribs } = await supabase
+          .from("goal_contributions")
+          .select("id, goal_id, amount_cents, balance_after_cents, source, created_at")
+          .eq("goal_id", goal.id)
+          .order("created_at", { ascending: false })
+          .limit(40);
+
+        // 3. Lazy-import to avoid pulling node:crypto into modules that don't need it.
+        const [{ generateFallbackGoalTasks }, goalCalc] = await Promise.all([
+          import("@/lib/goal-tasks"),
+          import("@/lib/goal-calculations"),
+        ]);
+
+        const goalForCalc: import("@/lib/goal-calculations").GoalForCalculation = {
+          id: goal.id,
+          name: goal.name,
+          icon: goal.icon || "",
+          color: goal.color || "",
+          current_amount_cents: goal.current_amount_cents,
+          target_amount_cents: goal.target_amount_cents,
+          deadline: goal.deadline,
+          is_completed: goal.is_completed,
+          created_at: goal.created_at,
+        };
+
+        const typedContribs = (contribs || []).map(
+          (c: Record<string, unknown>): import("@/lib/goal-calculations").GoalContribution => ({
+            id: (c.id as string) || "",
+            goal_id: c.goal_id as string,
+            amount_cents: c.amount_cents as number,
+            balance_after_cents: c.balance_after_cents as number,
+            source: c.source as import("@/lib/goal-calculations").GoalContribution["source"],
+            created_at: c.created_at as string,
+          })
+        );
+
+        const velocity = goalCalc.calculateContributionVelocity(typedContribs, 60);
+        const projection = goalCalc.projectGoalEndDate(goalForCalc, typedContribs);
+        const tasks = generateFallbackGoalTasks(goalForCalc, typedContribs, {
+          hasLinkedSaver: !!goal.linked_account_id,
+        });
+
+        const remaining = goal.target_amount_cents - goal.current_amount_cents;
+
+        return {
+          goalId: goal.id,
+          goalName: goal.name,
+          state: {
+            currentAmount: `$${(goal.current_amount_cents / 100).toFixed(2)}`,
+            targetAmount: `$${(goal.target_amount_cents / 100).toFixed(2)}`,
+            remaining: `$${(remaining / 100).toFixed(2)}`,
+            deadline: goal.deadline || "no deadline",
+            hasLinkedSaver: !!goal.linked_account_id,
+            isCompleted: goal.is_completed,
+          },
+          velocity: {
+            centsPerDay: velocity.centsPerDay,
+            centsPerFortnight: velocity.centsPerFortnight,
+            centsPerMonth: velocity.centsPerMonth,
+            sampleSize: velocity.sampleSize,
+            windowDays: velocity.windowDays,
+          },
+          projection: {
+            projectedDate: projection.projectedDate?.toISOString().slice(0, 10) ?? null,
+            daysToProjection: projection.daysToProjection,
+            deltaDays: projection.deltaDays,
+            state: projection.state,
+          },
+          tasks,
+          message:
+            tasks.length === 0
+              ? "Goal is in good shape — no immediate suggestions"
+              : `${tasks.length} suggestion${tasks.length === 1 ? "" : "s"} based on current state`,
+        };
+      },
+    }),
+
     recategorizeTransaction: tool({
       description:
         "Change the category of a transaction. Searches by description and optionally date. ALWAYS confirm with the user before executing.",
