@@ -650,8 +650,17 @@ async function syncTransactionWindow(opts: WindowSyncOptions): Promise<{ newTota
   }
 
   if (tagData.length > 0) {
+    // Tag-related writes use the service-role client because the
+    // long-running stream context periodically loses RLS auth state
+    // (auth.uid() returns null), causing 403s on transaction_tags' RLS
+    // INSERT policy that joins through transactions → accounts. The
+    // route's auth check upstream already validated the user — these
+    // are internal writes scoped to the savedAccountId we just
+    // confirmed belongs to them.
+    const adminClient = createServiceRoleClient();
+
     const uniqueTagNames = [...new Set(tagData.map((t) => t.tagName))];
-    const { error: tagsError } = await opts.supabase
+    const { error: tagsError } = await adminClient
       .from("tags")
       .upsert(uniqueTagNames.map((name) => ({ name })), { onConflict: "name" });
     if (tagsError) {
@@ -660,7 +669,7 @@ async function syncTransactionWindow(opts: WindowSyncOptions): Promise<{ newTota
     }
 
     const tagUpTxnIds = [...new Set(tagData.map((t) => t.upTxnId))];
-    const { data: tagTxns } = await opts.supabase
+    const { data: tagTxns } = await adminClient
       .from("transactions")
       .select("id, up_transaction_id")
       .eq("account_id", opts.savedAccountId)
@@ -677,7 +686,7 @@ async function syncTransactionWindow(opts: WindowSyncOptions): Promise<{ newTota
       }));
 
     if (tagAssociations.length > 0) {
-      const { error: tagAssocError } = await opts.supabase
+      const { error: tagAssocError } = await adminClient
         .from("transaction_tags")
         .upsert(tagAssociations, { onConflict: "transaction_id,tag_name" });
       if (tagAssocError) {
