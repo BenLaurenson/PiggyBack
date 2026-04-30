@@ -52,14 +52,26 @@ type MockQuery = {
 
 function createMockSupabase(tableData: Record<string, unknown[]> = {}) {
   const mockQuery = (): MockQuery => {
-    let currentTable = "";
     let resolvedData: unknown[] = [];
+    // Track applied is() filters so we can apply them to resolved data
+    // (specifically used to verify deleted_at filtering)
+    const isFilters: Array<{ column: string; value: unknown }> = [];
+
+    const applyIsFilters = (rows: unknown[]): unknown[] => {
+      if (isFilters.length === 0) return rows;
+      return rows.filter((row) => {
+        const r = row as Record<string, unknown>;
+        return isFilters.every((f) => {
+          if (f.value === null) return r[f.column] == null;
+          return r[f.column] === f.value;
+        });
+      });
+    };
 
     const q: MockQuery = {
       _data: [],
       select: () => q,
       from: (table: string) => {
-        currentTable = table;
         resolvedData = tableData[table] || [];
         q._data = resolvedData;
         return q;
@@ -71,26 +83,35 @@ function createMockSupabase(tableData: Record<string, unknown[]> = {}) {
       lt: () => q,
       lte: () => q,
       in: () => q,
-      is: () => q,
+      is: (column: string, value: unknown) => {
+        isFilters.push({ column, value });
+        return q;
+      },
       not: () => q,
       ilike: () => q,
       like: () => q,
       or: () => q,
       order: () => q,
       limit: () => q,
-      single: async () => ({
-        data: resolvedData.length > 0 ? (resolvedData[0] as Record<string, unknown>) : null,
-        error: null,
-      }),
-      maybeSingle: async () => ({
-        data: resolvedData.length > 0 ? (resolvedData[0] as Record<string, unknown>) : null,
-        error: null,
-      }),
+      single: async () => {
+        const filtered = applyIsFilters(resolvedData);
+        return {
+          data: filtered.length > 0 ? (filtered[0] as Record<string, unknown>) : null,
+          error: null,
+        };
+      },
+      maybeSingle: async () => {
+        const filtered = applyIsFilters(resolvedData);
+        return {
+          data: filtered.length > 0 ? (filtered[0] as Record<string, unknown>) : null,
+          error: null,
+        };
+      },
       insert: () => q,
       update: () => q,
       upsert: () => q,
-      then: (resolve) => resolve({ data: resolvedData as unknown[], error: null }),
-      _resolve: async () => ({ data: resolvedData as unknown[], error: null }),
+      then: (resolve) => resolve({ data: applyIsFilters(resolvedData) as unknown[], error: null }),
+      _resolve: async () => ({ data: applyIsFilters(resolvedData) as unknown[], error: null }),
     };
 
     return q;
@@ -110,7 +131,9 @@ function createMockSupabase(tableData: Record<string, unknown[]> = {}) {
               resolve: (val: { data: unknown[]; error: null }) => void,
               _reject?: unknown
             ) => {
-              resolve({ data: target._data as unknown[], error: null });
+              // Resolve goes through the q.then on target which already applies filters
+              // by re-reading internal isFilters list.
+              (target.then as unknown as (r: typeof resolve) => void)(resolve);
             };
           }
           return (target as Record<string | symbol, unknown>)[prop];
@@ -365,6 +388,62 @@ describe("AI Financial Tools", () => {
       expect(result).toHaveProperty("totalSpending");
       expect(result).toHaveProperty("categories");
       expect(result.totalSpending).toMatch(/^\$/);
+    });
+
+    // Regression test for Phase 1 #51 follow-up:
+    // Penny's aggregations must NOT include soft-deleted transactions.
+    it("excludes soft-deleted transactions from spending totals", async () => {
+      const ACTIVE_TXN = {
+        id: "txn-active",
+        account_id: "acc-1",
+        description: "ALDI",
+        amount_cents: -10000, // $100 active
+        category_id: "groceries",
+        parent_category_id: "good-life",
+        settled_at: "2025-06-10T10:00:00Z",
+        created_at: "2025-06-10T10:00:00Z",
+        transaction_type: "purchase",
+        is_income: false,
+        transfer_account_id: null,
+        deleted_at: null,
+      };
+      const DELETED_TXN = {
+        id: "txn-deleted",
+        account_id: "acc-1",
+        description: "Coles",
+        amount_cents: -50000, // $500 soft-deleted (should be excluded)
+        category_id: "groceries",
+        parent_category_id: "good-life",
+        settled_at: "2025-06-12T10:00:00Z",
+        created_at: "2025-06-12T10:00:00Z",
+        transaction_type: "purchase",
+        is_income: false,
+        transfer_account_id: null,
+        deleted_at: "2025-06-13T10:00:00Z",
+      };
+
+      const supabase = createMockSupabase({
+        transactions: [ACTIVE_TXN, DELETED_TXN],
+        category_mappings: SAMPLE_CATEGORIES,
+      });
+      const isolatedTools = createFinancialTools(
+        supabase as any,
+        ACCOUNT_IDS,
+        PARTNERSHIP_ID,
+        USER_ID
+      );
+
+      const result = await runTool(isolatedTools.getSpendingSummary, { month: "2025-06" });
+
+      // Only the active $100 transaction should be included
+      expect(result.totalSpendingCents).toBe(10000);
+      expect(result.transactionCount).toBe(1);
+      // Categories should sum to the active row only — soft-deleted Coles should not appear
+      const totalFromCats = (result.categories as Array<{ amountCents: number }>).reduce(
+        (s, c) => s + c.amountCents,
+        0,
+      );
+      expect(totalFromCats).toBe(10000);
     });
   });
 
