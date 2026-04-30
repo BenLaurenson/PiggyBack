@@ -114,6 +114,23 @@ export async function createGoal(data: {
     }
   }
 
+  // Capture start_amount_cents — the value we'll subtract when computing
+  // progress later. For a linked Saver, this is the account's balance at
+  // creation; otherwise it matches the user-entered current amount.
+  // Without this, linking an existing $5k Saver to a $10k goal would show
+  // 50% progress before the user has saved a single dollar toward the goal.
+  let startAmountCents = currentCents;
+  if (data.linked_account_id) {
+    const { data: linkedAcct } = await supabase
+      .from("accounts")
+      .select("balance_cents")
+      .eq("id", data.linked_account_id)
+      .maybeSingle();
+    if (linkedAcct?.balance_cents !== undefined) {
+      startAmountCents = linkedAcct.balance_cents;
+    }
+  }
+
   const { error } = await supabase
     .from("savings_goals")
     .insert({
@@ -121,6 +138,7 @@ export async function createGoal(data: {
       name: data.name,
       target_amount_cents: data.target_amount_cents,
       current_amount_cents: currentCents,
+      start_amount_cents: startAmountCents,
       deadline: data.deadline || null,
       icon: data.icon || "piggy-bank",
       color: data.color || "oklch(0.75 0.12 25)",

@@ -9,6 +9,10 @@
 import { NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { createServiceRoleClient } from "@/utils/supabase/service-role";
+import { installLogScrubber } from "@/lib/log-scrubber";
+
+// Install secret-redacting wrappers around console.* before any logs fire.
+installLogScrubber();
 import { createHmac, timingSafeEqual } from "crypto";
 import { matchSingleTransactionToExpenses, matchSingleTransactionToIncomeSources } from "@/lib/match-expense-transactions";
 import { ensureInferredCategories } from "@/lib/infer-category";

@@ -97,3 +97,5 @@ kubeconfig
 
 # gitleaks
 gitleaks-report.json
+.continue/
+# tool cache

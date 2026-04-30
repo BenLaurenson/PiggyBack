@@ -32,6 +32,7 @@ import {
 import { GoalActionsMenu } from "./goal-actions-menu";
 
 import type { GoalDataPoint, GoalStatus, GoalStatusType } from "@/lib/goal-calculations";
+import { goalProgressPercent } from "@/lib/goal-progress";
 
 // ============================================================================
 // Types
@@ -498,10 +499,7 @@ export function GoalsClient({
               {/* Rows */}
               <div className="divide-y" style={{ borderColor: "var(--border)" }}>
                 {sortedActiveGoals.map((goal) => {
-                  const progress = Math.min(
-                    (goal.current_amount_cents / goal.target_amount_cents) * 100,
-                    100
-                  );
+                  const progress = goalProgressPercent(goal);
                   const status = goalStatuses[goal.id];
                   const statusConfig = status
                     ? STATUS_CONFIG[status.status]

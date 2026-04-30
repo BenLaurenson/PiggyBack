@@ -6,6 +6,16 @@
     {
       "path": "/api/cron/notifications",
       "schedule": "0 9 * * *"
+    },
+    {
+      "comment": "Hosted-platform health check across all READY provisions every 15 min. Only runs on the orchestrator deploy (NEXT_PUBLIC_HOSTED_ENABLED=true); the route returns 401 on tenant deploys because they don't have the orchestrator's piggyback_provisions table.",
+      "path": "/api/admin/health-check?all=true",
+      "schedule": "*/15 * * * *"
+    },
+    {
+      "comment": "Hosted-platform migration propagation every hour. Walks each READY provision and applies any pending migrations from the bundled supabase/migrations/ to their per-tenant Supabase via stored OAuth refresh tokens.",
+      "path": "/api/admin/propagate-migrations?all=true",
+      "schedule": "15 * * * *"
     }
   ],
   "headers": [

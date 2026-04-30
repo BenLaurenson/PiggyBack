@@ -33,6 +33,7 @@ import { GoalActionsMenu } from "./goal-actions-menu";
 
 import type { GoalDataPoint, GoalStatus, GoalStatusType } from "@/lib/goal-calculations";
 import { calculateSuggestedSavings } from "@/lib/goal-calculations";
+import { goalProgressPercent, goalRemainingCents } from "@/lib/goal-progress";
 
 // ============================================================================
 // Types
@@ -208,11 +209,8 @@ export function GoalDetailClient({
   const [completing, setCompleting] = useState(false);
   const [reopening, setReopening] = useState(false);
 
-  const progress = Math.min(
-    (goal.current_amount_cents / goal.target_amount_cents) * 100,
-    100
-  );
-  const remaining = Math.max(goal.target_amount_cents - goal.current_amount_cents, 0);
+  const progress = goalProgressPercent(goal);
+  const remaining = goalRemainingCents(goal);
   const statusConfig = STATUS_CONFIG[status.status];
 
   const linkedAccount = Array.isArray(goal.linked_account)

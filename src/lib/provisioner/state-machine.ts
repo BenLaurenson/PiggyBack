@@ -172,6 +172,31 @@ export async function transitionState(
     .eq("id", provisionId);
 
   await audit(provisionId, `STATE_${to}`, { detail });
+
+  // Fire the welcome email exactly once on the READY transition. Loaded
+  // dynamically so non-orchestrator deploys never pull the Resend module.
+  if (to === "READY") {
+    try {
+      const provision = await getProvisionById(provisionId);
+      if (provision?.email) {
+        const { sendEmail, welcomeEmail } = await import("@/lib/email");
+        const subdomain = provision.subdomain_vanity ?? provision.subdomain_short_id;
+        if (subdomain) {
+          const msg = welcomeEmail({
+            email: provision.email,
+            displayName: provision.display_name,
+            subdomain,
+          });
+          await sendEmail({ to: provision.email, ...msg });
+          await audit(provisionId, "WELCOME_EMAIL_SENT");
+        }
+      }
+    } catch (err) {
+      // Non-fatal: provisioning succeeds even if email fails.
+      console.error("Failed to send welcome email:", err);
+      await audit(provisionId, "WELCOME_EMAIL_FAILED", { message: String(err) });
+    }
+  }
 }
 
 /** Append-only audit-trail event. */
