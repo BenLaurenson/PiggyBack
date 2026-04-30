@@ -128,7 +128,17 @@ async function updateAccountBalance(
     console.error("Error updating account balance:", error);
   }
 
-  // Sync any linked savings goals
+  // Sync linked savings goals.
+  //
+  // Behaviour by goal count for a given Saver account:
+  //   0 goals → nothing to do.
+  //   1 goal  → auto-sync: goal.current_amount_cents = account balance.
+  //   2+ goals → DO NOT auto-sync. Multiple goals can't all hold the same
+  //              balance (the user would see incorrect progress on each), and
+  //              we have no signal to allocate the balance fairly between
+  //              them. The user must contribute manually via the goal UI.
+  //              (Phase 1.3 fix — was previously assigning newBalance to
+  //              every goal.)
   try {
     const { data: accountRows } = await supabase
       .from("accounts")
@@ -140,43 +150,56 @@ async function updateAccountBalance(
 
       const { data: linkedGoals } = await supabase
         .from("savings_goals")
-        .select("id, current_amount_cents, target_amount_cents")
+        .select("id, current_amount_cents, target_amount_cents, partnership_id, linked_account_id")
         .in("linked_account_id", accountIds)
         .eq("is_completed", false);
 
       if (linkedGoals && linkedGoals.length > 0) {
-        for (const goal of linkedGoals) {
-          if (goal.current_amount_cents !== newBalance) {
-            const delta = newBalance - goal.current_amount_cents;
-            const isCompleted = newBalance >= goal.target_amount_cents;
+        // Group by linked_account_id. Only auto-sync when exactly one active
+        // goal points at a given account.
+        const goalsByAccount = new Map<string, typeof linkedGoals>();
+        for (const g of linkedGoals) {
+          const list = goalsByAccount.get(g.linked_account_id) ?? [];
+          list.push(g);
+          goalsByAccount.set(g.linked_account_id, list);
+        }
 
-            // Use optimistic concurrency: only update if current_amount_cents
-            // still matches what we read. This prevents lost updates when
-            // multiple webhooks process simultaneously (H26 fix).
-            const { data: updatedGoal, error: goalUpdateError } = await supabase
-              .from("savings_goals")
-              .update({
-                current_amount_cents: newBalance,
-                is_completed: isCompleted,
-                ...(isCompleted ? { completed_at: new Date().toISOString() } : {}),
-                updated_at: new Date().toISOString(),
-              })
-              .eq("id", goal.id)
-              .eq("current_amount_cents", goal.current_amount_cents)
-              .select("id");
+        for (const [accountId, goals] of goalsByAccount.entries()) {
+          if (goals.length !== 1) {
+            // Skip — let the user manage these manually.
+            console.log(
+              `Goal sync skipped for account ${accountId}: ${goals.length} active goals share this Saver`
+            );
+            continue;
+          }
+          const goal = goals[0];
+          if (goal.current_amount_cents === newBalance) continue;
 
-            // Only record contribution if our update actually took effect
-            // (i.e., no other webhook updated the goal between our read and write)
-            if (!goalUpdateError && updatedGoal && updatedGoal.length > 0) {
-              await supabase
-                .from("goal_contributions")
-                .insert({
-                  goal_id: goal.id,
-                  amount_cents: delta,
-                  balance_after_cents: newBalance,
-                  source: "webhook_sync",
-                });
-            }
+          const delta = newBalance - goal.current_amount_cents;
+          const isCompleted = newBalance >= goal.target_amount_cents;
+
+          // Optimistic concurrency: only update if current_amount_cents still
+          // matches what we read. Prevents lost updates when multiple webhooks
+          // process simultaneously (H26 fix).
+          const { data: updatedGoal, error: goalUpdateError } = await supabase
+            .from("savings_goals")
+            .update({
+              current_amount_cents: newBalance,
+              is_completed: isCompleted,
+              ...(isCompleted ? { completed_at: new Date().toISOString() } : {}),
+              updated_at: new Date().toISOString(),
+            })
+            .eq("id", goal.id)
+            .eq("current_amount_cents", goal.current_amount_cents)
+            .select("id");
+
+          if (!goalUpdateError && updatedGoal && updatedGoal.length > 0) {
+            await supabase.from("goal_contributions").insert({
+              goal_id: goal.id,
+              amount_cents: delta,
+              balance_after_cents: newBalance,
+              source: "webhook_sync",
+            });
           }
         }
       }
