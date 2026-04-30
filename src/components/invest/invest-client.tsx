@@ -37,6 +37,10 @@ import {
 } from "recharts";
 
 import type { PortfolioDataPoint, TopMover, RebalanceDelta } from "@/lib/portfolio-aggregation";
+import {
+  RecurringInvestmentsSection,
+  type RecurringRuleDTO,
+} from "@/components/invest/recurring-investments-section";
 
 // ============================================================================
 // Types
@@ -113,6 +117,8 @@ interface InvestClientProps {
   monthlyDividends: MonthlyDividend[];
   annualDividendTotal: number;
   monthlyDividendAvg: number;
+  recurringInvestmentRules: RecurringRuleDTO[];
+  merchantSuggestions: string[];
 }
 
 // ============================================================================
@@ -268,6 +274,8 @@ export function InvestClient({
   monthlyDividends,
   annualDividendTotal,
   monthlyDividendAvg,
+  recurringInvestmentRules,
+  merchantSuggestions,
 }: InvestClientProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -543,6 +551,19 @@ export function InvestClient({
               })}
             </div>
           </motion.div>
+
+          {/* ── Recurring contributions ── */}
+          <RecurringInvestmentsSection
+            rules={recurringInvestmentRules}
+            assets={investments.map((i) => ({
+              id: i.id,
+              name: i.name,
+              ticker_symbol: i.ticker_symbol ?? null,
+              asset_type: i.asset_type,
+              current_value_cents: i.current_value_cents,
+            }))}
+            merchantSuggestions={merchantSuggestions}
+          />
 
           {/* ── Performance + Movers side-by-side ── */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

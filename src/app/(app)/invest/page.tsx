@@ -11,6 +11,7 @@ import {
   getStartDateForPeriod,
 } from "@/lib/portfolio-aggregation";
 import { calculateFireNumber, calculateAnnualExpenses } from "@/lib/fire-calculations";
+import { computeNextDueDate } from "@/lib/recurring-investments";
 
 interface InvestPageProps {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
@@ -65,6 +66,9 @@ export default async function InvestPage({ searchParams }: InvestPageProps) {
     { data: profile },
     { data: watchlistItems },
     { data: dividendTransactions },
+    { data: recurringRules },
+    { data: contributions },
+    { data: descriptionSuggestions },
   ] = await Promise.all([
     // Investment history (for portfolio chart + forward-fill)
     supabase
@@ -104,6 +108,32 @@ export default async function InvestPage({ searchParams }: InvestPageProps) {
           .in("account_id", accountIds)
           .eq("income_type", "investment")
           .gte("created_at", new Date(now.getFullYear() - 1, now.getMonth(), 1).toISOString())
+      : Promise.resolve({ data: [] }),
+    // Recurring investment rules (Phase-1 #46)
+    supabase
+      .from("recurring_investments")
+      .select("id, asset_id, amount_cents, frequency, anchor_date, merchant_pattern, is_active, created_at, updated_at")
+      .eq("partnership_id", partnershipId)
+      .order("created_at", { ascending: true }),
+    // Contributions detected by the webhook (last 12 months — caps the size of the
+    // "last 6 contributions" list and the contribution-vs-growth chart).
+    supabase
+      .from("investment_contributions")
+      .select("id, investment_id, rule_id, amount_cents, contributed_at, source_transaction_id")
+      .eq("partnership_id", partnershipId)
+      .gte("contributed_at", new Date(now.getFullYear() - 1, now.getMonth(), 1).toISOString())
+      .order("contributed_at", { ascending: false }),
+    // Distinct merchant descriptions to suggest in the "Add rule" dialog. We
+    // surface the top ~50 negative-amount descriptions on the user's accounts
+    // so they can quickly pick "PEARLER" / "VANGUARD" / etc.
+    accountIds.length > 0
+      ? supabase
+          .from("transactions")
+          .select("description")
+          .in("account_id", accountIds)
+          .lt("amount_cents", 0)
+          .order("created_at", { ascending: false })
+          .limit(500)
       : Promise.resolve({ data: [] }),
   ]);
 
@@ -225,6 +255,62 @@ export default async function InvestPage({ searchParams }: InvestPageProps) {
   const annualDividendTotal = monthlyDividends.reduce((s, d) => s + d.amountCents, 0);
   const monthlyDividendAvg = monthlyDividends.length > 0 ? Math.round(annualDividendTotal / monthlyDividends.length) : 0;
 
+  // === Recurring investment rules ===
+  // Map each rule to its asset name + last 6 contributions (for the
+  // dashboard card and per-rule breakdown chart). Rules without any
+  // contributions yet show "no detections yet" in the UI.
+  const contributionsByRule: Record<string, Array<{ id: string; amountCents: number; contributedAt: string }>> = {};
+  for (const c of (contributions || [])) {
+    if (!c.rule_id) continue;
+    if (!contributionsByRule[c.rule_id]) contributionsByRule[c.rule_id] = [];
+    contributionsByRule[c.rule_id].push({
+      id: c.id,
+      amountCents: c.amount_cents,
+      contributedAt: c.contributed_at,
+    });
+  }
+
+  type Rule = NonNullable<typeof recurringRules>[number];
+  const recurringInvestmentRules = (recurringRules || []).map((r: Rule) => {
+    const inv = investments.find((i) => i.id === r.asset_id);
+    const ruleContribs = (contributionsByRule[r.id] || []).slice(0, 6);
+    const contributedTotal = (contributionsByRule[r.id] || []).reduce(
+      (s, c) => s + c.amountCents,
+      0
+    );
+    const currentValue = inv?.current_value_cents || 0;
+    return {
+      id: r.id,
+      asset_id: r.asset_id,
+      asset_name: inv?.name || "(deleted asset)",
+      asset_ticker: inv?.ticker_symbol || null,
+      amount_cents: r.amount_cents,
+      frequency: r.frequency as
+        | "weekly"
+        | "fortnightly"
+        | "monthly"
+        | "quarterly"
+        | "yearly",
+      anchor_date: r.anchor_date,
+      merchant_pattern: r.merchant_pattern,
+      is_active: r.is_active,
+      next_due_date: computeNextDueDate(r.anchor_date, r.frequency, now),
+      recent_contributions: ruleContribs,
+      contributed_total_cents: contributedTotal,
+      current_value_cents: currentValue,
+    };
+  });
+
+  // Distinct merchant suggestions for the "Add rule" dialog autocomplete.
+  // De-duplicate but keep insertion order so the most recent appear first.
+  const merchantSuggestions = Array.from(
+    new Set(
+      ((descriptionSuggestions as { description: string }[] | null) || [])
+        .map((t) => (t.description || "").trim())
+        .filter((d) => d.length >= 2)
+    )
+  ).slice(0, 50);
+
   return (
     <div className="p-4 md:p-6 lg:p-8">
       <InvestClient
@@ -255,6 +341,8 @@ export default async function InvestPage({ searchParams }: InvestPageProps) {
         monthlyDividends={monthlyDividends}
         annualDividendTotal={annualDividendTotal}
         monthlyDividendAvg={monthlyDividendAvg}
+        recurringInvestmentRules={recurringInvestmentRules}
+        merchantSuggestions={merchantSuggestions}
       />
     </div>
   );
