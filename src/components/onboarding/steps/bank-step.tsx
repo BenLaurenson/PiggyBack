@@ -193,7 +193,10 @@ export function BankStep({ onNext, onComplete, isStepCompleted, serverAccountCou
           <p className="font-[family-name:var(--font-dm-sans)]" style={{ color: "var(--text-secondary)" }}>
             {syncProgress}
           </p>
-          {txnCount > 0 && (
+          {/* Only show the running count when the current message doesn't
+              already include it (e.g. during tag-canonical sync we still
+              want users to see how many transactions ended up imported). */}
+          {txnCount > 0 && !/\btransactions?\b/i.test(syncProgress) && (
             <p className="text-sm font-[family-name:var(--font-dm-sans)]" style={{ color: "var(--text-tertiary)" }}>
               {txnCount} transactions synced
             </p>
