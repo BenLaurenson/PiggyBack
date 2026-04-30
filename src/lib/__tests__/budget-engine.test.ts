@@ -446,12 +446,48 @@ describe("calculateSpent", () => {
     expect(result.get("Food & Dining::Groceries")).toBe(3000);
   });
 
-  it("skips transactions with unknown category", () => {
+  it("falls back to category name for unmapped category (Phase 1.1 fix)", () => {
+    // Reproduces the original bug report: a transaction whose category_id has
+    // no curated row in `category_mappings` would be silently dropped from
+    // the spent total. After the fix, it falls back to the category's display
+    // name from the categories table so the spend remains visible.
     const txns: TransactionInput[] = [
-      { id: "t1", amount_cents: -5000, category_id: "unknown-cat", created_at: "2026-02-10" },
+      { id: "t1", amount_cents: -5000, category_id: "good-life", created_at: "2026-02-10" },
+    ];
+    const fallbacks = [
+      { id: "good-life", name: "Good Life", parent_name: null },
+    ];
+    const result = calculateSpent(txns, mappings, [], "shared", "user-1", "user-1", fallbacks);
+    expect(result.get("Uncategorised::Good Life")).toBe(5000);
+  });
+
+  it("uses fallback parent_name when present", () => {
+    const txns: TransactionInput[] = [
+      { id: "t1", amount_cents: -1500, category_id: "restaurants-and-cafes", created_at: "2026-02-10" },
+    ];
+    const fallbacks = [
+      { id: "restaurants-and-cafes", name: "Restaurants & Cafes", parent_name: "Good Life" },
+    ];
+    const result = calculateSpent(txns, mappings, [], "shared", "user-1", "user-1", fallbacks);
+    expect(result.get("Good Life::Restaurants & Cafes")).toBe(1500);
+  });
+
+  it("uses raw category_id as last-resort label when no fallback exists", () => {
+    // Defense in depth: even if the categories table is missing a row, we still
+    // surface the spend rather than dropping it.
+    const txns: TransactionInput[] = [
+      { id: "t1", amount_cents: -2200, category_id: "weird-new-category", created_at: "2026-02-10" },
     ];
     const result = calculateSpent(txns, mappings, [], "shared", "user-1", "user-1");
-    expect(result.size).toBe(0);
+    expect(result.get("Uncategorised::weird-new-category")).toBe(2200);
+  });
+
+  it("buckets fully-uncategorised transactions under Uncategorised::Uncategorised", () => {
+    const txns: TransactionInput[] = [
+      { id: "t1", amount_cents: -777, category_id: null, created_at: "2026-02-10" },
+    ];
+    const result = calculateSpent(txns, mappings, [], "shared", "user-1", "user-1");
+    expect(result.get("Uncategorised::Uncategorised")).toBe(777);
   });
 
   it("returns total spent across all categories", () => {

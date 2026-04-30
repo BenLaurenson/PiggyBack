@@ -111,6 +111,7 @@ export async function GET(request: Request) {
       layoutResult,
       goalsResult,
       investmentsResult,
+      categoriesResult,
     ] = await Promise.all([
       // 1. Income sources — all active income for the partnership (any frequency).
       //    The engine normalizes each source to the budget's period type to compute
@@ -139,11 +140,15 @@ export async function GET(request: Request) {
 
       // 3. Transactions — actual expenses in this period for the user's effective
       //    accounts. Only negative amounts (spending) and non-transfers are included.
-      //    Embeds expense_matches to link transactions back to expense definitions.
+      //    Embeds expense_matches to link transactions back to expense definitions
+      //    AND activity_overrides so we can honour exclude_from_budget without a
+      //    second query.
       accountIds.length > 0
         ? supabase
             .from("transactions")
-            .select("id, amount_cents, category_id, settled_at, expense_matches(expense_definition_id)")
+            .select(
+              "id, amount_cents, category_id, settled_at, expense_matches(expense_definition_id), activity_overrides(exclude_from_budget)"
+            )
             .in("account_id", accountIds)
             .gte("settled_at", periodRange.start.toISOString())
             .lte("settled_at", periodRange.end.toISOString())
@@ -217,6 +222,15 @@ export async function GET(request: Request) {
         .select("id, name, asset_type, current_value_cents")
         .eq("partnership_id", partnershipId)
         .limit(100),
+
+      // 11. Categories — display-name fallback when category_mappings has no
+      //     curated row for a given category_id. Without this, transactions
+      //     in categories like good-life / home / personal / transport / any
+      //     inferred category would silently drop out of the budget total.
+      supabase
+        .from("categories")
+        .select("id, name, parent_category_id")
+        .limit(500),
     ]);
 
     // ── Check for critical query errors ────────────────────────────────
@@ -254,6 +268,10 @@ export async function GET(request: Request) {
     if (investmentsResult.error) {
       console.error("Investments query error:", investmentsResult.error);
       queryErrors.push("investments");
+    }
+    if (categoriesResult.error) {
+      console.error("Categories query error:", categoriesResult.error);
+      queryErrors.push("categories");
     }
     if (queryErrors.length > 0) {
       return NextResponse.json(
@@ -343,6 +361,24 @@ export async function GET(request: Request) {
       new_child_name: m.new_child_name,
     }));
 
+    // Build the categoryFallbacks list for the budget engine. Resolves each
+    // category's parent display name via parent_category_id → categories.name.
+    const allCategories = (categoriesResult.data ?? []) as Array<{
+      id: string;
+      name: string;
+      parent_category_id: string | null;
+    }>;
+    const categoryNameById = new Map<string, string>(
+      allCategories.map((c) => [c.id, c.name])
+    );
+    const categoryFallbacks = allCategories.map((c) => ({
+      id: c.id,
+      name: c.name,
+      parent_name: c.parent_category_id
+        ? categoryNameById.get(c.parent_category_id) ?? null
+        : null,
+    }));
+
     // Build a category lookup for inferring expense subcategories
     const catLookup = new Map<string, { parent: string; child: string }>();
     for (const m of categoryMappings) {
@@ -352,8 +388,18 @@ export async function GET(request: Request) {
       });
     }
 
-    const transactions: TransactionInput[] = (transactionResult.data ?? []).map(
-      (t) => {
+    const transactions: TransactionInput[] = (transactionResult.data ?? [])
+      .filter((t: any) => {
+        // Phase 1.2 — honour activity_overrides.exclude_from_budget by
+        // dropping these transactions from the budget spent total. They
+        // remain visible in the activity list (this is a budget-only filter).
+        const ov = t.activity_overrides;
+        const excluded = Array.isArray(ov)
+          ? ov.some((o: any) => o.exclude_from_budget === true)
+          : ov?.exclude_from_budget === true;
+        return !excluded;
+      })
+      .map((t) => {
         // PostgREST relation gotcha: `expense_matches` on a transaction.
         // Because the FK from expense_matches to transactions has a unique constraint,
         // PostgREST returns a single OBJECT (not an array) when there's a match.
@@ -371,8 +417,7 @@ export async function GET(request: Request) {
           split_override_percentage: null,
           matched_expense_id: matchedExpenseId,
         };
-      }
-    );
+      });
 
     /**
      * Expense subcategory inference
@@ -523,6 +568,7 @@ export async function GET(request: Request) {
       expenseDefinitions,
       splitSettings,
       categoryMappings,
+      categoryFallbacks,
       carryoverFromPrevious,
       layoutSections,
       goals,

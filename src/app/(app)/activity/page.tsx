@@ -103,14 +103,17 @@ export default async function ActivityPage({
   }
 
   // Fetch transactions with explicit FK relationships (increased limit for pagination)
-  // Exclude transfers by default (user can toggle them in filters)
+  // Exclude transfers by default (user can toggle them in filters).
+  // activity_overrides is joined so the detail modal can render the override
+  // editor pre-filled with the user's edits without a second query.
   const { data: transactions, error: txnError } = await supabase
     .from("transactions")
     .select(`
       *,
       category:categories!category_id(id, name),
       parent_category:categories!parent_category_id(id, name),
-      transaction_tags(tag_name)
+      transaction_tags(tag_name),
+      activity_overrides(merchant_display_name, subtitle, exclude_from_budget, exclude_from_net_worth)
     `)
     .in("account_id", accountIds)
     .is("transfer_account_id", null) // Exclude transfers by default

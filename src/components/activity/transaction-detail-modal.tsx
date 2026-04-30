@@ -24,6 +24,7 @@ import { motion } from "framer-motion";
 import { useCategoryMapping } from "@/contexts/category-context";
 import { SimpleCategoryPicker } from "@/components/budget/simple-category-picker";
 import { CreateExpenseFromTransactionDialog } from "@/components/budget/create-expense-dialog";
+import { ActivityOverrideSection } from "@/components/activity/activity-override-section";
 
 const nunito = Nunito({
   subsets: ["latin"],
@@ -454,6 +455,17 @@ export function TransactionDetailModal({
               </p>
             </div>
           )}
+
+          {/* Activity overrides — merchant rename, subtitle, budget/net-worth opt-out */}
+          <ActivityOverrideSection
+            transactionId={transaction.id}
+            initial={
+              Array.isArray(transaction.activity_overrides)
+                ? transaction.activity_overrides[0] ?? null
+                : transaction.activity_overrides ?? null
+            }
+            bankMerchant={transaction.description}
+          />
 
           {/* Open in App Link - Only Action */}
           {transaction.deep_link_url && (

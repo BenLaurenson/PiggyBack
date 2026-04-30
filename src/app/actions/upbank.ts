@@ -5,10 +5,20 @@ import { revalidatePath } from "next/cache";
 import { demoActionGuard } from "@/lib/demo-guard";
 import { getPlaintextToken, encryptToken } from "@/lib/token-encryption";
 import { safeErrorMessage } from "@/lib/safe-error";
+import {
+  createUpApiClient,
+  UpUnauthorizedError,
+  UpWebhookLimitReachedError,
+} from "@/lib/up-api";
 
 /**
  * Up Bank Connection & Webhook Management Server Actions
- * Handles token encryption, connection, and webhook lifecycle
+ *
+ * @see https://developer.up.com.au/ — official Up developer docs
+ * @see /Users/ben/Projects/personal/PiggyBack/docs/up-bank-integration.md
+ *
+ * Token encryption, connection, and webhook lifecycle. All Up API calls go
+ * through `UpApiClient` to share retry logic, typed errors, and SSRF guards.
  */
 
 // Use environment variable for the app URL, fallback for development
@@ -29,19 +39,6 @@ const getWebhookBaseUrl = () => {
   return "http://localhost:3000";
 };
 
-interface UpWebhookResponse {
-  data: {
-    type: "webhooks";
-    id: string;
-    attributes: {
-      url: string;
-      description: string;
-      secretKey: string;
-      createdAt: string;
-    };
-  };
-}
-
 /**
  * Register a new webhook with Up Bank API
  * Creates webhook and stores credentials in database
@@ -51,7 +48,8 @@ export async function registerUpWebhook(): Promise<{
   webhookUrl?: string;
   error?: string;
 }> {
-  const blocked = demoActionGuard(); if (blocked) return { success: false, error: blocked.error };
+  const blocked = demoActionGuard();
+  if (blocked) return { success: false, error: blocked.error };
   try {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
@@ -60,7 +58,6 @@ export async function registerUpWebhook(): Promise<{
       return { error: "Not authenticated" };
     }
 
-    // 1. Get user's Up API token
     const { data: config, error: configError } = await supabase
       .from("up_api_configs")
       .select("encrypted_token, webhook_id")
@@ -71,45 +68,36 @@ export async function registerUpWebhook(): Promise<{
       return { error: "Up Bank not connected. Please connect your account first." };
     }
 
-    // Check if webhook already exists
     if (config.webhook_id) {
       return { error: "Webhook already registered. Delete it first to re-register." };
     }
 
-    // 2. Register webhook with Up Bank API
     const webhookUrl = `${getWebhookBaseUrl()}/api/upbank/webhook`;
     const apiToken = getPlaintextToken(config.encrypted_token);
+    const client = createUpApiClient(apiToken);
 
-    const response = await fetch("https://api.up.com.au/api/v1/webhooks", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiToken}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        data: {
-          attributes: {
-            url: webhookUrl,
-            description: "PiggyBack real-time transaction sync",
-          },
-        },
-      }),
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      console.error("Up Bank webhook registration failed:", errorData);
+    let result;
+    try {
+      result = await client.createWebhook({
+        url: webhookUrl,
+        description: "PiggyBack real-time transaction sync",
+      });
+    } catch (error) {
+      if (error instanceof UpUnauthorizedError) {
+        return { error: "Up Bank rejected the API token. Please reconnect your Up account." };
+      }
+      if (error instanceof UpWebhookLimitReachedError) {
+        return { error: error.message };
+      }
+      console.error("Up Bank webhook registration failed:", error);
       return { error: "Failed to register webhook with Up Bank" };
     }
 
-    const result: UpWebhookResponse = await response.json();
-
-    // 3. Store webhook ID and secret in database
     const { error: updateError } = await supabase
       .from("up_api_configs")
       .update({
         webhook_id: result.data.id,
-        webhook_secret: encryptToken(result.data.attributes.secretKey),
+        webhook_secret: encryptToken(result.data.attributes.secretKey ?? ""),
         webhook_url: webhookUrl,
       })
       .eq("user_id", user.id);
@@ -117,12 +105,11 @@ export async function registerUpWebhook(): Promise<{
     if (updateError) {
       console.error("Failed to store webhook credentials:", updateError);
       // Try to delete the webhook since we couldn't store it
-      await fetch(`https://api.up.com.au/api/v1/webhooks/${result.data.id}`, {
-        method: "DELETE",
-        headers: {
-          Authorization: `Bearer ${apiToken}`,
-        },
-      });
+      try {
+        await client.deleteWebhook(result.data.id);
+      } catch (cleanupError) {
+        console.error("Failed to roll back webhook creation:", cleanupError);
+      }
       return { error: "Failed to store webhook credentials" };
     }
 
@@ -130,7 +117,7 @@ export async function registerUpWebhook(): Promise<{
 
     return {
       success: true,
-      webhookUrl
+      webhookUrl,
     };
   } catch (error) {
     return {
@@ -147,7 +134,8 @@ export async function deleteUpWebhook(): Promise<{
   success?: boolean;
   error?: string;
 }> {
-  const blocked = demoActionGuard(); if (blocked) return { success: false, error: blocked.error };
+  const blocked = demoActionGuard();
+  if (blocked) return { success: false, error: blocked.error };
   try {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
@@ -156,7 +144,6 @@ export async function deleteUpWebhook(): Promise<{
       return { error: "Not authenticated" };
     }
 
-    // 1. Get user's webhook config
     const { data: config, error: configError } = await supabase
       .from("up_api_configs")
       .select("encrypted_token, webhook_id")
@@ -171,26 +158,23 @@ export async function deleteUpWebhook(): Promise<{
       return { error: "No webhook registered" };
     }
 
-    // 2. Delete webhook from Up Bank API
     const apiToken = getPlaintextToken(config.encrypted_token);
-    const response = await fetch(
-      `https://api.up.com.au/api/v1/webhooks/${config.webhook_id}`,
-      {
-        method: "DELETE",
-        headers: {
-          Authorization: `Bearer ${apiToken}`,
-        },
-      }
-    );
+    const client = createUpApiClient(apiToken);
 
-    // 404 means webhook was already deleted, which is fine
-    if (!response.ok && response.status !== 404) {
-      const errorData = await response.json().catch(() => ({}));
-      console.error("Up Bank webhook deletion failed:", errorData);
+    try {
+      await client.deleteWebhook(config.webhook_id);
+    } catch (error) {
+      // 404 (already gone) is fine; UpClientError with status 404 is recoverable.
+      if (
+        error instanceof UpUnauthorizedError ||
+        (error instanceof Error && !("status" in error))
+      ) {
+        // Fall through and clear local state — Up's side is unreachable.
+      }
+      console.error("Up Bank webhook deletion failed:", error);
       // Continue to clear local data anyway
     }
 
-    // 3. Clear webhook data from database
     const { error: updateError } = await supabase
       .from("up_api_configs")
       .update({
@@ -222,7 +206,8 @@ export async function pingWebhook(): Promise<{
   success?: boolean;
   error?: string;
 }> {
-  const blocked = demoActionGuard(); if (blocked) return { success: false, error: blocked.error };
+  const blocked = demoActionGuard();
+  if (blocked) return { success: false, error: blocked.error };
   try {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
@@ -242,17 +227,14 @@ export async function pingWebhook(): Promise<{
     }
 
     const apiToken = getPlaintextToken(config.encrypted_token);
-    const response = await fetch(
-      `https://api.up.com.au/api/v1/webhooks/${config.webhook_id}/ping`,
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${apiToken}`,
-        },
-      }
-    );
+    const client = createUpApiClient(apiToken);
 
-    if (!response.ok) {
+    try {
+      await client.pingWebhook(config.webhook_id);
+    } catch (error) {
+      if (error instanceof UpUnauthorizedError) {
+        return { error: "Up Bank rejected the API token. Please reconnect your Up account." };
+      }
       return { error: "Failed to ping webhook" };
     }
 
@@ -272,7 +254,8 @@ export async function connectUpBank(plaintextToken: string): Promise<{
   success?: boolean;
   error?: string;
 }> {
-  const blocked = demoActionGuard(); if (blocked) return { success: false, error: blocked.error };
+  const blocked = demoActionGuard();
+  if (blocked) return { success: false, error: blocked.error };
   try {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
@@ -281,13 +264,17 @@ export async function connectUpBank(plaintextToken: string): Promise<{
       return { error: "Not authenticated" };
     }
 
-    // 1. Validate token with UP Bank API
-    const response = await fetch("https://api.up.com.au/api/v1/util/ping", {
-      headers: { Authorization: `Bearer ${plaintextToken}` },
-    });
-
-    if (!response.ok) {
-      return { error: "Invalid API token. Please check and try again." };
+    // 1. Validate token via the typed Up client
+    const client = createUpApiClient(plaintextToken);
+    try {
+      await client.ping();
+    } catch (error) {
+      if (error instanceof UpUnauthorizedError) {
+        return { error: "Invalid API token. Please check and try again." };
+      }
+      return {
+        error: safeErrorMessage(error, "Could not reach Up Bank. Please try again later."),
+      };
     }
 
     // 2. Encrypt the token before storage — require encryption key
@@ -296,14 +283,17 @@ export async function connectUpBank(plaintextToken: string): Promise<{
     }
     const tokenToStore = encryptToken(plaintextToken);
 
-    // 3. Store token directly via upsert
+    // 3. Store token via upsert
     const { error: saveError } = await supabase
       .from("up_api_configs")
-      .upsert({
-        user_id: user.id,
-        encrypted_token: tokenToStore,
-        is_active: true,
-      }, { onConflict: "user_id" });
+      .upsert(
+        {
+          user_id: user.id,
+          encrypted_token: tokenToStore,
+          is_active: true,
+        },
+        { onConflict: "user_id" }
+      );
 
     if (saveError) {
       return { error: safeErrorMessage(saveError, "Failed to connect Up Bank") };

@@ -11,110 +11,27 @@ import { revalidatePath } from "next/cache";
 import { createServiceRoleClient } from "@/utils/supabase/service-role";
 import { createHmac, timingSafeEqual } from "crypto";
 import { matchSingleTransactionToExpenses, matchSingleTransactionToIncomeSources } from "@/lib/match-expense-transactions";
-import { inferCategoryId, ensureInferredCategories } from "@/lib/infer-category";
+import { ensureInferredCategories } from "@/lib/infer-category";
 import { aiCategorizeTransaction } from "@/lib/ai-categorize";
 import { getPlaintextToken } from "@/lib/token-encryption";
 import { webhookLimiter, getClientIp } from "@/lib/rate-limiter";
-
-// Up Bank Webhook Event Types
-type WebhookEventType =
-  | "TRANSACTION_CREATED"
-  | "TRANSACTION_SETTLED"
-  | "TRANSACTION_DELETED"
-  | "PING";
-
-interface WebhookPayload {
-  data: {
-    type: "webhook-events";
-    id: string;
-    attributes: {
-      eventType: WebhookEventType;
-      createdAt: string;
-    };
-    relationships: {
-      webhook: {
-        data: {
-          type: "webhooks";
-          id: string;
-        };
-        links?: {
-          related: string;
-        };
-      };
-      transaction?: {
-        data: {
-          type: "transactions";
-          id: string;
-        };
-        links?: {
-          related: string;
-        };
-      };
-    };
-  };
-}
-
-interface UpTransaction {
-  data: {
-    type: "transactions";
-    id: string;
-    attributes: {
-      status: "HELD" | "SETTLED";
-      rawText: string | null;
-      description: string;
-      message: string | null;
-      isCategorizable: boolean;
-      holdInfo: {
-        amount: { valueInBaseUnits: number; currencyCode: string };
-        foreignAmount: { valueInBaseUnits: number; currencyCode: string } | null;
-      } | null;
-      roundUp: {
-        amount: { valueInBaseUnits: number };
-        boostPortion: { valueInBaseUnits: number } | null;
-      } | null;
-      cashback: {
-        description: string;
-        amount: { valueInBaseUnits: number };
-      } | null;
-      amount: {
-        currencyCode: string;
-        value: string;
-        valueInBaseUnits: number;
-      };
-      foreignAmount: {
-        currencyCode: string;
-        valueInBaseUnits: number;
-      } | null;
-      cardPurchaseMethod: {
-        method: string;
-        cardNumberSuffix: string | null;
-      } | null;
-      settledAt: string | null;
-      createdAt: string;
-      performingCustomer?: { displayName: string } | null;
-    };
-    relationships: {
-      account: {
-        data: { type: "accounts"; id: string };
-      };
-      transferAccount: {
-        data: { type: "accounts"; id: string } | null;
-      };
-      category: {
-        data: { type: "categories"; id: string } | null;
-      };
-      parentCategory: {
-        data: { type: "categories"; id: string } | null;
-      };
-      tags: {
-        data: Array<{ type: "tags"; id: string }>;
-      };
-    };
-  };
-}
+import { createUpApiClient, UpUnauthorizedError, type UpApiClient } from "@/lib/up-api";
+import {
+  REPLAY_WINDOW_MS,
+  WEBHOOK_SIGNATURE_HEADER,
+  WEBHOOK_SIGNATURE_HEX_REGEX,
+} from "@/lib/up-constants";
+import type { UpAccount, UpTransaction, UpWebhookEvent } from "@/lib/up-types";
+import { ensureCategoryExists, resolveCategorySingle } from "@/lib/resolve-category";
 
 /**
- * Verify the webhook signature using HMAC SHA-256
+ * Verify the webhook signature using HMAC SHA-256.
+ *
+ * @see https://developer.up.com.au/#callback_post_webhookURL — Up's signing spec
+ *
+ * The signed payload is the *entire raw request body*, hex-encoded,
+ * compared in constant time. The 64-hex regex pre-check guards against
+ * malformed signatures that would crash `timingSafeEqual`.
  */
 function verifySignature(
   rawBody: string,
@@ -124,11 +41,7 @@ function verifySignature(
   if (!signature) return false;
 
   try {
-    // Validate hex format and length before comparison.
-    // SHA-256 produces 64 hex chars. Buffer.from with invalid hex silently
-    // creates a wrong-length buffer, causing timingSafeEqual to throw.
-    const HEX_REGEX = /^[0-9a-f]{64}$/i;
-    if (!HEX_REGEX.test(signature)) {
+    if (!WEBHOOK_SIGNATURE_HEX_REGEX.test(signature)) {
       return false;
     }
 
@@ -139,94 +52,44 @@ function verifySignature(
     const sigBuffer = Buffer.from(signature, "hex");
     const expectedBuffer = Buffer.from(expectedSig, "hex");
 
-    // Double-check buffer lengths match (defensive)
     if (sigBuffer.length !== expectedBuffer.length) {
       return false;
     }
 
-    // Use timing-safe comparison to prevent timing attacks
     return timingSafeEqual(sigBuffer, expectedBuffer);
   } catch {
     return false;
   }
 }
 
-interface UpAccount {
-  data: {
-    type: "accounts";
-    id: string;
-    attributes: {
-      displayName: string;
-      accountType: "SAVER" | "TRANSACTIONAL" | "HOME_LOAN";
-      ownershipType: "INDIVIDUAL" | "JOINT";
-      balance: {
-        currencyCode: string;
-        value: string;
-        valueInBaseUnits: number;
-      };
-    };
-  };
-}
-
-// Validate Up Bank IDs before interpolating into URLs to prevent SSRF.
-// IDs are opaque strings — only allow safe alphanumeric/dash/underscore characters.
-const UP_ID_REGEX = /^[a-zA-Z0-9_-]{1,128}$/;
-
 /**
- * Fetch account details from Up Bank API to get current balance
+ * Fetch account details via UpApiClient. Returns null on transient failure
+ * so the caller can decide whether to retry — a 401 throws (caller surfaces it).
  */
 async function fetchAccount(
-  accountId: string,
-  token: string
-): Promise<UpAccount | null> {
-  if (!UP_ID_REGEX.test(accountId)) return null;
+  client: UpApiClient,
+  accountId: string
+): Promise<{ data: UpAccount } | null> {
   try {
-    const response = await fetch(
-      `https://api.up.com.au/api/v1/accounts/${accountId}`,
-      {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      }
-    );
-
-    if (!response.ok) {
-      console.error("Failed to fetch account:", response.status);
-      return null;
-    }
-
-    return response.json();
+    return await client.getAccount(accountId);
   } catch (error) {
+    if (error instanceof UpUnauthorizedError) throw error;
     console.error("Error fetching account:", error);
     return null;
   }
 }
 
 /**
- * Fetch the full transaction details from Up Bank API
+ * Fetch the full transaction details via UpApiClient. See `fetchAccount`.
  */
 async function fetchTransaction(
-  transactionId: string,
-  token: string
-): Promise<UpTransaction | null> {
-  if (!UP_ID_REGEX.test(transactionId)) return null;
+  client: UpApiClient,
+  transactionId: string
+): Promise<{ data: UpTransaction } | null> {
   try {
-    const response = await fetch(
-      `https://api.up.com.au/api/v1/transactions/${transactionId}`,
-      {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      }
-    );
-
-    if (!response.ok) {
-      console.error("Failed to fetch transaction:", response.status);
-      return null;
-    }
-
-    return response.json();
+    return await client.getTransaction(transactionId);
   } catch (error) {
+    if (error instanceof UpUnauthorizedError) throw error;
     console.error("Error fetching transaction:", error);
     return null;
   }
@@ -237,13 +100,13 @@ async function fetchTransaction(
  */
 async function updateAccountBalance(
   upAccountId: string,
-  token: string,
+  client: UpApiClient,
   userId: string
 ) {
   const supabase = createServiceRoleClient();
 
   // Fetch current balance from Up Bank
-  const accountData = await fetchAccount(upAccountId, token);
+  const accountData = await fetchAccount(client, upAccountId);
   if (!accountData) {
     return;
   }
@@ -265,7 +128,17 @@ async function updateAccountBalance(
     console.error("Error updating account balance:", error);
   }
 
-  // Sync any linked savings goals
+  // Sync linked savings goals.
+  //
+  // Behaviour by goal count for a given Saver account:
+  //   0 goals → nothing to do.
+  //   1 goal  → auto-sync: goal.current_amount_cents = account balance.
+  //   2+ goals → DO NOT auto-sync. Multiple goals can't all hold the same
+  //              balance (the user would see incorrect progress on each), and
+  //              we have no signal to allocate the balance fairly between
+  //              them. The user must contribute manually via the goal UI.
+  //              (Phase 1.3 fix — was previously assigning newBalance to
+  //              every goal.)
   try {
     const { data: accountRows } = await supabase
       .from("accounts")
@@ -277,43 +150,56 @@ async function updateAccountBalance(
 
       const { data: linkedGoals } = await supabase
         .from("savings_goals")
-        .select("id, current_amount_cents, target_amount_cents")
+        .select("id, current_amount_cents, target_amount_cents, partnership_id, linked_account_id")
         .in("linked_account_id", accountIds)
         .eq("is_completed", false);
 
       if (linkedGoals && linkedGoals.length > 0) {
-        for (const goal of linkedGoals) {
-          if (goal.current_amount_cents !== newBalance) {
-            const delta = newBalance - goal.current_amount_cents;
-            const isCompleted = newBalance >= goal.target_amount_cents;
+        // Group by linked_account_id. Only auto-sync when exactly one active
+        // goal points at a given account.
+        const goalsByAccount = new Map<string, typeof linkedGoals>();
+        for (const g of linkedGoals) {
+          const list = goalsByAccount.get(g.linked_account_id) ?? [];
+          list.push(g);
+          goalsByAccount.set(g.linked_account_id, list);
+        }
 
-            // Use optimistic concurrency: only update if current_amount_cents
-            // still matches what we read. This prevents lost updates when
-            // multiple webhooks process simultaneously (H26 fix).
-            const { data: updatedGoal, error: goalUpdateError } = await supabase
-              .from("savings_goals")
-              .update({
-                current_amount_cents: newBalance,
-                is_completed: isCompleted,
-                ...(isCompleted ? { completed_at: new Date().toISOString() } : {}),
-                updated_at: new Date().toISOString(),
-              })
-              .eq("id", goal.id)
-              .eq("current_amount_cents", goal.current_amount_cents)
-              .select("id");
+        for (const [accountId, goals] of goalsByAccount.entries()) {
+          if (goals.length !== 1) {
+            // Skip — let the user manage these manually.
+            console.log(
+              `Goal sync skipped for account ${accountId}: ${goals.length} active goals share this Saver`
+            );
+            continue;
+          }
+          const goal = goals[0];
+          if (goal.current_amount_cents === newBalance) continue;
 
-            // Only record contribution if our update actually took effect
-            // (i.e., no other webhook updated the goal between our read and write)
-            if (!goalUpdateError && updatedGoal && updatedGoal.length > 0) {
-              await supabase
-                .from("goal_contributions")
-                .insert({
-                  goal_id: goal.id,
-                  amount_cents: delta,
-                  balance_after_cents: newBalance,
-                  source: "webhook_sync",
-                });
-            }
+          const delta = newBalance - goal.current_amount_cents;
+          const isCompleted = newBalance >= goal.target_amount_cents;
+
+          // Optimistic concurrency: only update if current_amount_cents still
+          // matches what we read. Prevents lost updates when multiple webhooks
+          // process simultaneously (H26 fix).
+          const { data: updatedGoal, error: goalUpdateError } = await supabase
+            .from("savings_goals")
+            .update({
+              current_amount_cents: newBalance,
+              is_completed: isCompleted,
+              ...(isCompleted ? { completed_at: new Date().toISOString() } : {}),
+              updated_at: new Date().toISOString(),
+            })
+            .eq("id", goal.id)
+            .eq("current_amount_cents", goal.current_amount_cents)
+            .select("id");
+
+          if (!goalUpdateError && updatedGoal && updatedGoal.length > 0) {
+            await supabase.from("goal_contributions").insert({
+              goal_id: goal.id,
+              amount_cents: delta,
+              balance_after_cents: newBalance,
+              source: "webhook_sync",
+            });
           }
         }
       }
@@ -407,9 +293,9 @@ async function updateAccountBalance(
  * Process a transaction event - upsert to database and match to expenses
  */
 async function processTransaction(
-  transactionData: UpTransaction,
+  transactionData: { data: UpTransaction },
   userId: string,
-  token: string
+  client: UpApiClient
 ) {
   const supabase = createServiceRoleClient();
   const txn = transactionData.data;
@@ -434,15 +320,15 @@ async function processTransaction(
   }
 
   // 1.5 Update account balance (transactions affect balance)
-  await updateAccountBalance(txn.relationships.account.data.id, token, userId);
+  await updateAccountBalance(txn.relationships.account.data.id, client, userId);
 
   // Also update transfer account balance if applicable
   if (txn.relationships.transferAccount?.data?.id) {
-    await updateAccountBalance(txn.relationships.transferAccount.data.id, token, userId);
+    await updateAccountBalance(txn.relationships.transferAccount.data.id, client, userId);
   }
 
   // 2. Find transfer account if applicable
-  let transferAccountId = null;
+  let transferAccountId: string | null = null;
   if (txn.relationships.transferAccount?.data?.id) {
     const { data: transferAccount } = await supabase
       .from("accounts")
@@ -453,35 +339,13 @@ async function processTransaction(
     transferAccountId = transferAccount?.id || null;
   }
 
-  // 3. Ensure inferred categories exist, then infer category + check merchant rules
+  // 3. Ensure inferred categories exist + defensive insert if Up sends a
+  //    category we haven't synced yet (e.g., Up added a new category mid-month).
   await ensureInferredCategories(supabase);
+  await ensureCategoryExists(supabase, txn.relationships.category.data?.id ?? null);
+  await ensureCategoryExists(supabase, txn.relationships.parentCategory.data?.id ?? null);
 
-  const categoryId = inferCategoryId({
-    upCategoryId: txn.relationships.category.data?.id || null,
-    transferAccountId,
-    roundUpAmountCents: txn.attributes.roundUp?.amount?.valueInBaseUnits || null,
-    transactionType: (txn.attributes as Record<string, unknown>).transactionType as string || null,
-    description: txn.attributes.description,
-    amountCents: txn.attributes.amount.valueInBaseUnits,
-  });
-
-  // Check merchant category rules (user's explicit rules take precedence)
-  let finalCategoryId = categoryId;
-  let finalParentCategoryId = txn.relationships.parentCategory.data?.id || null;
-
-  const { data: merchantRule } = await supabase
-    .from("merchant_category_rules")
-    .select("category_id, parent_category_id")
-    .eq("user_id", userId)
-    .eq("merchant_description", txn.attributes.description)
-    .maybeSingle();
-
-  if (merchantRule) {
-    finalCategoryId = merchantRule.category_id;
-    finalParentCategoryId = merchantRule.parent_category_id;
-  }
-
-  // Check if this transaction already exists with a user override (highest priority)
+  // 4. Look up existing transaction for override resolution
   const { data: existingTxn } = await supabase
     .from("transactions")
     .select("id")
@@ -489,18 +353,14 @@ async function processTransaction(
     .eq("up_transaction_id", txn.id)
     .maybeSingle();
 
-  if (existingTxn) {
-    const { data: override } = await supabase
-      .from("transaction_category_overrides")
-      .select("override_category_id, override_parent_category_id")
-      .eq("transaction_id", existingTxn.id)
-      .maybeSingle();
-
-    if (override) {
-      finalCategoryId = override.override_category_id;
-      finalParentCategoryId = override.override_parent_category_id;
-    }
-  }
+  // 5. Resolve category via three-tier resolver
+  const { categoryId: finalCategoryId, parentCategoryId: finalParentCategoryId } =
+    await resolveCategorySingle(txn, {
+      userId,
+      supabase,
+      transferAccountId,
+      existingTxnId: existingTxn?.id ?? null,
+    });
 
   const { data: savedTransaction, error: txnError } = await supabase
     .from("transactions")
@@ -540,7 +400,10 @@ async function processTransaction(
           txn.attributes.cardPurchaseMethod?.cardNumberSuffix || null,
         transfer_account_id: transferAccountId,
         is_categorizable: txn.attributes.isCategorizable ?? true,
-        transaction_type: (txn.attributes as Record<string, unknown>).transactionType as string || null,
+        transaction_type: txn.attributes.transactionType,
+        deep_link_url: txn.attributes.deepLinkURL ?? null,
+        note_text: txn.attributes.note?.text ?? null,
+        has_attachment: txn.relationships.attachment?.data !== null,
         performing_customer: txn.attributes.performingCustomer?.displayName || null,
         is_shared: account?.ownership_type === 'JOINT',
       },
@@ -687,10 +550,10 @@ export async function POST(request: Request) {
 
     // 1. Get raw body for signature verification
     const rawBody = await request.text();
-    const signature = request.headers.get("X-Up-Authenticity-Signature");
+    const signature = request.headers.get(WEBHOOK_SIGNATURE_HEADER);
 
     // 2. Parse payload to get webhook ID
-    let payload: WebhookPayload;
+    let payload: UpWebhookEvent;
     try {
       payload = JSON.parse(rawBody);
     } catch {
@@ -728,21 +591,21 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // 4.5 Replay protection - reject events older than 5 minutes
+    // 4.5 Replay protection - reject events outside the configured window
     const eventTime = new Date(payload.data.attributes.createdAt).getTime();
     if (Number.isNaN(eventTime)) {
       console.error("Invalid createdAt timestamp in webhook event");
       return NextResponse.json({ error: "Invalid timestamp" }, { status: 400 });
     }
     const now = Date.now();
-    const FIVE_MINUTES = 5 * 60 * 1000;
-    if (Math.abs(now - eventTime) > FIVE_MINUTES) {
+    if (Math.abs(now - eventTime) > REPLAY_WINDOW_MS) {
       console.error("Webhook event too old or from the future, possible replay attack");
       return NextResponse.json({ error: "Event expired" }, { status: 400 });
     }
 
-    // 4.6 Decrypt the API token
+    // 4.6 Decrypt the API token and build a typed client
     const apiToken = getPlaintextToken(config.encrypted_token);
+    const client = createUpApiClient(apiToken);
 
     // 5. Handle event
     const eventType = payload.data.attributes.eventType;
@@ -761,10 +624,10 @@ export async function POST(request: Request) {
         }
 
         // Fetch full transaction details from UP Bank API
-        const transactionData = await fetchTransaction(txnId, apiToken);
+        const transactionData = await fetchTransaction(client, txnId);
 
         if (transactionData) {
-          await processTransaction(transactionData, config.user_id, apiToken);
+          await processTransaction(transactionData, config.user_id, client);
         } else if (eventType === "TRANSACTION_SETTLED") {
           // Fallback: if we can't fetch the transaction but this is a SETTLED event,
           // try to update the existing HELD record directly
@@ -830,6 +693,14 @@ export async function POST(request: Request) {
     // Always return 200 OK to acknowledge receipt
     return NextResponse.json({ success: true }, { status: 200 });
   } catch (error) {
+    // Distinguish PAT-revoked from other failures so we don't retry forever
+    if (error instanceof UpUnauthorizedError) {
+      console.error("Webhook handler: PAT revoked or invalid", error.firstError?.detail ?? "");
+      return NextResponse.json(
+        { success: false, error: "Up Bank authentication failed" },
+        { status: 401 }
+      );
+    }
     console.error("Webhook handler error:", error);
     // Return 500 so UP Bank retries the webhook delivery
     return NextResponse.json(
