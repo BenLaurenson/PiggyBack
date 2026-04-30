@@ -8,8 +8,10 @@ import { ChevronRight, TrendingUp, TrendingDown, Clock } from "lucide-react";
 import { PlanHealthRing } from "@/components/plan/plan-health-ring";
 import { NumberTicker } from "@/components/ui/number-ticker";
 import { RecurringExpensesCard } from "@/components/budget/recurring-expenses-card";
+import { AISplitAnalysisCard } from "@/components/dashboard/ai-split-analysis-card";
 import Link from "next/link";
 import type { Insight } from "@/lib/spending-insights";
+import type { SplitAnalysisResult } from "@/lib/calculate-split-analysis";
 import {
   AreaChart,
   Area,
@@ -109,6 +111,10 @@ interface DashboardClientProps {
   safeToSpend?: number | null;
   monthlyBurnRate?: number;
   yearEndProjection?: number;
+  /** 2Up AI Split Analysis. Null when the user has no JOINT account. */
+  splitAnalysis?:
+    | (SplitAnalysisResult & { partnerName: string | null })
+    | null;
 }
 
 // ============================================================================
@@ -314,6 +320,7 @@ export function DashboardClient({
   safeToSpend = null,
   monthlyBurnRate = 0,
   yearEndProjection = 0,
+  splitAnalysis = null,
 }: DashboardClientProps) {
   const isStale = lastSyncTime
     ? Date.now() - new Date(lastSyncTime).getTime() > 24 * 60 * 60 * 1000
@@ -599,6 +606,22 @@ export function DashboardClient({
                 </CardContent>
               </Card>
             </motion.div>
+
+            {/* AI Split Analysis (2Up) — only when a JOINT account exists */}
+            {splitAnalysis && (
+              <AISplitAnalysisCard
+                userName={userName}
+                partnerName={splitAnalysis.partnerName}
+                totalSharedSpend={splitAnalysis.totalSharedSpend}
+                userPaid={splitAnalysis.userPaid}
+                partnerPaid={splitAnalysis.partnerPaid}
+                userPaidPercentage={splitAnalysis.userPaidPercentage}
+                userIncomePercentage={splitAnalysis.userIncomePercentage}
+                suggestedRebalanceCents={splitAnalysis.suggestedRebalanceCents}
+                rebalanceTarget={splitAnalysis.rebalanceTarget}
+                hasEnoughData={splitAnalysis.hasEnoughData}
+              />
+            )}
 
             {/* Goals Section */}
             {goals.length > 0 && (

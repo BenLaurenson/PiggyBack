@@ -4,6 +4,8 @@ import type { BudgetSummaryResponse } from "@/contexts/budget-context";
 import { CategoryProvider } from "@/contexts/category-context";
 import { getUserPartnershipId } from "@/lib/get-user-partnership";
 import { getEffectiveAccountIds } from "@/lib/get-effective-account-ids";
+import { getPartnershipDisplayNames } from "@/lib/get-partnership-display-names";
+import { getDisplayName } from "@/lib/user-display";
 import { getCurrentDate } from "@/lib/demo-guard";
 import { EmptyState } from "@/components/ui/empty-state";
 import { BudgetEmptyState } from "@/components/budget/budget-empty-state";
@@ -15,7 +17,9 @@ import {
   calculateBudgetSummary,
   calculateBudgeted,
   calculateSpent,
+  calculateSpentByPartner,
   getMonthKeyForPeriod,
+  type BudgetScope,
   type BudgetSummaryInput,
   type IncomeSourceInput,
   type AssignmentInput,
@@ -30,7 +34,7 @@ import {
 export default async function BudgetPage({
   searchParams,
 }: {
-  searchParams: Promise<{ month?: string; period?: string; tab?: string; id?: string }>;
+  searchParams: Promise<{ month?: string; period?: string; tab?: string; id?: string; view?: string }>;
 }) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -267,8 +271,16 @@ export default async function BudgetPage({
   const periodRange = getBudgetPeriodRange(now, selectedBudget.period_type);
   const monthKey = getMonthKeyForPeriod(now);
 
+  // 2Up scope (Personal | Shared | Combined). The toggle on /budget filters
+  // transactions by account ownership_type; "combined" matches the pre-2Up
+  // default of including every account both partners can see.
+  const scope: BudgetScope =
+    params.view === "personal" || params.view === "shared" || params.view === "combined"
+      ? params.view
+      : "combined";
+
   const accountIds = await getEffectiveAccountIds(
-    supabase, partnershipId, user.id, selectedBudget.budget_view
+    supabase, partnershipId, user.id, selectedBudget.budget_view, scope
   );
 
   const [
@@ -560,12 +572,29 @@ export default async function BudgetPage({
     }
   }
 
+  // Per-partner breakdown when in shared scope (2Up). Renders the per-row
+  // "your share / partner share" sub-lines for each subcategory.
+  const initialPartnerBreakdown =
+    scope === "shared"
+      ? Object.fromEntries(
+          calculateSpentByPartner(
+            transactions,
+            categoryMappings,
+            splitSettings,
+            user.id,
+            selectedBudget.created_by ?? user.id,
+          ).entries()
+        )
+      : undefined;
+
   const initialSummary: BudgetSummaryResponse = {
     ...summary,
     periodLabel: periodRange.label,
     periodStart: periodRange.start.toISOString(),
     periodEnd: periodRange.end.toISOString(),
     monthKey,
+    scope,
+    ...(initialPartnerBreakdown ? { partnerBreakdown: initialPartnerBreakdown } : {}),
   };
 
   // ── Build category mappings for CategoryProvider ───────────────────────
@@ -587,6 +616,26 @@ export default async function BudgetPage({
       });
     }
   }
+
+  // ── Partner display names for 2Up sub-lines ───────────────────────────
+  // Fetch the requesting user's profile so we can resolve a friendly first name
+  // ("Ben") rather than emailing them back at themselves.
+  const { data: selfProfile } = await supabase
+    .from("profiles")
+    .select("display_name")
+    .eq("id", user.id)
+    .maybeSingle();
+  const selfFallbackName = getDisplayName(
+    selfProfile?.display_name,
+    user.user_metadata?.full_name as string | undefined,
+    user.email,
+  );
+  const displayNames = await getPartnershipDisplayNames(
+    supabase,
+    partnershipId,
+    user.id,
+    selfFallbackName,
+  );
 
   // Minimal budgetData for BudgetPageShell
   const budgetData = {
@@ -622,6 +671,8 @@ export default async function BudgetPage({
       split_type: s.split_type,
       owner_percentage: s.owner_percentage,
     })),
+    userDisplayName: displayNames.userDisplayName,
+    partnerDisplayName: displayNames.partnerDisplayName ?? "Partner",
   };
 
   return (
@@ -630,6 +681,7 @@ export default async function BudgetPage({
         budget={selectedBudget}
         initialSummary={initialSummary}
         initialDate={now}
+        initialScope={scope}
       >
         <BudgetPageShell
           budget={selectedBudget}

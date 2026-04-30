@@ -36,6 +36,10 @@ interface BudgetOverviewTabProps {
   nextPayDate?: string | null;
   userId: string;
   categoryMappings: any[];
+  /** Display name for the current user (left-side share label). */
+  userDisplayName?: string;
+  /** Display name for the partner (right-side share label). */
+  partnerDisplayName?: string;
   onAssignCategory: (name: string, amount: number, subcategoryName?: string) => Promise<void>;
   onAssignGoal: (id: string, amount: number) => Promise<void>;
   onAssignAsset: (id: string, amount: number) => Promise<void>;
@@ -52,6 +56,8 @@ export function BudgetOverviewTab({
   nextPayDate,
   userId,
   categoryMappings,
+  userDisplayName,
+  partnerDisplayName,
   onAssignCategory,
   onAssignGoal,
   onAssignAsset,
@@ -59,6 +65,7 @@ export function BudgetOverviewTab({
 }: BudgetOverviewTabProps) {
   const {
     summary,
+    scope,
     currentDate,
     navigatePeriod,
     setDate,
@@ -170,6 +177,9 @@ export function BudgetOverviewTab({
               budgetPeriod={periodType}
               onItemClick={setSelectedItem}
               searchQuery={searchQuery}
+              partnerBreakdown={scope === "shared" ? summary?.partnerBreakdown : undefined}
+              userDisplayName={userDisplayName}
+              partnerDisplayName={partnerDisplayName}
             />
           </div>
 

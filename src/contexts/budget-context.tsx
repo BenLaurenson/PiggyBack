@@ -14,7 +14,7 @@
 
 import { createContext, useContext, ReactNode, useState, useCallback, useRef } from "react";
 import { getNextPeriodDate, getPreviousPeriodDate, getMonthKeyForPeriod } from "@/lib/budget-engine";
-import type { PeriodType, BudgetRow, MethodologySection } from "@/lib/budget-engine";
+import type { PeriodType, BudgetRow, BudgetScope, MethodologySection, PartnerSpend } from "@/lib/budget-engine";
 import { updateBudget } from "@/app/actions/budgets";
 import type { UserBudget } from "@/app/actions/budgets";
 
@@ -31,6 +31,10 @@ export interface BudgetSummaryResponse {
   periodStart: string;
   periodEnd: string;
   monthKey: string;
+  /** 2Up account-ownership scope used to compute the summary. */
+  scope?: BudgetScope;
+  /** Per-row partner spend breakdown — only present when `scope === "shared"`. */
+  partnerBreakdown?: Record<string, PartnerSpend>;
 }
 
 interface BudgetContextValue {
@@ -38,11 +42,14 @@ interface BudgetContextValue {
   budget: UserBudget;
   summary: BudgetSummaryResponse | null;
   currentDate: Date;
+  /** 2Up account-ownership scope: personal (INDIVIDUAL only), shared (JOINT only), combined (default). */
+  scope: BudgetScope;
   isLoading: boolean;
 
   // Actions
   navigatePeriod: (direction: "next" | "prev") => Promise<void>;
   setDate: (date: Date) => Promise<void>;
+  setScope: (scope: BudgetScope) => Promise<void>;
   updateSettings: (changes: Partial<Pick<UserBudget, "name" | "emoji" | "methodology" | "budget_view" | "period_type" | "category_filter" | "color">>) => Promise<void>;
   assignAmount: (params: {
     partnershipId: string;
@@ -63,6 +70,8 @@ interface BudgetProviderProps {
   budget: UserBudget;
   initialSummary: BudgetSummaryResponse;
   initialDate?: Date;
+  /** 2Up scope passed in from the page (defaults to "combined" — pre-2Up behaviour). */
+  initialScope?: BudgetScope;
 }
 
 export function BudgetProvider({
@@ -70,10 +79,12 @@ export function BudgetProvider({
   budget: initialBudget,
   initialSummary,
   initialDate,
+  initialScope = "combined",
 }: BudgetProviderProps) {
   const [budget, setBudget] = useState<UserBudget>(initialBudget);
   const [summary, setSummary] = useState<BudgetSummaryResponse | null>(initialSummary);
   const [currentDate, setCurrentDate] = useState<Date>(initialDate ?? new Date());
+  const [scope, setScopeState] = useState<BudgetScope>(initialScope);
   const [isLoading, setIsLoading] = useState(false);
 
   // Monotonically increasing ID for each fetch request. When a response arrives,
@@ -90,14 +101,20 @@ export function BudgetProvider({
   budgetRef.current = budget;
   const currentDateRef = useRef(currentDate);
   currentDateRef.current = currentDate;
+  const scopeRef = useRef(scope);
+  scopeRef.current = scope;
 
-  const fetchSummary = useCallback(async (date: Date, budgetId: string): Promise<BudgetSummaryResponse | null> => {
+  const fetchSummary = useCallback(async (
+    date: Date,
+    budgetId: string,
+    scopeArg: BudgetScope = scopeRef.current
+  ): Promise<BudgetSummaryResponse | null> => {
     const requestId = ++fetchIdRef.current;
     setIsLoading(true);
 
     try {
       const res = await fetch(
-        `/api/budget/summary?budget_id=${budgetId}&date=${date.toISOString()}`
+        `/api/budget/summary?budget_id=${budgetId}&date=${date.toISOString()}&scope=${scopeArg}`
       );
       if (!res.ok) {
         console.error("Failed to fetch budget summary:", await res.text());
@@ -140,6 +157,13 @@ export function BudgetProvider({
     setCurrentDate(date);
     currentDateRef.current = date;
     await fetchSummary(date, budgetRef.current.id);
+  }, [fetchSummary]);
+
+  const setScope = useCallback(async (next: BudgetScope) => {
+    if (next === scopeRef.current) return;
+    setScopeState(next);
+    scopeRef.current = next;
+    await fetchSummary(currentDateRef.current, budgetRef.current.id, next);
   }, [fetchSummary]);
 
   const updateSettings = useCallback(async (
@@ -195,9 +219,11 @@ export function BudgetProvider({
     budget,
     summary,
     currentDate,
+    scope,
     isLoading,
     navigatePeriod,
     setDate,
+    setScope,
     updateSettings,
     assignAmount,
     refresh,

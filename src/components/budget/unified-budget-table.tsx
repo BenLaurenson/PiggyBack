@@ -12,6 +12,7 @@ import { BudgetEditDialog } from "./budget-edit-dialog";
 import { LayoutConfig, Section, generateItemId, getDensitySpacing } from "@/lib/layout-persistence";
 import type { BudgetRow, ExpenseData } from "@/lib/budget-row-types";
 import { isGoalRow, isAssetRow, isSubcategoryRow, isCategoryRow } from "@/lib/budget-row-types";
+import type { PartnerSpend } from "@/lib/budget-engine";
 
 const LUCIDE_TO_EMOJI: Record<string, string> = {
   "piggy-bank": "🐷", "home": "🏠", "car": "🚗", "plane": "✈️",
@@ -41,6 +42,12 @@ interface UnifiedBudgetTableProps {
   onItemClick?: (item: BudgetRow) => void; // For detail panel
   onShareChange?: (categoryName: string, isShared: boolean, percentage: number) => void; // For quick share actions
   searchQuery?: string; // External search filter
+  /** Per-row partner spend breakdown — keyed by "Parent::Subcategory". Provided when 2Up scope=shared. */
+  partnerBreakdown?: Record<string, PartnerSpend>;
+  /** Display label for current user's share — defaults to "Your share". */
+  userDisplayName?: string;
+  /** Display label for partner's share — defaults to "Partner's share". */
+  partnerDisplayName?: string;
 }
 
 export function UnifiedBudgetTable({
@@ -60,6 +67,9 @@ export function UnifiedBudgetTable({
   onItemClick,
   onShareChange,
   searchQuery = "",
+  partnerBreakdown,
+  userDisplayName = "Your share",
+  partnerDisplayName = "Partner's share",
 }: UnifiedBudgetTableProps) {
   const [editDialogItem, setEditDialogItem] = useState<BudgetRow | null>(null);
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set());
@@ -231,6 +241,13 @@ export function UnifiedBudgetTable({
           const renderItemRow = (item: BudgetRow, index: number, showTreeConnector: boolean = false) => {
             const percentage = calculatePercentage(item.spent, item.assigned);
             const isSubcategory = isSubcategoryRow(item);
+
+            // Look up the per-partner breakdown for this row.
+            // Engine row IDs encode "Parent::Child" for subcategories; the partnerBreakdown
+            // map is keyed identically. For category rollup rows we don't render a
+            // per-partner sub-line (too much aggregation noise).
+            const breakdownKey = isSubcategory ? `${item.parentCategory}::${item.name}` : null;
+            const partnerInfo = breakdownKey && partnerBreakdown ? partnerBreakdown[breakdownKey] : null;
 
             return (
               <motion.div
@@ -410,6 +427,38 @@ export function UnifiedBudgetTable({
                     )}
                   </div>
                 </div>
+
+                {/* Per-partner sub-lines (2Up shared budget view).
+                    Renders user / partner spend split for each subcategory based on
+                    couple_split_settings. Hidden when the row has no spend, or when
+                    no breakdown was provided (non-shared scope). */}
+                {partnerInfo && partnerInfo.total > 0 && (
+                  <div
+                    className="grid grid-cols-12 gap-1 sm:gap-2 px-3 sm:px-4 pb-2 -mt-1"
+                    style={{
+                      marginLeft: isSubcategory ? '8px' : '0',
+                      paddingLeft: isSubcategory ? '18px' : undefined,
+                    }}
+                  >
+                    <div className="col-span-12 flex items-center justify-between gap-3 text-[10px] sm:text-xs"
+                      style={{ color: 'var(--text-tertiary)' }}>
+                      <span className="flex items-center gap-1.5 truncate">
+                        <Users className="h-3 w-3 flex-shrink-0" style={{ color: 'var(--pastel-blue-dark)' }} />
+                        <span className="truncate">
+                          <span className="font-medium" style={{ color: 'var(--text-secondary)' }}>
+                            {userDisplayName}
+                          </span>{" "}
+                          {formatCurrency(partnerInfo.userShare)} ({partnerInfo.userPercentage}%)
+                          {" · "}
+                          <span className="font-medium" style={{ color: 'var(--text-secondary)' }}>
+                            {partnerDisplayName}
+                          </span>{" "}
+                          {formatCurrency(partnerInfo.partnerShare)} ({100 - partnerInfo.userPercentage}%)
+                        </span>
+                      </span>
+                    </div>
+                  </div>
+                )}
               </motion.div>
             );
           };

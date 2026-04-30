@@ -6,6 +6,14 @@ import { getCurrentDate } from "@/lib/demo-guard";
 import { generateInsights } from "@/lib/spending-insights";
 import { advanceStaleIncomeSources } from "@/lib/advance-pay-date";
 import { getUserPartnershipId } from "@/lib/get-user-partnership";
+import { calculateSplitAnalysis } from "@/lib/calculate-split-analysis";
+import { getPartnershipDisplayNames } from "@/lib/get-partnership-display-names";
+import type {
+  CategoryMapping as EngineCategoryMapping,
+  IncomeSourceInput,
+  SplitSettingInput,
+  TransactionInput,
+} from "@/lib/budget-engine";
 
 export default async function DashboardPage() {
   const supabase = await createClient();
@@ -25,7 +33,7 @@ export default async function DashboardPage() {
   ] = await Promise.all([
     supabase.from("profiles").select("display_name").eq("id", user.id).maybeSingle(),
     getUserPartnershipId(supabase, user.id),
-    supabase.from("accounts").select("id, balance_cents, display_name, account_type, updated_at").eq("user_id", user.id).eq("is_active", true),
+    supabase.from("accounts").select("id, balance_cents, display_name, account_type, updated_at, ownership_type").eq("user_id", user.id).eq("is_active", true),
     supabase.from("category_mappings").select("up_category_id, new_parent_name, new_child_name, icon"),
   ]);
 
@@ -67,6 +75,15 @@ export default async function DashboardPage() {
   const sixMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 5, 1);
   const twoWeeksFromNow = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000);
 
+  // 2Up shared spend window — for the AI Split Analysis card. JOINT account ids
+  // for the partnership (deduped on up_account_id is unnecessary here since we
+  // only sum each transaction's amount once via account_id `IN (...)`, and
+  // partner-side rows live under separate account_ids). Empty array when the
+  // partnership has no JOINT accounts.
+  const jointAccountIds = (accounts ?? [])
+    .filter((a) => (a as { ownership_type?: string }).ownership_type === "JOINT")
+    .map((a) => a.id);
+
   // Batch 2: Queries that depend on accountIds/partnershipId — run in parallel
   // Combined historicalTransactions includes all fields needed for both monthly flow + insights
   // (eliminates duplicate 1000-row transaction query)
@@ -81,6 +98,9 @@ export default async function DashboardPage() {
     { data: historicalTransactions },
     { data: expenseDefinitions },
     { data: splitSettings },
+    { data: jointMonthTransactions },
+    { data: allIncomeSources },
+    { data: fullSplitSettings },
   ] = await Promise.all([
     supabase.from("transactions").select("amount_cents, category_id, is_income, created_at").in("account_id", accountIds).is("transfer_account_id", null).gte("created_at", startOfMonth.toISOString()).lte("created_at", endOfMonth.toISOString()),
     supabase.from("transactions").select("id, description, amount_cents, created_at, category_id, is_income").in("account_id", accountIds).is("transfer_account_id", null).order("created_at", { ascending: false }).limit(5),
@@ -91,6 +111,27 @@ export default async function DashboardPage() {
     supabase.from("transactions").select("description, amount_cents, created_at, category_id, parent_category_id, is_income, is_internal_transfer").in("account_id", accountIds).is("transfer_account_id", null).gte("created_at", sixMonthsAgo.toISOString()).lte("created_at", endOfMonth.toISOString()).order("created_at", { ascending: false }).limit(1000),
     supabase.from("expense_definitions").select("id, name, match_pattern, merchant_name, category_name, expected_amount_cents, recurrence_type").eq("partnership_id", partnershipId).eq("is_active", true),
     supabase.from("couple_split_settings").select("expense_definition_id, owner_percentage").eq("partnership_id", partnershipId),
+    // ── 2Up split analysis inputs ──────────────────────────────────────
+    jointAccountIds.length > 0
+      ? supabase
+          .from("transactions")
+          .select("id, amount_cents, category_id, settled_at, is_income")
+          .in("account_id", jointAccountIds)
+          .lt("amount_cents", 0)
+          .is("transfer_account_id", null)
+          .neq("status", "DELETED")
+          .gte("settled_at", startOfMonth.toISOString())
+          .lte("settled_at", endOfMonth.toISOString())
+      : Promise.resolve({ data: [] as Array<Record<string, unknown>> }),
+    supabase
+      .from("income_sources")
+      .select("amount_cents, frequency, source_type, is_received, received_date, user_id, is_manual_partner_income")
+      .eq("partnership_id", partnershipId)
+      .eq("is_active", true),
+    supabase
+      .from("couple_split_settings")
+      .select("category_name, expense_definition_id, split_type, owner_percentage")
+      .eq("partnership_id", partnershipId),
   ]);
 
   // Calculate spending and income
@@ -257,6 +298,63 @@ export default async function DashboardPage() {
   const monthsRemaining = 12 - now.getMonth();
   const yearEndProjection = totalBalance + (monthlySavingsRate * monthsRemaining);
 
+  // ── 2Up AI Split Analysis ──────────────────────────────────────────────
+  // Build engine inputs from raw rows. The analysis is computed when the user
+  // has at least one JOINT account; otherwise the card renders an empty state
+  // pointing to /settings/partner.
+  const splitTransactions: TransactionInput[] = ((jointMonthTransactions ?? []) as Array<Record<string, unknown>>).map(
+    (t) => ({
+      id: t.id as string,
+      amount_cents: t.amount_cents as number,
+      category_id: (t.category_id as string | null) ?? null,
+      created_at: (t.settled_at as string) ?? "",
+      is_income: (t.is_income as boolean) ?? false,
+      split_override_percentage: null,
+      matched_expense_id: null,
+    }),
+  );
+  const splitCategoryMappings: EngineCategoryMapping[] = (categoryMappings ?? []).map((m) => ({
+    up_category_id: m.up_category_id,
+    new_parent_name: m.new_parent_name ?? "",
+    new_child_name: m.new_child_name ?? "",
+  }));
+  const splitIncomeSources: IncomeSourceInput[] = ((allIncomeSources ?? []) as Array<Record<string, unknown>>).map(
+    (s) => ({
+      amount_cents: s.amount_cents as number,
+      frequency: s.frequency as string,
+      source_type: s.source_type as string,
+      is_received: s.is_received as boolean | undefined,
+      received_date: (s.received_date as string | null) ?? null,
+      user_id: s.user_id as string,
+      is_manual_partner_income: s.is_manual_partner_income as boolean | undefined,
+    }),
+  );
+  const splitSettingInputs: SplitSettingInput[] = ((fullSplitSettings ?? []) as Array<Record<string, unknown>>).map(
+    (s) => ({
+      category_name: (s.category_name as string | null) ?? null,
+      expense_definition_id: (s.expense_definition_id as string | null) ?? null,
+      split_type: s.split_type as SplitSettingInput["split_type"],
+      owner_percentage:
+        s.owner_percentage != null ? Number(s.owner_percentage as number) : undefined,
+    }),
+  );
+
+  const splitAnalysis = calculateSplitAnalysis({
+    transactions: splitTransactions,
+    categoryMappings: splitCategoryMappings,
+    splitSettings: splitSettingInputs,
+    incomeSources: splitIncomeSources,
+    userId: user.id,
+    ownerUserId: user.id,
+  });
+
+  // Resolve display names for the card. Skip the partner lookup when there's
+  // no JOINT account (no need to render the card at all).
+  const userDisplayName = getDisplayName(profile?.display_name, user.user_metadata?.full_name, user.email);
+  const splitDisplayNames = partnershipId
+    ? await getPartnershipDisplayNames(supabase, partnershipId, user.id, userDisplayName)
+    : null;
+
   // Health score (0-100)
   let healthScore = 0;
   if (monthlySpending <= monthlyIncome) healthScore += 25; // Not overspending
@@ -272,7 +370,7 @@ export default async function DashboardPage() {
   return (
     <>
       <DashboardClient
-        userName={getDisplayName(profile?.display_name, user.user_metadata?.full_name, user.email)}
+        userName={userDisplayName}
         totalBalance={totalBalance}
         accountCount={accounts?.length || 0}
         lastSyncTime={lastSyncTime?.toISOString() || null}
@@ -300,6 +398,14 @@ export default async function DashboardPage() {
         safeToSpend={safeToSpend}
         monthlyBurnRate={monthlyBurnRate}
         yearEndProjection={yearEndProjection}
+        splitAnalysis={
+          jointAccountIds.length > 0
+            ? {
+                ...splitAnalysis,
+                partnerName: splitDisplayNames?.partnerDisplayName ?? null,
+              }
+            : null
+        }
       />
     </>
   );

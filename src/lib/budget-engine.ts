@@ -114,6 +114,19 @@ export function midnightInTimezone(
 export type PeriodType = "weekly" | "fortnightly" | "monthly";
 export type CarryoverMode = "none";
 export type BudgetView = "individual" | "shared";
+/**
+ * Account-ownership scope for the 2Up budget view toggle.
+ *
+ * - "personal":  only INDIVIDUAL accounts (each partner's own money).
+ * - "shared":    only JOINT accounts (the 2Up account / shared kitty).
+ * - "combined":  every account both partners can see — INDIVIDUAL + JOINT.
+ *
+ * Independent of `BudgetView` ("individual" vs "shared") which controls how
+ * splits + income are applied. A user can view their personal budget rules
+ * (`BudgetView=individual`) over only their JOINT accounts (`BudgetScope=shared`),
+ * for example, to answer "what's my share of joint spend this month?"
+ */
+export type BudgetScope = "personal" | "shared" | "combined";
 export type SplitType =
   | "equal"
   | "custom"
@@ -739,6 +752,126 @@ export function calculateSpent(
   }
 
   return spentMap;
+}
+
+// ─── Per-Partner Spent Calculation (2Up) ────────────────────────────────────
+
+/**
+ * Spend breakdown for a single subcategory (or expense) split between the
+ * primary user and their partner, expressed as cents.
+ */
+export interface PartnerSpend {
+  /** Total spend in cents (positive). */
+  total: number;
+  /** Cents attributed to `userId` based on the configured split. */
+  userShare: number;
+  /** Cents attributed to the partner. */
+  partnerShare: number;
+  /** Resolved share percentage for `userId` (0..100) — equal-weight default of 50 when no split rule applies. */
+  userPercentage: number;
+}
+
+/**
+ * Per-partner spend rollup, one entry per "Parent::Subcategory" key.
+ *
+ * Mirrors `calculateSpent` but always splits the per-row totals by partner
+ * regardless of `budgetView`. Used by the shared-account 2Up budget view to
+ * render the "your share / partner share" sub-lines under each category.
+ *
+ * Behaviour:
+ * - Only negative (expense) transactions are counted.
+ * - Per-transaction `split_override_percentage` wins over category/expense rules.
+ * - Otherwise the lookup walks expense-level → category-level split settings
+ *   (matching the priority used by `calculateSpent` in individual view).
+ * - When no rule applies, defaults to 50/50 — this is the convention for
+ *   shared/JOINT spend with no explicit split configured.
+ */
+export function calculateSpentByPartner(
+  transactions: TransactionInput[],
+  categoryMappings: CategoryMapping[],
+  splitSettings: SplitSettingInput[],
+  userId: string,
+  ownerUserId: string,
+  categoryFallbacks: CategoryFallback[] = []
+): Map<string, PartnerSpend> {
+  const result = new Map<string, PartnerSpend>();
+
+  const catLookup = new Map<string, { parent: string; child: string }>();
+  for (const m of categoryMappings) {
+    catLookup.set(m.up_category_id, {
+      parent: m.new_parent_name,
+      child: m.new_child_name,
+    });
+  }
+  const fallbackLookup = new Map<string, CategoryFallback>();
+  for (const f of categoryFallbacks) {
+    fallbackLookup.set(f.id, f);
+  }
+
+  const UNCATEGORISED = "Uncategorised";
+  const DEFAULT_SHARED_PCT = 50; // 50/50 when no rule is configured
+
+  for (const txn of transactions) {
+    if (txn.is_income || txn.amount_cents >= 0) continue;
+
+    let mapping: { parent: string; child: string } | null = null;
+    if (txn.category_id) {
+      mapping = catLookup.get(txn.category_id) ?? null;
+      if (!mapping) {
+        const fb = fallbackLookup.get(txn.category_id);
+        mapping = fb
+          ? { parent: fb.parent_name ?? UNCATEGORISED, child: fb.name }
+          : { parent: UNCATEGORISED, child: txn.category_id };
+      }
+    } else {
+      mapping = { parent: UNCATEGORISED, child: UNCATEGORISED };
+    }
+
+    const total = Math.abs(txn.amount_cents);
+
+    let userPct: number;
+    if (txn.split_override_percentage != null) {
+      userPct = txn.split_override_percentage;
+    } else {
+      const split =
+        (txn.matched_expense_id
+          ? splitSettings.find(
+              (s) => s.expense_definition_id === txn.matched_expense_id
+            )
+          : undefined) ??
+        splitSettings.find((s) => s.category_name === mapping.parent);
+      if (split) {
+        userPct = resolveSplitPercentage(split, userId, ownerUserId);
+      } else {
+        userPct = DEFAULT_SHARED_PCT;
+      }
+    }
+
+    const userShare = Math.round(total * userPct / 100);
+    const partnerShare = total - userShare;
+
+    const key = `${mapping.parent}::${mapping.child}`;
+    const existing = result.get(key);
+    if (existing) {
+      existing.total += total;
+      existing.userShare += userShare;
+      existing.partnerShare += partnerShare;
+      // Recompute average percentage as a weighted average so the stored value
+      // is meaningful even when a category mixes rows with different splits.
+      existing.userPercentage = existing.total > 0
+        ? Math.round((existing.userShare / existing.total) * 100)
+        : userPct;
+    } else {
+      result.set(key, {
+        total,
+        userShare,
+        partnerShare,
+        userPercentage: userPct,
+      });
+    }
+  }
+
+  return result;
 }
 
 // ─── Full Budget Summary Orchestrator ─────────────────────────────────────────

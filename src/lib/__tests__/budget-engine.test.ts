@@ -6,6 +6,7 @@ import {
   calculateIncome,
   calculateBudgeted,
   calculateSpent,
+  calculateSpentByPartner,
   calculateCarryover,
   calculateBudgetSummary,
   getNextPeriodDate,
@@ -876,5 +877,151 @@ describe("timezone helpers", () => {
   it("midnightInTimezone in UTC is just UTC midnight", () => {
     const result = midnightInTimezone(2026, 2, 1, "UTC");
     expect(result.toISOString()).toBe("2026-03-01T00:00:00.000Z");
+  });
+});
+
+describe("calculateSpentByPartner (2Up)", () => {
+  const mappings: CategoryMapping[] = [
+    { up_category_id: "groceries", new_parent_name: "Food & Dining", new_child_name: "Groceries" },
+    { up_category_id: "rent", new_parent_name: "Housing", new_child_name: "Rent" },
+    { up_category_id: "fuel", new_parent_name: "Transport", new_child_name: "Fuel" },
+  ];
+
+  it("defaults to 50/50 when no split rule is configured", () => {
+    const txns: TransactionInput[] = [
+      { id: "t1", amount_cents: -10000, category_id: "groceries", created_at: "2026-04-10" },
+    ];
+    const result = calculateSpentByPartner(txns, mappings, [], "user-1", "user-1");
+    const row = result.get("Food & Dining::Groceries")!;
+    expect(row.total).toBe(10000);
+    expect(row.userShare).toBe(5000);
+    expect(row.partnerShare).toBe(5000);
+    expect(row.userPercentage).toBe(50);
+  });
+
+  it("applies category-level custom split (owner pays 70)", () => {
+    const splits: SplitSettingInput[] = [
+      { category_name: "Housing", split_type: "custom", owner_percentage: 70 },
+    ];
+    const txns: TransactionInput[] = [
+      { id: "t1", amount_cents: -100000, category_id: "rent", created_at: "2026-04-01" },
+    ];
+    const result = calculateSpentByPartner(txns, mappings, splits, "user-1", "user-1");
+    const row = result.get("Housing::Rent")!;
+    expect(row.total).toBe(100000);
+    expect(row.userShare).toBe(70000);
+    expect(row.partnerShare).toBe(30000);
+    expect(row.userPercentage).toBe(70);
+  });
+
+  it("partner side gets the inverse share when current user is not the owner", () => {
+    const splits: SplitSettingInput[] = [
+      { category_name: "Housing", split_type: "custom", owner_percentage: 70 },
+    ];
+    const txns: TransactionInput[] = [
+      { id: "t1", amount_cents: -100000, category_id: "rent", created_at: "2026-04-01" },
+    ];
+    // user-2 is the partner — expect them to receive 30 (100 - owner_percentage).
+    const result = calculateSpentByPartner(txns, mappings, splits, "user-2", "user-1");
+    const row = result.get("Housing::Rent")!;
+    expect(row.userPercentage).toBe(30);
+    expect(row.userShare).toBe(30000);
+    expect(row.partnerShare).toBe(70000);
+  });
+
+  it("transaction split_override_percentage wins over category rule", () => {
+    const splits: SplitSettingInput[] = [
+      { category_name: "Food & Dining", split_type: "custom", owner_percentage: 60 },
+    ];
+    const txns: TransactionInput[] = [
+      {
+        id: "t1",
+        amount_cents: -10000,
+        category_id: "groceries",
+        created_at: "2026-04-10",
+        split_override_percentage: 25,
+      },
+    ];
+    const result = calculateSpentByPartner(txns, mappings, splits, "user-1", "user-1");
+    const row = result.get("Food & Dining::Groceries")!;
+    expect(row.userPercentage).toBe(25);
+    expect(row.userShare).toBe(2500);
+    expect(row.partnerShare).toBe(7500);
+  });
+
+  it("aggregates multiple txns into the same key with weighted percentage", () => {
+    // Two txns, different override %s, same subcategory:
+    //   $40 @ 25% (user)  -> user $10
+    //   $60 @ 75% (user)  -> user $45
+    // Total user share = $55 of $100 total = 55%.
+    const txns: TransactionInput[] = [
+      { id: "t1", amount_cents: -4000, category_id: "groceries", created_at: "2026-04-01", split_override_percentage: 25 },
+      { id: "t2", amount_cents: -6000, category_id: "groceries", created_at: "2026-04-08", split_override_percentage: 75 },
+    ];
+    const result = calculateSpentByPartner(txns, mappings, [], "user-1", "user-1");
+    const row = result.get("Food & Dining::Groceries")!;
+    expect(row.total).toBe(10000);
+    expect(row.userShare).toBe(5500);
+    expect(row.partnerShare).toBe(4500);
+    expect(row.userPercentage).toBe(55);
+  });
+
+  it("ignores income and positive transactions", () => {
+    const txns: TransactionInput[] = [
+      { id: "t1", amount_cents: 500000, category_id: "groceries", created_at: "2026-04-01", is_income: true },
+      { id: "t2", amount_cents: -2000, category_id: "groceries", created_at: "2026-04-02" },
+    ];
+    const result = calculateSpentByPartner(txns, mappings, [], "user-1", "user-1");
+    const row = result.get("Food & Dining::Groceries")!;
+    expect(row.total).toBe(2000);
+  });
+
+  it("expense-level split takes precedence over category-level split", () => {
+    const splits: SplitSettingInput[] = [
+      { category_name: "Transport", split_type: "equal" },
+      { expense_definition_id: "exp-fuel", split_type: "custom", owner_percentage: 80 },
+    ];
+    const txns: TransactionInput[] = [
+      {
+        id: "t1",
+        amount_cents: -5000,
+        category_id: "fuel",
+        created_at: "2026-04-01",
+        matched_expense_id: "exp-fuel",
+      },
+    ];
+    const result = calculateSpentByPartner(txns, mappings, splits, "user-1", "user-1");
+    const row = result.get("Transport::Fuel")!;
+    expect(row.userPercentage).toBe(80);
+    expect(row.userShare).toBe(4000);
+  });
+
+  it("acceptance: 5 shared txns across 2 categories produce correct partner-split breakdown", () => {
+    // Mirrors the spec acceptance test:
+    //   3 grocery txns @ 50/50 split  (default)
+    //   2 rent txns @ 70/30 custom split (user is owner)
+    const splits: SplitSettingInput[] = [
+      { category_name: "Housing", split_type: "custom", owner_percentage: 70 },
+    ];
+    const txns: TransactionInput[] = [
+      { id: "g1", amount_cents: -3000, category_id: "groceries", created_at: "2026-04-02" },
+      { id: "g2", amount_cents: -4000, category_id: "groceries", created_at: "2026-04-09" },
+      { id: "g3", amount_cents: -3000, category_id: "groceries", created_at: "2026-04-16" },
+      { id: "r1", amount_cents: -100000, category_id: "rent", created_at: "2026-04-01" },
+      { id: "r2", amount_cents: -50000, category_id: "rent", created_at: "2026-04-15" },
+    ];
+    const result = calculateSpentByPartner(txns, mappings, splits, "user-1", "user-1");
+    expect(result.size).toBe(2);
+
+    const groceries = result.get("Food & Dining::Groceries")!;
+    expect(groceries.total).toBe(10000);
+    expect(groceries.userShare).toBe(5000);
+    expect(groceries.partnerShare).toBe(5000);
+
+    const rent = result.get("Housing::Rent")!;
+    expect(rent.total).toBe(150000);
+    expect(rent.userShare).toBe(105000);
+    expect(rent.partnerShare).toBe(45000);
+    expect(rent.userPercentage).toBe(70);
   });
 });
