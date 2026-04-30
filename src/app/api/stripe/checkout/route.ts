@@ -16,6 +16,9 @@ import {
   attachStripeIds,
   getProvisionById,
 } from "@/lib/provisioner/state-machine";
+import { track } from "@/lib/analytics/server";
+import { FunnelEvent } from "@/lib/analytics/events";
+import { ANONYMOUS_ID_COOKIE } from "@/lib/analytics/anonymous-id";
 
 function appUrl(): string {
   return process.env.NEXT_PUBLIC_APP_URL ?? "https://piggyback.finance";
@@ -56,6 +59,21 @@ export async function POST(request: NextRequest) {
     successUrl: `${appUrl()}/get-started?step=connect&checkout=success`,
     cancelUrl: `${appUrl()}/get-started?checkout=cancelled`,
     subscriptionMetadata: { provision_id: provision.id },
+  });
+
+  // Phase 4 funnel: stripe_checkout_started fires once we have a Checkout
+  // Session URL, just before the client redirects to it. Keyed by the
+  // pb_aid anonymous-session cookie because the user has no Supabase user
+  // ID yet (signup happens later, after Stripe redirects back).
+  // Properties never include the customer ID, the session URL, or any
+  // Stripe key — only the session ID, which is opaque + non-secret.
+  const anonymousId = request.cookies.get(ANONYMOUS_ID_COOKIE)?.value ?? null;
+  void track(FunnelEvent.STRIPE_CHECKOUT_STARTED, {
+    anonymousId,
+    properties: {
+      provision_id: provision.id,
+      session_id: session.id,
+    },
   });
 
   return NextResponse.json({ url: session.url });
