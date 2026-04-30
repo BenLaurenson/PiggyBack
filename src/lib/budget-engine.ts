@@ -13,6 +13,8 @@
 //   period boundary calculations (month-aligned weeks and fortnights).
 // - `calculateIncome` / `calculateBudgeted` / `calculateSpent` — individual
 //   aggregation functions, also usable standalone.
+// - `calculateSpentByPartner` — splits spending across both partners using
+//   couple_split_settings defaults plus per-transaction overrides.
 // - `countOccurrencesInPeriod` — anchor-based recurrence projection.
 // - `convertToTargetPeriod` — frequency normalisation (weekly <-> monthly etc).
 // - `calculateCarryover` — previous-period surplus calculation.
@@ -184,6 +186,14 @@ export interface TransactionInput {
   category_id: string | null;
   created_at: string;
   is_income?: boolean;
+  /**
+   * Per-transaction split override. Stored as the OWNER's share (0-100) — i.e.
+   * the percentage of the transaction attributable to the partnership owner
+   * (`ownerUserId`). The non-owner partner's share is `100 - split_override_percentage`.
+   * This semantic mirrors `couple_split_settings.owner_percentage` so the
+   * override REPLACES the partnership default cleanly.
+   * When present, takes priority over any matching `couple_split_settings` row.
+   */
   split_override_percentage?: number | null;
   matched_expense_id?: string | null;
 }
@@ -671,9 +681,10 @@ export function resolveSplitPercentage(
  *   This guarantees no categorised transaction is silently dropped from the
  *   budget.
  * - Transactions with no category_id at all bucket under "Uncategorised::Uncategorised".
- * - In "individual" view, amounts are adjusted by the user's split percentage.
- * - A per-transaction split_override_percentage takes priority over the
- *   category-level split setting.
+ * - In "individual" view, amounts are adjusted by the requesting user's share.
+ * - A per-transaction `split_override_percentage` (interpreted as the OWNER's
+ *   share) REPLACES the category-level split setting. The requesting user's
+ *   slice is computed via `userId === ownerUserId ? ownerPct : 100 - ownerPct`.
  */
 export function calculateSpent(
   transactions: TransactionInput[],
@@ -732,7 +743,11 @@ export function calculateSpent(
 
     if (budgetView === "individual") {
       if (txn.split_override_percentage != null) {
-        amount = Math.round(amount * txn.split_override_percentage / 100);
+        // Per-transaction override REPLACES partnership defaults. The stored
+        // value is the owner's share; flip for the partner.
+        const ownerPct = txn.split_override_percentage;
+        const userPct = userId === ownerUserId ? ownerPct : 100 - ownerPct;
+        amount = Math.round(amount * userPct / 100);
       } else {
         // Try expense-level split first (by matched_expense_id), then category-level
         const split =
@@ -780,7 +795,9 @@ export interface PartnerSpend {
  *
  * Behaviour:
  * - Only negative (expense) transactions are counted.
- * - Per-transaction `split_override_percentage` wins over category/expense rules.
+ * - Per-transaction `split_override_percentage` (interpreted as the OWNER's
+ *   share, mirroring `couple_split_settings.owner_percentage`) REPLACES the
+ *   category/expense-level split setting for that single transaction.
  * - Otherwise the lookup walks expense-level → category-level split settings
  *   (matching the priority used by `calculateSpent` in individual view).
  * - When no rule applies, defaults to 50/50 — this is the convention for
@@ -831,7 +848,11 @@ export function calculateSpentByPartner(
 
     let userPct: number;
     if (txn.split_override_percentage != null) {
-      userPct = txn.split_override_percentage;
+      // The override is stored as the OWNER's share (mirrors
+      // couple_split_settings.owner_percentage). Convert to the requesting
+      // user's share.
+      const ownerPct = txn.split_override_percentage;
+      userPct = userId === ownerUserId ? ownerPct : 100 - ownerPct;
     } else {
       const split =
         (txn.matched_expense_id

@@ -443,8 +443,39 @@ describe("calculateSpent", () => {
     const splits: SplitSettingInput[] = [
       { category_name: "Food & Dining", split_type: "equal" },
     ];
+    // userId === ownerUserId, so the owner's share (30%) IS the user's share.
     const result = calculateSpent(txns, mappings, splits, "individual", "user-1", "user-1");
     expect(result.get("Food & Dining::Groceries")).toBe(3000);
+  });
+
+  it("transaction split override flips for the non-owner partner", () => {
+    // split_override_percentage stores the OWNER's share. When the requesting
+    // user IS the partner (not the owner), the engine should attribute
+    // (100 - ownerPct) to that user. 70/30 owner split → partner sees 30% of 10000.
+    const txns: TransactionInput[] = [
+      { id: "t1", amount_cents: -10000, category_id: "groceries", created_at: "2026-02-10", split_override_percentage: 70 },
+    ];
+    // Partnership default 60/40 — should be IGNORED because the per-txn override REPLACES it.
+    const splits: SplitSettingInput[] = [
+      { category_name: "Food & Dining", split_type: "custom", owner_percentage: 60 },
+    ];
+    const partnerView = calculateSpent(txns, mappings, splits, "individual", "user-2", "user-1");
+    expect(partnerView.get("Food & Dining::Groceries")).toBe(3000); // 30% of 10000
+    const ownerView = calculateSpent(txns, mappings, splits, "individual", "user-1", "user-1");
+    expect(ownerView.get("Food & Dining::Groceries")).toBe(7000); // 70% of 10000
+  });
+
+  it("transaction split override REPLACES (not stacks with) couple_split_settings", () => {
+    // If both an override and a partnership default exist for the same category,
+    // the override is used verbatim — the defaults must not influence the result.
+    const txns: TransactionInput[] = [
+      { id: "t1", amount_cents: -10000, category_id: "groceries", created_at: "2026-02-10", split_override_percentage: 70 },
+    ];
+    const splits: SplitSettingInput[] = [
+      { category_name: "Food & Dining", split_type: "custom", owner_percentage: 60 },
+    ];
+    const result = calculateSpent(txns, mappings, splits, "individual", "user-1", "user-1");
+    expect(result.get("Food & Dining::Groceries")).toBe(7000); // 70%, not 60% × 70% etc.
   });
 
   it("falls back to category name for unmapped category (Phase 1.1 fix)", () => {
@@ -628,6 +659,7 @@ describe("calculateBudgetSummary", () => {
     expect(groceries!.spent).toBe(4000);
     expect(groceries!.available).toBe(-4000);
   });
+
 });
 
 describe("goal and asset contributions", () => {

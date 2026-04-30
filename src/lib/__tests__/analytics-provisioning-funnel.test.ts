@@ -17,7 +17,9 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // ─── Shared analytics mock ──────────────────────────────────────────────────
 
-const trackMock = vi.fn(() => Promise.resolve());
+const trackMock = vi.fn<(event: string, opts?: Record<string, unknown>) => Promise<void>>(
+  () => Promise.resolve()
+);
 vi.mock("@/lib/analytics/server", () => ({
   track: trackMock,
 }));
@@ -101,7 +103,10 @@ async function makeRequest(opts: {
   if (opts.cookieHeader) {
     init.headers.cookie = opts.cookieHeader;
   }
-  return new NextRequest(opts.url ?? "https://piggyback.finance/", init);
+  return new NextRequest(
+    opts.url ?? "https://piggyback.finance/",
+    init as unknown as ConstructorParameters<typeof NextRequest>[1]
+  );
 }
 
 /**
@@ -252,8 +257,8 @@ describe("provisioning funnel instrumentation", () => {
         },
       });
       // Webhook fires server-to-server — no anonymousId/userId expected.
-      expect(opts.anonymousId).toBeUndefined();
-      expect(opts.userId).toBeUndefined();
+      expect(opts!.anonymousId).toBeUndefined();
+      expect(opts!.userId).toBeUndefined();
       expect(findSecretShapedStrings(opts)).toEqual([]);
 
       vi.unstubAllEnvs();
@@ -346,8 +351,8 @@ describe("provisioning funnel instrumentation", () => {
         properties: { provision_id: "prov-uuid-3" },
       });
       // Must NOT contain access_token / refresh_token / scope.
-      expect(Object.keys(opts.properties as object)).not.toContain("access_token");
-      expect(Object.keys(opts.properties as object)).not.toContain("refresh_token");
+      expect(Object.keys(opts!.properties as object)).not.toContain("access_token");
+      expect(Object.keys(opts!.properties as object)).not.toContain("refresh_token");
       expect(findSecretShapedStrings(opts)).toEqual([]);
 
       vi.unstubAllEnvs();
@@ -422,7 +427,7 @@ describe("provisioning funnel instrumentation", () => {
           configuration_id: "icfg_xyz",
         },
       });
-      expect(Object.keys(opts.properties as object)).not.toContain("access_token");
+      expect(Object.keys(opts!.properties as object)).not.toContain("access_token");
       expect(findSecretShapedStrings(opts)).toEqual([]);
 
       vi.unstubAllEnvs();
