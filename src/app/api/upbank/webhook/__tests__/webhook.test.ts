@@ -401,6 +401,15 @@ describe("webhook route", () => {
       // Verify that the transaction table was updated (soft delete)
       expect(mockFrom).toHaveBeenCalledWith("transactions");
       expect(mockUpdate).toHaveBeenCalled();
+
+      // Phase 1 #51: soft-delete must write `deleted_at` (canonical
+      // soft-delete column) and MUST NOT clobber `status` — status now
+      // strictly mirrors Up Bank's HELD/SETTLED enum.
+      const updatePayload = mockUpdate.mock.calls[0][0];
+      expect(updatePayload).toHaveProperty("deleted_at");
+      expect(typeof updatePayload.deleted_at).toBe("string");
+      expect(Number.isNaN(Date.parse(updatePayload.deleted_at))).toBe(false);
+      expect(updatePayload).not.toHaveProperty("status");
     });
 
     it("should return 200 even when the deleted transaction is not found locally", async () => {

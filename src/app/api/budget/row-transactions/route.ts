@@ -83,7 +83,7 @@ export async function GET(request: Request) {
         .in("account_id", accountIds)
         .is("category_id", null)
         .is("transfer_account_id", null)
-        .neq("status", "DELETED")
+        .is("deleted_at", null)
         .order("settled_at", { ascending: false });
 
       if (periodStart) query = query.gte("settled_at", periodStart);
@@ -115,7 +115,7 @@ export async function GET(request: Request) {
         .in("account_id", accountIds)
         .in("category_id", upCategoryIds)
         .is("transfer_account_id", null)
-        .neq("status", "DELETED")
+        .is("deleted_at", null)
         .order("settled_at", { ascending: false });
 
       if (periodStart) query = query.gte("settled_at", periodStart);
@@ -160,7 +160,7 @@ export async function GET(request: Request) {
         .in("account_id", accountIds)
         .in("category_id", upCategoryIds)
         .is("transfer_account_id", null)
-        .neq("status", "DELETED")
+        .is("deleted_at", null)
         .order("settled_at", { ascending: false });
 
       if (periodStart) txnQuery = txnQuery.gte("settled_at", periodStart);

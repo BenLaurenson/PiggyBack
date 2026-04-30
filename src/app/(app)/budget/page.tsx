@@ -103,7 +103,7 @@ export default async function BudgetPage({
         .in("account_id", accountIds)
         .lt("amount_cents", 0)
         .eq("is_internal_transfer", false)
-        .neq("status", "DELETED")
+        .is("deleted_at", null)
         .gte("settled_at", monthRange.start.toISOString())
         .lte("settled_at", monthRange.end.toISOString()),
       supabase
@@ -303,7 +303,7 @@ export default async function BudgetPage({
           .lte("settled_at", periodRange.end.toISOString())
           .lt("amount_cents", 0)
           .eq("is_internal_transfer", false)
-          .neq("status", "DELETED")
+          .is("deleted_at", null)
       : Promise.resolve({ data: [], error: null }),
     supabase
       .from("expense_definitions")
@@ -453,7 +453,7 @@ export default async function BudgetPage({
         .select("transfer_account_id, amount_cents")
         .eq("is_internal_transfer", true)
         .in("transfer_account_id", goalLinkedAccountIds)
-        .neq("status", "DELETED")
+        .is("deleted_at", null)
         .gte("settled_at", periodRange.start.toISOString())
         .lte("settled_at", periodRange.end.toISOString())
     : { data: [], error: null };

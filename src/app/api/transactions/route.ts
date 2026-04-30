@@ -106,7 +106,10 @@ export async function GET(request: NextRequest) {
       transaction_tags(tag_name),
       transaction_notes(id, note, is_partner_visible, user_id)
     `, { count: "exact" })
-    .in("account_id", accountIds);
+    .in("account_id", accountIds)
+    // Phase 1 #51: exclude soft-deleted rows. `status` now strictly mirrors
+    // Up Bank's HELD/SETTLED enum and is no longer a soft-delete sentinel.
+    .is("deleted_at", null);
 
   // Apply filters
   if (search) {
@@ -247,7 +250,10 @@ export async function GET(request: NextRequest) {
     let query = supabase
       .from("transactions")
       .select("amount_cents, is_income")
-      .in("account_id", accountIds);
+      .in("account_id", accountIds)
+      // Phase 1 #51: exclude soft-deleted rows from totals so summary
+      // numbers stay aligned with the visible transaction list.
+      .is("deleted_at", null);
 
     // Re-apply all the same filters
     if (search) {

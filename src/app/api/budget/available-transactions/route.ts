@@ -73,7 +73,7 @@ export async function GET(request: Request) {
     .in("account_id", accountIds)
     .lt("amount_cents", 0)
     .is("transfer_account_id", null)
-    .neq("status", "DELETED")
+    .is("deleted_at", null)
     .order("settled_at", { ascending: false, nullsFirst: false })
     .limit(100);
 
