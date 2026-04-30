@@ -82,7 +82,7 @@ export async function GET(request: Request) {
     .lte("created_at", endDate.toISOString())
     .lt("amount_cents", 0)
     .is("transfer_account_id", null)
-    .neq("status", "DELETED")
+    .is("deleted_at", null)
     .limit(5000);
 
   // Aggregate by parent category

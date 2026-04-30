@@ -2,15 +2,14 @@ import Link from "next/link";
 import Image from "next/image";
 import { Nunito, DM_Sans } from "next/font/google";
 import {
-  Github,
   Heart,
   Lightbulb,
   Play,
   Coffee,
-  Linkedin,
   Globe,
   ExternalLink,
 } from "lucide-react";
+import { Github, Linkedin } from "@/components/icons/brand-icons";
 import type { Metadata } from "next";
 import { LandingHeader } from "@/components/landing/landing-header";
 import { LandingFooter } from "@/components/landing/landing-footer";

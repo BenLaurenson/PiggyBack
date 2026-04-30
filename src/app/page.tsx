@@ -2,7 +2,6 @@ import Link from "next/link";
 import Image from "next/image";
 import { Nunito, DM_Sans } from "next/font/google";
 import {
-  Github,
   ChevronRight,
   Scale,
   Database,
@@ -11,6 +10,7 @@ import {
   Lock,
   Play,
 } from "lucide-react";
+import { Github } from "@/components/icons/brand-icons";
 import { LandingClient } from "@/components/landing/landing-client";
 import { LandingHeader } from "@/components/landing/landing-header";
 import { LandingFooter } from "@/components/landing/landing-footer";

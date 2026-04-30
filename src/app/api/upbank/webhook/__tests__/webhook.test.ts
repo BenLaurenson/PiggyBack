@@ -419,6 +419,11 @@ describe("webhook route", () => {
       const deletedAtValue = capturedUpdate!.deleted_at as string;
       expect(deletedAtValue).toBeTruthy();
       expect(Number.isNaN(new Date(deletedAtValue).getTime())).toBe(false);
+
+      // Phase 1 #51 follow-up: status MUST NOT be set — it now strictly
+      // mirrors Up Bank's HELD/SETTLED enum, and `deleted_at IS NULL` is
+      // the canonical soft-delete filter.
+      expect(capturedUpdate).not.toHaveProperty("status");
     });
 
     it("Phase1 #51-3: redelivered TRANSACTION_DELETED should not re-set deleted_at", async () => {

@@ -583,12 +583,15 @@ async function processTransactionDeletion(upTransactionId: string, userId: strin
     return;
   }
 
-  const nowIso = new Date().toISOString();
+  // 4. Soft-delete the transaction (mark as deleted via deleted_at). Leave
+  //    `status` untouched so it continues to reflect Up Bank's HELD/SETTLED
+  //    state — `deleted_at IS NULL` is now the canonical "is this row live?"
+  //    check.
   const { error: updateError } = await supabase
     .from("transactions")
     .update({
-      deleted_at: nowIso,
-      status: "DELETED",
+      deleted_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
     })
     .eq("id", transaction.id);
 

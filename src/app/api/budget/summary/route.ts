@@ -172,7 +172,7 @@ export async function GET(request: Request) {
             .lte("settled_at", periodRange.end.toISOString())
             .lt("amount_cents", 0)
             .eq("is_internal_transfer", false)
-            .neq("status", "DELETED")
+            .is("deleted_at", null)
             .limit(5000)
         : Promise.resolve({ data: [], error: null }),
 
@@ -316,7 +316,7 @@ export async function GET(request: Request) {
             .select("transfer_account_id, amount_cents")
             .eq("is_internal_transfer", true)
             .in("transfer_account_id", goalLinkedAccountIds)
-            .neq("status", "DELETED")
+            .is("deleted_at", null)
             .gte("settled_at", periodRange.start.toISOString())
             .lte("settled_at", periodRange.end.toISOString())
             .limit(1000)

@@ -70,7 +70,7 @@ export default async function CategoryBudgetPage({
     `)
     .in("account_id", accountIds)
     .in("category_id", upCategoryIds)
-    .neq("status", "DELETED")
+    .is("deleted_at", null)
     .order("settled_at", { ascending: false });
 
   // Only exclude transfers when not viewing transfer-type categories
