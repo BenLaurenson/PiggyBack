@@ -51,9 +51,22 @@ import {
 } from "@/lib/provisioner/vercel-api";
 import { buildHostname } from "@/lib/provisioner/subdomain";
 import { createServiceRoleClient } from "@/utils/supabase/service-role";
+import { getClientIp, RateLimiter } from "@/lib/rate-limiter";
+import { installLogScrubber } from "@/lib/log-scrubber";
+
+// Install secret-redacting wrappers around console.* before any logs fire.
+installLogScrubber();
 
 export const runtime = "nodejs";
 export const maxDuration = 300; // 5 min ceiling for project provision
+
+// Phase 3.8 — Rate limiting:
+//   Per-IP: at most one provision attempt per hour. Defends against credential
+//   guessers and runaway retries.
+//   Per Google account: rate-limited via piggyback_provisions row state at
+//   the call-site (a row in READY can't be re-provisioned; FAILED rows can be
+//   redriven manually by the user via the UI).
+const provisionLimiter = new RateLimiter({ windowMs: 60 * 60 * 1000, maxRequests: 1 });
 
 interface ExecutePayload {
   provisionId: string;
@@ -70,6 +83,18 @@ function generateDbPassword(): string {
 }
 
 export async function POST(request: NextRequest) {
+  // Rate-limit by IP first — abuse vector is hammering this endpoint to
+  // create lots of half-provisioned tenants.
+  const ip = getClientIp(request);
+  const limit = provisionLimiter.check(ip);
+  if (!limit.allowed) {
+    const retryAfter = Math.ceil((limit.retryAfterMs ?? 60 * 60 * 1000) / 1000);
+    return NextResponse.json(
+      { error: "Too many provisioning attempts. Try again later." },
+      { status: 429, headers: { "Retry-After": String(retryAfter) } }
+    );
+  }
+
   const body = (await request.json()) as ExecutePayload;
   if (!body.provisionId) {
     return NextResponse.json({ error: "provisionId required" }, { status: 400 });

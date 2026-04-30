@@ -21,6 +21,9 @@ import {
   type StripeEvent,
   verifyStripeWebhook,
 } from "@/lib/provisioner/stripe-client";
+import { installLogScrubber } from "@/lib/log-scrubber";
+
+installLogScrubber();
 import {
   attachStripeIds,
   audit,

@@ -147,13 +147,14 @@ export async function GET() {
   if (partnershipId) {
     const { data: goals } = await supabase
       .from("savings_goals")
-      .select("name, current_amount_cents, target_amount_cents, deadline")
+      .select("name, current_amount_cents, target_amount_cents, start_amount_cents, deadline")
       .eq("partnership_id", partnershipId)
       .eq("is_completed", false)
       .limit(50);
 
     if (goals?.length) {
-      goalsContext = `\nSavings goals:\n${goals.map((g) => `  - ${g.name}: $${(g.current_amount_cents / 100).toFixed(0)} / $${(g.target_amount_cents / 100).toFixed(0)} (${Math.round((g.current_amount_cents / g.target_amount_cents) * 100)}%)${g.deadline ? ` by ${g.deadline}` : ""}`).join("\n")}`;
+      const { goalProgressPercent } = await import("@/lib/goal-progress");
+      goalsContext = `\nSavings goals:\n${goals.map((g) => `  - ${g.name}: $${(g.current_amount_cents / 100).toFixed(0)} / $${(g.target_amount_cents / 100).toFixed(0)} (${Math.round(goalProgressPercent(g))}%)${g.deadline ? ` by ${g.deadline}` : ""}`).join("\n")}`;
     }
   }
 
