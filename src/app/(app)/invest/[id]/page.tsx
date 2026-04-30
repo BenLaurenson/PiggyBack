@@ -42,8 +42,8 @@ export default async function InvestDetailPage({ params, searchParams }: InvestD
   const now = new Date();
   const startDate = getStartDateForPeriod(period, now);
 
-  // Fetch price history and portfolio total in parallel
-  const [{ data: history }, { data: allInvestments }] = await Promise.all([
+  // Fetch price history, portfolio total, and tags in parallel
+  const [{ data: history }, { data: allInvestments }, { data: tagRows }] = await Promise.all([
     supabase
       .from("investment_history")
       .select("value_cents, recorded_at")
@@ -54,7 +54,15 @@ export default async function InvestDetailPage({ params, searchParams }: InvestD
       .from("investments")
       .select("current_value_cents")
       .eq("partnership_id", investment.partnership_id),
+    supabase
+      .from("entity_tags")
+      .select("tag_name")
+      .eq("entity_type", "investment")
+      .eq("entity_id", id)
+      .order("created_at", { ascending: true }),
   ]);
+
+  const initialTags = (tagRows || []).map((r: { tag_name: string }) => r.tag_name);
 
   // Portfolio weight
   const totalPortfolio = (allInvestments || []).reduce((s, i) => s + (i.current_value_cents || 0), 0);
@@ -81,6 +89,7 @@ export default async function InvestDetailPage({ params, searchParams }: InvestD
         currentPeriod={period}
         portfolioWeight={portfolioWeight}
         annualizedReturn={annualizedReturn}
+        initialTags={initialTags}
       />
     </div>
   );
