@@ -293,52 +293,91 @@ export async function POST(request: Request) {
             (existingTxns || []).map((t) => [t.up_transaction_id as string, t.id as string])
           );
 
-          // Walk time windows: [sinceDate, sinceDate + N days), advancing forward.
-          // Per-account try/catch so one bad account (e.g. a JOINT account that
-          // Up Bank returns 403 for, or a transient API blip mid-window) doesn't
-          // kill the whole sync. We log it, push to errors[], and continue with
-          // the next account so the user still gets data for the accounts that
-          // worked.
-          try {
-            for (
-              const cursor = new Date(sinceDate);
-              cursor < now;
-            ) {
-              const windowEnd = new Date(cursor);
-              windowEnd.setDate(windowEnd.getDate() + SYNC_WINDOW_DAYS);
-              const upperBound = windowEnd > now ? now : windowEnd;
+          // Per-account retry loop. The Up API client already handles 429 +
+          // single 5xx retry; this outer wrapper covers everything else
+          // (network blips, Supabase write failures, transient bugs) by
+          // retrying the whole window-walk for the account up to 3 times
+          // with linear backoff. UpUnauthorizedError still propagates out
+          // immediately — retrying a 401 is wasteful.
+          //
+          // Idempotency: every transaction upsert uses
+          // `ON CONFLICT (account_id, up_transaction_id) DO UPDATE`, so
+          // re-running a window doesn't create duplicates. Same for the
+          // tag join table.
+          const MAX_ACCOUNT_ATTEMPTS = 3;
+          let accountAttempt = 0;
+          let accountSucceeded = false;
+          let lastAccountErr: unknown = null;
 
-              const windowSyncResult = await syncTransactionWindow({
-                client,
-                accountId: account.id,
-                accountDisplayName: account.attributes.displayName,
-                savedAccountId,
-                since: cursor.toISOString(),
-                until: upperBound.toISOString(),
-                resolverCtx,
-                txnIdByUpId,
-                seenCategories,
-                supabase,
-                send,
-                startCount: totalTxns,
-                errors,
-                userRuleAppliedIds,
-                defaultRuleAppliedCounts,
-              });
+          while (accountAttempt < MAX_ACCOUNT_ATTEMPTS && !accountSucceeded) {
+            accountAttempt++;
+            const startTotalTxns = totalTxns;
+            try {
+              for (
+                const cursor = new Date(sinceDate);
+                cursor < now;
+              ) {
+                const windowEnd = new Date(cursor);
+                windowEnd.setDate(windowEnd.getDate() + SYNC_WINDOW_DAYS);
+                const upperBound = windowEnd > now ? now : windowEnd;
 
-              totalTxns = windowSyncResult.newTotal;
-              cursor.setDate(cursor.getDate() + SYNC_WINDOW_DAYS);
+                const windowSyncResult = await syncTransactionWindow({
+                  client,
+                  accountId: account.id,
+                  accountDisplayName: account.attributes.displayName,
+                  savedAccountId,
+                  since: cursor.toISOString(),
+                  until: upperBound.toISOString(),
+                  resolverCtx,
+                  txnIdByUpId,
+                  seenCategories,
+                  supabase,
+                  send,
+                  startCount: totalTxns,
+                  errors,
+                  userRuleAppliedIds,
+                  defaultRuleAppliedCounts,
+                });
+
+                totalTxns = windowSyncResult.newTotal;
+                cursor.setDate(cursor.getDate() + SYNC_WINDOW_DAYS);
+              }
+              accountSucceeded = true;
+            } catch (accountErr) {
+              lastAccountErr = accountErr;
+              // Permanent failure — don't retry, propagate immediately.
+              if (accountErr instanceof UpUnauthorizedError) throw accountErr;
+
+              // Reset progress counter back to where we were before this attempt
+              // started, so the next attempt's progress events match reality.
+              totalTxns = startTotalTxns;
+
+              if (accountAttempt < MAX_ACCOUNT_ATTEMPTS) {
+                const backoffMs = accountAttempt * 2000; // 2s, 4s
+                console.warn(
+                  `Sync attempt ${accountAttempt}/${MAX_ACCOUNT_ATTEMPTS} failed for "${account.attributes.displayName}", retrying in ${backoffMs}ms:`,
+                  accountErr instanceof Error ? accountErr.message : accountErr
+                );
+                send({
+                  phase: "syncing-transactions",
+                  message: `Retrying ${account.attributes.displayName}... (attempt ${
+                    accountAttempt + 1
+                  } of ${MAX_ACCOUNT_ATTEMPTS})`,
+                  txnCount: totalTxns,
+                });
+                await new Promise((r) => setTimeout(r, backoffMs));
+              }
             }
-          } catch (accountErr) {
-            // Re-throw 401s so the outer catch shows the "reconnect token" UI.
-            if (accountErr instanceof UpUnauthorizedError) throw accountErr;
+          }
+
+          if (!accountSucceeded) {
             console.error(
-              `Failed to sync transactions for account ${account.attributes.displayName}:`,
-              accountErr
+              `All ${MAX_ACCOUNT_ATTEMPTS} sync attempts failed for "${account.attributes.displayName}":`,
+              lastAccountErr
             );
             errors.push(
-              `Couldn't sync "${account.attributes.displayName}": ${
-                accountErr instanceof Error ? accountErr.message : "unknown error"
+              `Couldn't sync "${account.attributes.displayName}" after ${MAX_ACCOUNT_ATTEMPTS} attempts: ${
+                lastAccountErr instanceof Error ? lastAccountErr.message : "unknown error"
               }`
             );
             send({

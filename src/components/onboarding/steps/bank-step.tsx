@@ -141,6 +141,41 @@ export function BankStep({ onNext, onComplete, isStepCompleted, serverAccountCou
     }
   };
 
+  /**
+   * Run the sync stream up to `maxAttempts` times. After the first attempt
+   * we only re-run if there were errors (and we keep the lower error count
+   * across retries — sometimes the second pass catches stragglers from the
+   * first pass that needed Up Bank's pagination state to settle).
+   *
+   * The transaction upsert uses ON CONFLICT, so re-running is fully idempotent.
+   */
+  const runSyncWithAutoRetry = async (maxAttempts = 2) => {
+    let bestResult = await runSync();
+    let attempt = 1;
+    while (
+      bestResult.phase === "done" &&
+      bestResult.errors.length > 0 &&
+      attempt < maxAttempts
+    ) {
+      attempt++;
+      setSyncProgress(`Retrying ${bestResult.errors.length} accounts that didn't sync... (attempt ${attempt} of ${maxAttempts})`);
+      // Brief pause so any transient Up rate limits/blips clear.
+      await new Promise((r) => setTimeout(r, 1500));
+      const next = await runSync();
+      // Keep the result with fewer errors (auto-retry can only help, not hurt).
+      if (next.phase === "done" && next.errors.length < bestResult.errors.length) {
+        bestResult = next;
+      } else if (next.phase === "error") {
+        // A fatal error on retry — surface it, but preserve the partial errors
+        // from the first pass.
+        bestResult = { ...next, errors: bestResult.errors };
+        break;
+      }
+    }
+    setSyncErrors(bestResult.errors);
+    return bestResult;
+  };
+
   const handleConnect = async () => {
     if (!upToken.trim()) {
       onNext();
@@ -157,8 +192,9 @@ export function BankStep({ onNext, onComplete, isStepCompleted, serverAccountCou
       const connectResult = await connectUpBank(upToken);
       if (connectResult.error) throw new Error(connectResult.error);
 
-      // Phase 2-5: Full sync via server-side API route (streams progress)
-      const result = await runSync();
+      // Phase 2-5: Full sync via server-side API route (streams progress).
+      // Auto-retries up to 2 times if the BE reports per-account errors.
+      const result = await runSyncWithAutoRetry();
       if (result.phase === "error") {
         setError(result.fatalMessage || "Sync failed. Please try again.");
         setSyncPhase("error");
@@ -190,7 +226,7 @@ export function BankStep({ onNext, onComplete, isStepCompleted, serverAccountCou
     setSyncPhase("syncing-accounts");
 
     try {
-      const result = await runSync();
+      const result = await runSyncWithAutoRetry();
       if (result.phase === "error") {
         setError(result.fatalMessage || "Sync failed. Please try again.");
         setSyncPhase("error");
