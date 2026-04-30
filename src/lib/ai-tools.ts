@@ -199,6 +199,7 @@ export function createFinancialTools(
           .from("transactions")
           .select("description, amount_cents, category_id, parent_category_id, settled_at, created_at, transaction_type, is_income")
           .in("account_id", accountIds)
+          .is("deleted_at", null)
           .order("settled_at", { ascending: false })
           .limit(Math.min(limit, 50));
 
@@ -261,6 +262,7 @@ export function createFinancialTools(
           .from("transactions")
           .select("amount_cents, category_id, parent_category_id")
           .in("account_id", accountIds)
+          .is("deleted_at", null)
           .lt("amount_cents", 0)
           .is("transfer_account_id", null)
           .gte("settled_at", startDate)
@@ -354,6 +356,7 @@ export function createFinancialTools(
           .from("transactions")
           .select("description, amount_cents, transaction_type, category_id, settled_at")
           .in("account_id", accountIds)
+          .is("deleted_at", null)
           .gt("amount_cents", 0)
           .is("transfer_account_id", null)
           .not("category_id", "in", "(internal-transfer,round-up,external-transfer)")
@@ -562,6 +565,7 @@ export function createFinancialTools(
           .from("transactions")
           .select("amount_cents, settled_at, transfer_account_id, category_id")
           .in("account_id", accountIds)
+          .is("deleted_at", null)
           .is("transfer_account_id", null)
           .not("category_id", "in", "(internal-transfer,round-up,external-transfer)")
           .gte("settled_at", startDate.toISOString())
@@ -636,6 +640,7 @@ export function createFinancialTools(
           .from("transactions")
           .select("description, amount_cents, settled_at, category_id")
           .in("account_id", accountIds)
+          .is("deleted_at", null)
           .ilike("description", `%${escapeLikePattern(merchant)}%`)
           .gte("settled_at", startDate.toISOString())
           .order("settled_at", { ascending: false });
@@ -693,6 +698,7 @@ export function createFinancialTools(
             .from("transactions")
             .select("amount_cents, category_id")
             .in("account_id", accountIds)
+            .is("deleted_at", null)
             .lt("amount_cents", 0)
             .is("transfer_account_id", null)
             .gte("settled_at", startDate)
@@ -776,6 +782,7 @@ export function createFinancialTools(
           .from("transactions")
           .select("description, amount_cents, settled_at")
           .in("account_id", accountIds)
+          .is("deleted_at", null)
           .lt("amount_cents", 0)
           .is("transfer_account_id", null);
 
@@ -916,6 +923,7 @@ export function createFinancialTools(
                 .from("transactions")
                 .select("id, amount_cents, category_id, settled_at, expense_matches(expense_definition_id)")
                 .in("account_id", effectiveIds)
+                .is("deleted_at", null)
                 .gte("settled_at", periodRange.start.toISOString())
                 .lte("settled_at", periodRange.end.toISOString())
                 .lt("amount_cents", 0)
@@ -923,7 +931,7 @@ export function createFinancialTools(
             : Promise.resolve({ data: [], error: null }),
           supabase
             .from("expense_definitions")
-            .select("id, name, emoji, category_name, expected_amount_cents, next_due_date, recurrence_type, expense_matches!left(expense_definition_id, transactions(amount_cents, settled_at, created_at, category_id))")
+            .select("id, name, emoji, category_name, expected_amount_cents, next_due_date, recurrence_type, expense_matches!left(expense_definition_id, transactions(amount_cents, settled_at, created_at, category_id, deleted_at))")
             .eq("partnership_id", partnershipId)
             .eq("is_active", true),
           supabase
@@ -976,7 +984,7 @@ export function createFinancialTools(
         const expenseDefinitions: ExpenseDefInput[] = (rawExpenseDefs || []).map((exp: Record<string, unknown>) => {
           let categoryName = "";
           let inferredSubcategory: string | null = null;
-          const matches = exp.expense_matches as Array<{ transactions: { category_id: string | null } | { category_id: string | null }[] | null }> | null;
+          const matches = exp.expense_matches as Array<{ transactions: { category_id: string | null; deleted_at: string | null } | { category_id: string | null; deleted_at: string | null }[] | null }> | null;
           if (matches && matches.length > 0) {
             const catCounts = new Map<string, number>();
             for (const match of matches) {
@@ -984,6 +992,8 @@ export function createFinancialTools(
               if (!txns) continue;
               const txnArray = Array.isArray(txns) ? txns : [txns];
               for (const txn of txnArray) {
+                // Skip soft-deleted transactions when inferring category from match history
+                if (txn.deleted_at) continue;
                 if (txn.category_id) catCounts.set(txn.category_id, (catCounts.get(txn.category_id) ?? 0) + 1);
               }
             }
@@ -1153,6 +1163,7 @@ export function createFinancialTools(
           .from("transactions")
           .select("amount_cents, settled_at, description")
           .in("account_id", accountIds)
+          .is("deleted_at", null)
           .lt("amount_cents", 0)
           .is("transfer_account_id", null)
           .not("category_id", "in", "(internal-transfer,round-up,external-transfer)")
@@ -1380,6 +1391,10 @@ IMPORTANT: For date ordering on transactions, use 'settled_at' or 'created_at' â
 
         if (ACCOUNT_SCOPED.includes(table)) {
           q = q.in("account_id", accountIds);
+          // Soft-delete: exclude deleted rows from generic transaction reads
+          if (table === "transactions") {
+            q = q.is("deleted_at", null);
+          }
         } else if (PARTNERSHIP_SCOPED.includes(table)) {
           if (partnershipId) {
             q = q.eq("partnership_id", partnershipId);
@@ -1531,6 +1546,7 @@ IMPORTANT: For date ordering on transactions, use 'settled_at' or 'created_at' â
           .from("transactions")
           .select("amount_cents, category_id, settled_at")
           .in("account_id", accountIds)
+          .is("deleted_at", null)
           .lt("amount_cents", 0)
           .is("transfer_account_id", null)
           .not("category_id", "in", "(internal-transfer,round-up,external-transfer)")
@@ -1650,6 +1666,7 @@ IMPORTANT: For date ordering on transactions, use 'settled_at' or 'created_at' â
           .from("transactions")
           .select("amount_cents")
           .in("account_id", accountIds)
+          .is("deleted_at", null)
           .gt("amount_cents", 0)
           .is("transfer_account_id", null)
           .not("category_id", "in", "(internal-transfer,round-up,external-transfer)")
@@ -1692,6 +1709,7 @@ IMPORTANT: For date ordering on transactions, use 'settled_at' or 'created_at' â
           .from("transactions")
           .select("amount_cents, settled_at")
           .in("account_id", accountIds)
+          .is("deleted_at", null)
           .lt("amount_cents", 0)
           .is("transfer_account_id", null)
           .not("category_id", "in", "(internal-transfer,round-up,external-transfer)")
@@ -1817,6 +1835,7 @@ IMPORTANT: For date ordering on transactions, use 'settled_at' or 'created_at' â
           .from("transactions")
           .select("description, amount_cents, created_at")
           .in("account_id", accountIds)
+          .is("deleted_at", null)
           .lt("amount_cents", 0)
           .gte("created_at", startDate.toISOString())
           .order("created_at", { ascending: true });
@@ -1984,6 +2003,7 @@ IMPORTANT: For date ordering on transactions, use 'settled_at' or 'created_at' â
           .from("transactions")
           .select("amount_cents, category_id, account_id")
           .in("account_id", accountIds)
+          .is("deleted_at", null)
           .lt("amount_cents", 0)
           .is("transfer_account_id", null)
           .gte("settled_at", startDate)
@@ -2082,6 +2102,7 @@ IMPORTANT: For date ordering on transactions, use 'settled_at' or 'created_at' â
           .from("transactions")
           .select("description, amount_cents, created_at")
           .in("account_id", accountIds)
+          .is("deleted_at", null)
           .lt("amount_cents", 0)
           .is("transfer_account_id", null)
           .gte("settled_at", startDate.toISOString())
@@ -2161,6 +2182,7 @@ IMPORTANT: For date ordering on transactions, use 'settled_at' or 'created_at' â
           .from("transactions")
           .select("id, description, amount_cents, created_at")
           .in("account_id", accountIds)
+          .is("deleted_at", null)
           .gt("amount_cents", 0)
           .gte("settled_at", startDate.toISOString())
           .order("created_at", { ascending: true });
@@ -3009,6 +3031,7 @@ IMPORTANT: For date ordering on transactions, use 'settled_at' or 'created_at' â
           .from("transactions")
           .select("id, description, amount_cents, category_id, settled_at")
           .in("account_id", accountIds)
+          .is("deleted_at", null)
           .ilike("description", `%${escapeLikePattern(transactionDescription)}%`)
           .order("settled_at", { ascending: false })
           .limit(1);
@@ -3385,6 +3408,7 @@ IMPORTANT: For date ordering on transactions, use 'settled_at' or 'created_at' â
             .from("transactions")
             .select("amount_cents, category_id, parent_category_id, is_income, settled_at, transfer_account_id")
             .in("account_id", accountIds)
+            .is("deleted_at", null)
             .is("transfer_account_id", null)
             .gte("settled_at", startDate.toISOString()),
           supabase
@@ -3997,6 +4021,7 @@ IMPORTANT: For date ordering on transactions, use 'settled_at' or 'created_at' â
             .from("transactions")
             .select("amount_cents, category_id, parent_category_id, is_income, is_internal_transfer, created_at")
             .in("account_id", accountIds.length > 0 ? accountIds : ["__none__"])
+            .is("deleted_at", null)
             .is("transfer_account_id", null)
             .gte("created_at", twelveMonthsAgo.toISOString())
             .lte("created_at", endOfMonth.toISOString()),
