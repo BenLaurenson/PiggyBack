@@ -24,6 +24,8 @@ import { syncLimiter, getClientIp, rateLimitKey } from "@/lib/rate-limiter";
 import {
   createUpApiClient,
   UpUnauthorizedError,
+  UpServerError,
+  UpRateLimitedError,
   type UpApiClient,
 } from "@/lib/up-api";
 import { PAGE_SIZE_DEFAULT, SYNC_WINDOW_DAYS } from "@/lib/up-constants";
@@ -394,10 +396,22 @@ export async function POST(request: Request) {
               `All ${MAX_ACCOUNT_ATTEMPTS} sync attempts failed for "${account.attributes.displayName}":`,
               lastAccountErr
             );
+            // Translate the failure to a user-friendly message so they know
+            // whether retrying is worth their time. Up Bank server errors
+            // (5xx) and rate limits are transient — retry later. Anything
+            // else needs investigation.
+            let reason: string;
+            if (lastAccountErr instanceof UpServerError) {
+              reason = `Up Bank had a server error (${lastAccountErr.status}). This is on Up's side — try syncing again in a few minutes.`;
+            } else if (lastAccountErr instanceof UpRateLimitedError) {
+              reason = "Up Bank rate-limited us. Try again in a few minutes.";
+            } else if (lastAccountErr instanceof Error) {
+              reason = lastAccountErr.message;
+            } else {
+              reason = "unknown error";
+            }
             errors.push(
-              `Couldn't sync "${account.attributes.displayName}" after ${MAX_ACCOUNT_ATTEMPTS} attempts: ${
-                lastAccountErr instanceof Error ? lastAccountErr.message : "unknown error"
-              }`
+              `Couldn't sync "${account.attributes.displayName}" after ${MAX_ACCOUNT_ATTEMPTS} attempts: ${reason}`
             );
             send({
               phase: "syncing-transactions",
@@ -408,6 +422,10 @@ export async function POST(request: Request) {
         }
 
         // ─── Tags canonical sync ─────────────────────────────────────────────
+        // Service-role write — tags_canonical's RLS INSERT policy checks
+        // user_id = auth.uid(), which intermittently returns null in the
+        // streaming context. Same root cause as the transaction_tags 403
+        // and the up_api_configs.last_synced_at silent no-op.
         send({ phase: "syncing-tags", message: "Syncing tag list..." });
         try {
           const initialTags = await client.getTags({ pageSize: PAGE_SIZE_DEFAULT });
@@ -418,7 +436,8 @@ export async function POST(request: Request) {
               user_id: user.id,
               last_synced_at: new Date().toISOString(),
             }));
-            const { error: tagsError } = await supabase
+            const adminClientForCanonicalTags = createServiceRoleClient();
+            const { error: tagsError } = await adminClientForCanonicalTags
               .from("tags_canonical")
               .upsert(rows, { onConflict: "user_id,id" });
             if (tagsError) {
