@@ -14,6 +14,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { updateInvestmentPriceFromAPI } from "@/app/actions/investments";
+import { TagPicker } from "@/components/shared/tag-picker";
 import {
   AreaChart,
   Area,
@@ -48,6 +49,7 @@ interface InvestDetailClientProps {
   currentPeriod: string;
   portfolioWeight: number;
   annualizedReturn: number;
+  initialTags?: string[];
 }
 
 const PERIODS = ["1W", "1M", "3M", "6M", "1Y", "ALL"] as const;
@@ -76,6 +78,7 @@ export function InvestDetailClient({
   currentPeriod,
   portfolioWeight,
   annualizedReturn,
+  initialTags = [],
 }: InvestDetailClientProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -247,6 +250,22 @@ export function InvestDetailClient({
                   </span>
                 </div>
               )}
+
+              {/* Tags */}
+              <div className="px-5 py-3 border-t" style={{ borderColor: "var(--border)" }}>
+                <p
+                  className="text-[10px] font-medium uppercase tracking-wider mb-2"
+                  style={{ color: "var(--text-tertiary)" }}
+                >
+                  Tags
+                </p>
+                <TagPicker
+                  entityType="investment"
+                  entityId={investment.id}
+                  initialTags={initialTags}
+                  tone="blue"
+                />
+              </div>
             </div>
           </motion.div>
         </div>

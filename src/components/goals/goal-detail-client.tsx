@@ -30,6 +30,7 @@ import {
 } from "recharts";
 import { addFundsToGoal, markGoalComplete, reopenGoal, toggleGoalChecklistItem } from "@/app/actions/goals";
 import { GoalActionsMenu } from "./goal-actions-menu";
+import { TagPicker } from "@/components/shared/tag-picker";
 
 import type { GoalDataPoint, GoalStatus, GoalStatusType } from "@/lib/goal-calculations";
 import { calculateSuggestedSavings } from "@/lib/goal-calculations";
@@ -80,6 +81,7 @@ interface GoalDetailClientProps {
   status: GoalStatus;
   budgetAllocationCents: number;
   recentContributions: ContributionRecord[];
+  initialTags?: string[];
 }
 
 // ============================================================================
@@ -200,6 +202,7 @@ export function GoalDetailClient({
   status,
   budgetAllocationCents,
   recentContributions,
+  initialTags = [],
 }: GoalDetailClientProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -605,6 +608,22 @@ export function GoalDetailClient({
                     {fmt(remaining)} to go
                   </span>
                 </div>
+              </div>
+
+              {/* Tags */}
+              <div className="px-5 py-3 border-t" style={{ borderColor: "var(--border)" }}>
+                <p
+                  className="text-[10px] font-medium uppercase tracking-wider mb-2"
+                  style={{ color: "var(--text-tertiary)" }}
+                >
+                  Tags
+                </p>
+                <TagPicker
+                  entityType="goal"
+                  entityId={goal.id}
+                  initialTags={initialTags}
+                  tone="lavender"
+                />
               </div>
             </div>
           </motion.div>

@@ -25,6 +25,7 @@ import { useCategoryMapping } from "@/contexts/category-context";
 import { SimpleCategoryPicker } from "@/components/budget/simple-category-picker";
 import { CreateExpenseFromTransactionDialog } from "@/components/budget/create-expense-dialog";
 import { ActivityOverrideSection } from "@/components/activity/activity-override-section";
+import { TagPicker } from "@/components/shared/tag-picker";
 
 const nunito = Nunito({
   subsets: ["latin"],
@@ -425,23 +426,18 @@ export function TransactionDetailModal({
             <p className="font-[family-name:var(--font-nunito)] font-bold text-xs uppercase tracking-wider mb-2" style={{ color: 'var(--text-tertiary)' }}>
               TAGS
             </p>
-            {transaction.transaction_tags && transaction.transaction_tags.length > 0 ? (
-              <div className="flex flex-wrap gap-1.5">
-                {transaction.transaction_tags.map((tag: any, idx: number) => (
-                  <Badge
-                    key={idx}
-                    className="rounded-full text-xs font-[family-name:var(--font-dm-sans)]"
-                    style={{ backgroundColor: 'var(--pastel-lavender-light)', color: 'var(--pastel-lavender-dark)' }}
-                  >
-                    {tag.tag_name}
-                  </Badge>
-                ))}
-              </div>
-            ) : (
-              <p className="font-[family-name:var(--font-dm-sans)] text-sm italic" style={{ color: 'var(--text-tertiary)' }}>
-                No tags
-              </p>
-            )}
+            <TagPicker
+              entityType="transaction"
+              entityId={transaction.id}
+              initialTags={
+                Array.isArray(transaction.transaction_tags)
+                  ? transaction.transaction_tags
+                      .map((t: { tag_name?: string }) => t?.tag_name)
+                      .filter((s: unknown): s is string => typeof s === "string")
+                  : []
+              }
+              tone="lavender"
+            />
           </div>
 
           {/* Notes from UP Bank */}

@@ -52,7 +52,7 @@ export default async function GoalDetailPage({ params, searchParams }: GoalDetai
   const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
 
   // Parallel data fetching
-  const [{ data: contributions }, { data: goalAssignment }] = await Promise.all([
+  const [{ data: contributions }, { data: goalAssignment }, { data: tagRows }] = await Promise.all([
     // All contributions for this goal
     supabase
       .from("goal_contributions")
@@ -68,7 +68,16 @@ export default async function GoalDetailPage({ params, searchParams }: GoalDetai
       .eq("goal_id", id)
       .eq("month", currentMonth)
       .maybeSingle(),
+    // Polymorphic entity tags for this goal
+    supabase
+      .from("entity_tags")
+      .select("tag_name")
+      .eq("entity_type", "goal")
+      .eq("entity_id", id)
+      .order("created_at", { ascending: true }),
   ]);
+
+  const initialTags = (tagRows || []).map((r: { tag_name: string }) => r.tag_name);
 
   const typedContributions: GoalContribution[] = (contributions || []).map((c: any) => ({
     id: c.id,
@@ -118,6 +127,7 @@ export default async function GoalDetailPage({ params, searchParams }: GoalDetai
         status={status}
         budgetAllocationCents={budgetAllocationCents}
         recentContributions={recentContributions}
+        initialTags={initialTags}
       />
     </div>
   );
