@@ -174,6 +174,10 @@ export async function POST(request: Request) {
           return;
         }
 
+        // accounts.last_synced_at is the canonical signal for "this account's
+        // transactions have been successfully fetched". Set it AFTER the window
+        // loop succeeds, never here — otherwise a user with partial-sync data
+        // would have last_synced_at set on accounts that never got transactions.
         const upAccountIdToDbId = new Map<string, string>();
         for (const account of upAccounts) {
           const { data: savedAccount, error: accountError } = await supabase
@@ -188,7 +192,6 @@ export async function POST(request: Request) {
                 balance_cents: account.attributes.balance.valueInBaseUnits,
                 currency_code: account.attributes.balance.currencyCode,
                 is_active: true,
-                last_synced_at: new Date().toISOString(),
                 updated_at: new Date().toISOString(),
               },
               { onConflict: "user_id,up_account_id" }
@@ -342,6 +345,22 @@ export async function POST(request: Request) {
                 totalTxns = windowSyncResult.newTotal;
                 cursor.setDate(cursor.getDate() + SYNC_WINDOW_DAYS);
               }
+              // Mark this account as fully synced. Service-role write so we
+              // don't depend on the user-scoped client's RLS context (long-
+              // running streams have been observed to lose it).
+              try {
+                const adminClientForAccount = createServiceRoleClient();
+                await adminClientForAccount
+                  .from("accounts")
+                  .update({ last_synced_at: new Date().toISOString() })
+                  .eq("id", savedAccountId);
+              } catch (markErr) {
+                console.warn(
+                  `Couldn't mark accounts.last_synced_at for "${account.attributes.displayName}":`,
+                  markErr
+                );
+                // Non-fatal — the data is in, the marker just won't update.
+              }
               accountSucceeded = true;
             } catch (accountErr) {
               lastAccountErr = accountErr;
@@ -416,23 +435,28 @@ export async function POST(request: Request) {
         // ─── Finishing ───────────────────────────────────────────────────────
         send({ phase: "finishing", message: "Finishing up...", txnCount: totalTxns });
 
-        // Use the service-role client for this internal housekeeping update.
-        // The user-scoped client has occasionally silent-no-op'd on this write
-        // (RLS check doesn't fail loudly when 0 rows match), leaving
-        // `last_synced_at` perma-null on first sync. Service role bypasses RLS
-        // — the upstream auth check has already validated the session.
-        const adminClientForSync = createServiceRoleClient();
-        const { data: configUpdateRows, error: configUpdateError } = await adminClientForSync
-          .from("up_api_configs")
-          .update({ last_synced_at: new Date().toISOString() })
-          .eq("user_id", user.id)
-          .select("user_id");
-        if (configUpdateError) {
-          console.error("Failed to update last_synced_at:", configUpdateError);
-          errors.push(`Failed to update sync timestamp: ${configUpdateError.message}`);
-        } else if (!configUpdateRows || configUpdateRows.length === 0) {
-          console.error("last_synced_at update matched 0 rows for user", user.id);
-          errors.push("Failed to record sync timestamp (no matching config row)");
+        // Only mark up_api_configs.last_synced_at when EVERY account synced
+        // successfully. If we marked it on partial failure, future incremental
+        // syncs would use it as their `since` cursor and skip back-history for
+        // the accounts that didn't make it — leaving the user with permanent
+        // gaps. Per-account state lives on accounts.last_synced_at; the
+        // health-check cron can find any user where account.last_synced_at
+        // < up_api_configs.created_at and force a re-sync.
+        const fullySynced = errors.length === 0;
+        if (fullySynced) {
+          const adminClientForSync = createServiceRoleClient();
+          const { data: configUpdateRows, error: configUpdateError } = await adminClientForSync
+            .from("up_api_configs")
+            .update({ last_synced_at: new Date().toISOString() })
+            .eq("user_id", user.id)
+            .select("user_id");
+          if (configUpdateError) {
+            console.error("Failed to update last_synced_at:", configUpdateError);
+            errors.push(`Failed to update sync timestamp: ${configUpdateError.message}`);
+          } else if (!configUpdateRows || configUpdateRows.length === 0) {
+            console.error("last_synced_at update matched 0 rows for user", user.id);
+            errors.push("Failed to record sync timestamp (no matching config row)");
+          }
         }
 
         // Bump rule application stats (fire-and-forget; errors logged).
