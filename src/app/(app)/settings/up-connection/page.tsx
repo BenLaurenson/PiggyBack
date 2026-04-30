@@ -457,17 +457,15 @@ export default function UpConnectionPage() {
         /* Connect Form */
         <Card className="bg-surface-white-60 backdrop-blur-sm border-2 border-border-white-80 shadow-lg mb-6">
           <CardContent className="pt-6">
-            <form onSubmit={handleConnect} className="space-y-6">
-              <input
-                type="email"
-                name="username"
-                autoComplete="username"
-                value={userEmail}
-                readOnly
-                style={{ display: "none" }}
-                tabIndex={-1}
-                aria-hidden="true"
-              />
+            <form
+              onSubmit={handleConnect}
+              className="space-y-6"
+              autoComplete="off"
+            >
+              {/* Tell password managers to leave this form alone. The hidden
+                  username input that used to live here was actually triggering
+                  password manager autofill — removed. The Up PAT is not a
+                  password the user should ever save in a password manager. */}
 
               <div className="space-y-2">
                 <Label htmlFor="token" className="font-[family-name:var(--font-nunito)] font-bold text-text-primary">
@@ -476,13 +474,19 @@ export default function UpConnectionPage() {
                 <div className="relative">
                   <Input
                     id="token"
+                    name="up-bank-pat-do-not-save"
                     type={showToken ? "text" : "password"}
+                    autoComplete="off"
                     placeholder="up:yeah:xxxxxxxx"
                     value={token}
                     onChange={(e) => setToken(e.target.value)}
                     required
                     disabled={loading}
                     className="h-12 rounded-xl border-2 font-[family-name:var(--font-dm-sans)] pr-12"
+                    data-1p-ignore
+                    data-lpignore="true"
+                    data-bwignore="true"
+                    data-form-type="other"
                   />
                   <Button
                     type="button"

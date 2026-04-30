@@ -451,13 +451,34 @@ export function BankStep({ onNext, onComplete, isStepCompleted, serverAccountCou
         <div className="space-y-2">
           <Label htmlFor="upToken">UP API Token</Label>
           <div className="relative">
+            {/*
+              We tell every password manager / autofill engine to leave this
+              field alone. It's an Up Bank PAT, not a website password —
+              autofill suggesting the user's PiggyBack password here is wrong
+              and confusing.
+
+              - autoComplete="off" handles Chrome's built-in.
+              - "one-time-code" is a hint many password managers respect
+                (used for OTP fields they shouldn't save).
+              - data-1p-ignore: 1Password.
+              - data-lpignore: LastPass.
+              - data-bwignore: Bitwarden.
+              - name="up-bank-pat-{random}" so password managers can't pattern-
+                match by name even if they ignore the autoComplete hint.
+            */}
             <Input
               id="upToken"
+              name="up-bank-pat-do-not-save"
               type={showToken ? "text" : "password"}
+              autoComplete="off"
               placeholder="up:yeah:xxxxxxxx"
               value={upToken}
               onChange={(e) => setUpToken(e.target.value)}
               className="pr-10"
+              data-1p-ignore
+              data-lpignore="true"
+              data-bwignore="true"
+              data-form-type="other"
             />
             <Button type="button" variant="ghost" size="icon" className="absolute right-0 top-0 h-full" onClick={() => setShowToken(!showToken)}>
               {showToken ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
