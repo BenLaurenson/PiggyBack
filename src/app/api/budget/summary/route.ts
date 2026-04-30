@@ -140,11 +140,15 @@ export async function GET(request: Request) {
 
       // 3. Transactions — actual expenses in this period for the user's effective
       //    accounts. Only negative amounts (spending) and non-transfers are included.
-      //    Embeds expense_matches to link transactions back to expense definitions.
+      //    Embeds expense_matches to link transactions back to expense definitions
+      //    AND activity_overrides so we can honour exclude_from_budget without a
+      //    second query.
       accountIds.length > 0
         ? supabase
             .from("transactions")
-            .select("id, amount_cents, category_id, settled_at, expense_matches(expense_definition_id)")
+            .select(
+              "id, amount_cents, category_id, settled_at, expense_matches(expense_definition_id), activity_overrides(exclude_from_budget)"
+            )
             .in("account_id", accountIds)
             .gte("settled_at", periodRange.start.toISOString())
             .lte("settled_at", periodRange.end.toISOString())
@@ -384,8 +388,18 @@ export async function GET(request: Request) {
       });
     }
 
-    const transactions: TransactionInput[] = (transactionResult.data ?? []).map(
-      (t) => {
+    const transactions: TransactionInput[] = (transactionResult.data ?? [])
+      .filter((t: any) => {
+        // Phase 1.2 — honour activity_overrides.exclude_from_budget by
+        // dropping these transactions from the budget spent total. They
+        // remain visible in the activity list (this is a budget-only filter).
+        const ov = t.activity_overrides;
+        const excluded = Array.isArray(ov)
+          ? ov.some((o: any) => o.exclude_from_budget === true)
+          : ov?.exclude_from_budget === true;
+        return !excluded;
+      })
+      .map((t) => {
         // PostgREST relation gotcha: `expense_matches` on a transaction.
         // Because the FK from expense_matches to transactions has a unique constraint,
         // PostgREST returns a single OBJECT (not an array) when there's a match.
@@ -403,8 +417,7 @@ export async function GET(request: Request) {
           split_override_percentage: null,
           matched_expense_id: matchedExpenseId,
         };
-      }
-    );
+      });
 
     /**
      * Expense subcategory inference
