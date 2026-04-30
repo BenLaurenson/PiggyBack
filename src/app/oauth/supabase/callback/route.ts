@@ -21,6 +21,9 @@ import {
   storeOAuthToken,
   transitionState,
 } from "@/lib/provisioner/state-machine";
+import { track } from "@/lib/analytics/server";
+import { FunnelEvent } from "@/lib/analytics/events";
+import { ANONYMOUS_ID_COOKIE } from "@/lib/analytics/anonymous-id";
 
 function appUrl(): string {
   return process.env.NEXT_PUBLIC_APP_URL ?? "https://piggyback.finance";
@@ -74,6 +77,20 @@ export async function GET(request: NextRequest) {
   });
 
   await transitionState(provisionId, "SUPABASE_AUTHED", "Supabase OAuth authorized");
+
+  // Phase 4 funnel: supabase_oauth_completed fires only after the auth-code
+  // exchange + token storage succeeds. Tokens are NEVER included in the
+  // event payload — only the provision ID. The supabase_org_id / project_ref
+  // aren't known yet at this point (they get attached later by the
+  // provisioner), and exchanged.scope can include sensitive scope strings,
+  // so we omit it.
+  const anonymousId = request.cookies.get(ANONYMOUS_ID_COOKIE)?.value ?? null;
+  void track(FunnelEvent.SUPABASE_OAUTH_COMPLETED, {
+    anonymousId,
+    properties: {
+      provision_id: provisionId,
+    },
+  });
 
   return NextResponse.redirect(`${appUrl()}/get-started?step=vercel`);
 }

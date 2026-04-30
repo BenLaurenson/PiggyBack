@@ -30,6 +30,8 @@ import {
   getProvisionByStripeCustomer,
   markSubscriptionCancelled,
 } from "@/lib/provisioner/state-machine";
+import { track } from "@/lib/analytics/server";
+import { FunnelEvent } from "@/lib/analytics/events";
 
 export const runtime = "nodejs";
 
@@ -86,6 +88,20 @@ export async function POST(request: NextRequest) {
             status: "active",
           });
           await audit(provisionId, "STRIPE_CHECKOUT_COMPLETED", { sessionId: session.id });
+
+          // Phase 4 funnel: stripe_checkout_completed fires from the webhook
+          // (Stripe is the source of truth for completion, not the
+          // browser-redirect success_url). Properties only include opaque
+          // identifiers — the customer/subscription IDs are *not* secrets
+          // (they are the same IDs returned to the client SDK), but we
+          // intentionally omit any payment_method or invoice URL.
+          void track(FunnelEvent.STRIPE_CHECKOUT_COMPLETED, {
+            properties: {
+              provision_id: provisionId,
+              session_id: session.id,
+              subscription_id: session.subscription ?? null,
+            },
+          });
         }
         break;
       }

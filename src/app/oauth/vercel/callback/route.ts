@@ -18,6 +18,9 @@ import {
   transitionState,
 } from "@/lib/provisioner/state-machine";
 import { createServiceRoleClient } from "@/utils/supabase/service-role";
+import { track } from "@/lib/analytics/server";
+import { FunnelEvent } from "@/lib/analytics/events";
+import { ANONYMOUS_ID_COOKIE } from "@/lib/analytics/anonymous-id";
 
 function appUrl(): string {
   return process.env.NEXT_PUBLIC_APP_URL ?? "https://piggyback.finance";
@@ -75,6 +78,21 @@ export async function GET(request: NextRequest) {
   }
 
   await transitionState(provisionId, "VERCEL_AUTHED", "Vercel integration authorized");
+
+  // Phase 4 funnel: vercel_oauth_completed fires only after the auth-code
+  // exchange + token storage succeeds. Tokens are NEVER included in the
+  // event payload. team_id and configuration_id are opaque IDs returned in
+  // query params from Vercel's redirect — they are not secrets, but we
+  // still avoid logging the access_token/scope from the exchanged response.
+  const anonymousId = request.cookies.get(ANONYMOUS_ID_COOKIE)?.value ?? null;
+  void track(FunnelEvent.VERCEL_OAUTH_COMPLETED, {
+    anonymousId,
+    properties: {
+      provision_id: provisionId,
+      team_id: teamId ?? null,
+      configuration_id: configurationId ?? null,
+    },
+  });
 
   return NextResponse.redirect(`${appUrl()}/get-started?step=provision`);
 }
