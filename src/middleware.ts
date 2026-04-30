@@ -1,7 +1,17 @@
-import { type NextRequest } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
 import { updateSession } from "@/utils/supabase/middleware";
+import { resolveSubdomainAliasRedirect } from "@/lib/provisioner/middleware-subdomain";
 
 export async function middleware(request: NextRequest) {
+  // Phase 3.2 — 301 redirect from retired subdomains to the user's current
+  // hostname for 30 days after a vanity rename. Runs before any other work
+  // so we don't pay the cost of session refresh / CSP for alias hits.
+  // Returns early with NextResponse.redirect when the host is a known alias.
+  const aliasRedirect = await resolveSubdomainAliasRedirect(request);
+  if (aliasRedirect) {
+    return NextResponse.redirect(aliasRedirect, 301);
+  }
+
   // Generate a per-request nonce for CSP (M2: replaces unsafe-inline)
   const nonce = Buffer.from(crypto.randomUUID()).toString("base64");
   const isDev = process.env.NODE_ENV === "development";

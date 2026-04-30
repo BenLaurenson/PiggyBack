@@ -68,6 +68,7 @@ export interface ProvisionRow {
   state_updated_at: string;
   subdomain_short_id: string | null;
   subdomain_vanity: string | null;
+  subdomain_vanity_set_at: string | null;
   supabase_org_id: string | null;
   supabase_project_ref: string | null;
   supabase_project_url: string | null;
