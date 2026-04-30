@@ -5,6 +5,8 @@ import { revalidatePath } from "next/cache";
 import { demoActionGuard } from "@/lib/demo-guard";
 import { getPlaintextToken, encryptToken } from "@/lib/token-encryption";
 import { safeErrorMessage } from "@/lib/safe-error";
+import { track } from "@/lib/analytics/server";
+import { FunnelEvent } from "@/lib/analytics/events";
 
 /**
  * Up Bank Connection & Webhook Management Server Actions
@@ -308,6 +310,14 @@ export async function connectUpBank(plaintextToken: string): Promise<{
     if (saveError) {
       return { error: safeErrorMessage(saveError, "Failed to connect Up Bank") };
     }
+
+    // Phase 4 funnel: up_pat_provided fires once the user has handed us a
+    // valid Up Bank Personal Access Token. The follow-up first_sync_completed
+    // event fires from the /api/upbank/sync route once the bulk sync finishes.
+    void track(FunnelEvent.UP_PAT_PROVIDED, {
+      userId: user.id,
+      tenantId: user.id,
+    });
 
     return { success: true };
   } catch (error) {

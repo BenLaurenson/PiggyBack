@@ -6,6 +6,8 @@ import { demoActionGuard } from "@/lib/demo-guard";
 import { createNotification, isNotificationEnabled } from "@/lib/create-notification";
 import { getUserPartnershipId } from "@/lib/get-user-partnership";
 import { safeErrorMessage } from "@/lib/safe-error";
+import { trackFirst } from "@/lib/analytics/server";
+import { FunnelEvent } from "@/lib/analytics/events";
 
 const MILESTONE_THRESHOLDS = [25, 50, 75, 100];
 
@@ -130,6 +132,13 @@ export async function createGoal(data: {
   if (error) {
     return { error: safeErrorMessage(error, "Failed to create goal") };
   }
+
+  // Phase 4 instrumentation: first_goal_created. Deduped via funnel_events.
+  void trackFirst(FunnelEvent.FIRST_GOAL_CREATED, {
+    userId: user.id,
+    tenantId: user.id,
+    properties: { goal_name: data.name, target_cents: data.target_amount_cents },
+  });
 
   revalidatePath("/goals");
   revalidatePath("/home");

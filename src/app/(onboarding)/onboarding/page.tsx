@@ -1,6 +1,8 @@
 import { createClient } from "@/utils/supabase/server";
 import { redirect } from "next/navigation";
 import { OnboardingWizard } from "@/components/onboarding/onboarding-wizard";
+import { track } from "@/lib/analytics/server";
+import { FunnelEvent } from "@/lib/analytics/events";
 
 export default async function OnboardingPage() {
   const supabase = await createClient();
@@ -9,6 +11,12 @@ export default async function OnboardingPage() {
   if (!user) {
     redirect("/login");
   }
+
+  // Phase 4 funnel: tenant_provisioning_started fires once the user reaches
+  // the onboarding wizard for the first time (before has_onboarded flips
+  // to true). Idempotent because we only fire when has_onboarded === false.
+  // Note: in the multi-tenant world this will move to a dedicated provisioning
+  // route that runs *before* the user reaches the onboarding wizard.
 
   // Fetch profile and actual DB state in parallel to hydrate steps correctly
   const [
@@ -38,6 +46,14 @@ export default async function OnboardingPage() {
       .eq("user_id", user.id)
       .eq("is_active", true),
   ]);
+
+  if (profile && profile.has_onboarded === false) {
+    // Fire-and-forget; the page render shouldn't block on it.
+    void track(FunnelEvent.TENANT_PROVISIONING_STARTED, {
+      userId: user.id,
+      tenantId: user.id,
+    });
+  }
 
   // Merge stored steps with actual DB state (handles hard-refresh mid-onboarding)
   const storedSteps = profile?.onboarding_steps_completed || [];

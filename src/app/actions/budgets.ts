@@ -17,6 +17,8 @@ import { slugify, generateUniqueSlug, insertBudgetWithSlugRetry } from "@/lib/sl
 import { createDefaultLayoutConfig } from "@/lib/layout-persistence";
 import type { Section, LayoutConfig } from "@/lib/layout-persistence";
 import { getUserPartnershipId } from "@/lib/get-user-partnership";
+import { trackFirst } from "@/lib/analytics/server";
+import { FunnelEvent } from "@/lib/analytics/events";
 
 // =====================================================
 // ZOD SCHEMAS
@@ -264,6 +266,14 @@ export async function createBudget(input: CreateBudgetInput) {
       await supabase.from("user_budgets").delete().eq("id", budget.id);
       throw seedError; // Re-throw to propagate to outer catch
     }
+
+    // Phase 4 instrumentation: first_budget_created. trackFirst dedupes against
+    // the funnel_events table so re-creating a budget doesn't double-fire.
+    void trackFirst(FunnelEvent.FIRST_BUDGET_CREATED, {
+      userId: user.id,
+      tenantId: user.id,
+      properties: { budget_id: budget.id, methodology: budget.methodology },
+    });
 
     revalidatePath("/budget");
     return { data: budget, error: null };

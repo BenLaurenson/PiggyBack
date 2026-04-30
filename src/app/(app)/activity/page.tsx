@@ -5,6 +5,8 @@ import { CategoryProvider } from "@/contexts/category-context";
 import { IncomeConfigProvider } from "@/contexts/income-config-context";
 import { EmptyState } from "@/components/ui/empty-state";
 import { getCurrentDate } from "@/lib/demo-guard";
+import { trackFirst } from "@/lib/analytics/server";
+import { FunnelEvent } from "@/lib/analytics/events";
 
 /**
  * Helper function to get all transactions in batches
@@ -83,6 +85,16 @@ export default async function ActivityPage({
     .eq("is_active", true);
 
   const accountIds = accounts?.map(a => a.id) || [];
+
+  // Phase 4 instrumentation: first_transaction_seen — fires the first time
+  // a user with at least one connected account loads the activity page.
+  // Deduped via funnel_events.
+  if (accountIds.length > 0) {
+    void trackFirst(FunnelEvent.FIRST_TRANSACTION_SEEN, {
+      userId: user.id,
+      tenantId: user.id,
+    });
+  }
 
   if (accountIds.length === 0) {
     return (

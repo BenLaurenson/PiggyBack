@@ -3,6 +3,8 @@ import { getPlaintextToken } from "@/lib/token-encryption";
 import { inferCategoryId, ensureInferredCategories } from "@/lib/infer-category";
 import { syncLimiter, getClientIp, rateLimitKey } from "@/lib/rate-limiter";
 import { validateUpApiUrl } from "@/lib/up-api";
+import { track } from "@/lib/analytics/server";
+import { FunnelEvent } from "@/lib/analytics/events";
 
 export const maxDuration = 300; // 5 minutes for long syncs
 
@@ -427,6 +429,17 @@ export async function POST(request: Request) {
         if (configUpdateError) {
           console.error("Failed to update last_synced_at:", configUpdateError);
           errors.push(`Failed to update sync timestamp: ${configUpdateError.message}`);
+        }
+
+        // Phase 4 funnel: first_sync_completed fires only on the very first
+        // successful sync (when last_synced_at was previously null).
+        const isFirstSync = !config.last_synced_at;
+        if (isFirstSync && errors.length === 0) {
+          void track(FunnelEvent.FIRST_SYNC_COMPLETED, {
+            userId: user.id,
+            tenantId: user.id,
+            properties: { transaction_count: totalTxns },
+          });
         }
 
         if (errors.length > 0) {

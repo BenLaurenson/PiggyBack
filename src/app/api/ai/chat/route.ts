@@ -12,6 +12,8 @@ import { createClient } from "@/utils/supabase/server";
 import { createFinancialTools } from "@/lib/ai-tools";
 import { chatLimiter, getClientIp, rateLimitKey } from "@/lib/rate-limiter";
 import { getPlaintextToken } from "@/lib/token-encryption";
+import { trackFirst } from "@/lib/analytics/server";
+import { FunnelEvent } from "@/lib/analytics/events";
 import { z } from "zod";
 
 // UI messages from @ai-sdk/react use { role, parts: [{ type, text }] } format,
@@ -51,6 +53,14 @@ export async function POST(req: Request) {
     if (!user) {
       return new Response("Unauthorized", { status: 401 });
     }
+
+    // Phase 4 instrumentation: first_penny_message — fires the very first
+    // time the user submits a message to Penny. trackFirst dedupes against
+    // the funnel_events table so subsequent messages don't re-fire.
+    void trackFirst(FunnelEvent.FIRST_PENNY_MESSAGE, {
+      userId: user.id,
+      tenantId: user.id,
+    });
 
     // Rate limit: 10 requests per minute per user+IP
     const ip = getClientIp(req);
