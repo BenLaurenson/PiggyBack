@@ -1,11 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { Nunito, DM_Sans } from "next/font/google";
 import { createClient } from "@/utils/supabase/client";
+import { trackClient } from "@/lib/analytics/client";
+import { FunnelEvent } from "@/lib/analytics/events";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -33,6 +35,13 @@ export default function SignupPage() {
   const [success, setSuccess] = useState(false);
   const router = useRouter();
   const supabase = createClient();
+
+  // Phase 4 funnel: signup_started fires the first time the signup page loads.
+  // Keyed by the pb_aid anonymous-session cookie set by the /api/analytics/track
+  // endpoint, which gets stitched to the user when tenant_ready fires later.
+  useEffect(() => {
+    void trackClient(FunnelEvent.SIGNUP_STARTED);
+  }, []);
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();

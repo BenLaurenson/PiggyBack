@@ -1,6 +1,5 @@
-import { createClient } from "@/utils/supabase/server";
-import { redirect } from "next/navigation";
-import { isAdminEmail } from "@/lib/admin-auth";
+import { redirect, notFound } from "next/navigation";
+import { isCurrentUserAdmin } from "@/lib/admin-auth";
 
 /**
  * Admin layout. Gates all `/admin/*` routes behind the ADMIN_EMAILS
@@ -13,18 +12,12 @@ export default async function AdminLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const auth = await isCurrentUserAdmin();
 
-  if (!user) {
+  if (!auth.userId) {
     redirect("/login");
   }
-
-  if (!isAdminEmail(user.email ?? null)) {
-    // Don't reveal admin route existence to non-admins.
-    const { notFound } = await import("next/navigation");
+  if (!auth.isAdmin) {
     notFound();
   }
 
