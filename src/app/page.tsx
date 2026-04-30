@@ -4,13 +4,11 @@ import { Nunito, DM_Sans } from "next/font/google";
 import {
   Github,
   ChevronRight,
-  Star,
   Scale,
   Database,
   Eye,
   Server,
   Lock,
-  BookOpen,
   Play,
 } from "lucide-react";
 import { LandingClient } from "@/components/landing/landing-client";
@@ -29,8 +27,6 @@ const dmSans = DM_Sans({
   variable: "--font-dm-sans",
   weight: ["400", "500"],
 });
-
-const GITHUB_URL = "https://github.com/BenLaurenson/PiggyBack";
 
 export default function LandingPage() {
   return (
@@ -61,13 +57,13 @@ export default function LandingPage() {
               </h1>
 
               <p className="font-[family-name:var(--font-dm-sans)] text-base md:text-lg text-text-label leading-relaxed mb-8 max-w-lg">
-                Track spending, split bills with your partner, and let a 25-tool
-                AI assistant handle the boring stuff. Runs on your own Vercel +
-                Supabase stack.
+                Your data lives in your Supabase. Your app runs on your Vercel.
+                Cancel anytime — keep what you built. The first finance app
+                that&apos;s genuinely yours.
               </p>
 
               {/* CTAs */}
-              <div className="flex flex-col sm:flex-row gap-3 mb-8">
+              <div className="flex flex-col sm:flex-row gap-3 mb-6">
                 {isDemoMode() ? (
                   <Link
                     href="/home"
@@ -78,23 +74,42 @@ export default function LandingPage() {
                   </Link>
                 ) : (
                   <Link
-                    href="/docs"
+                    href="/get-started"
                     className="group font-[family-name:var(--font-nunito)] font-bold text-base bg-brand-coral hover:bg-brand-coral-dark text-white px-7 py-3.5 rounded-2xl transition-all duration-200 hover:scale-105 hover:shadow-xl hover:shadow-shadow-coral-strong flex items-center justify-center gap-2 cursor-pointer"
                   >
-                    Deploy Your Own
+                    Get started — A$19/mo
                     <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform duration-200" />
                   </Link>
                 )}
-                <a
-                  href={GITHUB_URL}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                <Link
+                  href="/self-host"
                   className="font-[family-name:var(--font-nunito)] font-bold text-base bg-surface-white-60 hover:bg-white border-2 border-border-medium text-text-medium px-7 py-3.5 rounded-2xl transition-all duration-200 hover:scale-105 hover:shadow-lg flex items-center justify-center gap-2 cursor-pointer"
                 >
                   <Github className="w-4 h-4" />
-                  View on GitHub
-                </a>
+                  Self-host (free, MIT)
+                </Link>
               </div>
+
+              {/* Email capture */}
+              <form
+                action="/api/notify-launch"
+                method="post"
+                className="flex flex-col sm:flex-row gap-2 mb-8 max-w-md"
+              >
+                <input
+                  type="email"
+                  name="email"
+                  required
+                  placeholder="you@example.com"
+                  className="flex-1 px-4 py-2.5 rounded-xl bg-white/70 border border-border-light text-sm font-[family-name:var(--font-dm-sans)] focus:outline-none focus:ring-2 focus:ring-brand-coral/40"
+                />
+                <button
+                  type="submit"
+                  className="font-[family-name:var(--font-nunito)] font-bold text-sm bg-text-primary hover:bg-text-medium text-white px-5 py-2.5 rounded-xl transition-colors"
+                >
+                  Notify me
+                </button>
+              </form>
 
               {!isDemoMode() && (
                 <a
@@ -223,8 +238,13 @@ export default function LandingPage() {
               Get Started in Minutes
             </p>
             <h2 className="font-[family-name:var(--font-nunito)] text-3xl md:text-4xl font-black text-text-primary">
-              Three steps to deploy
+              Sign in, connect Up, you&apos;re done
             </h2>
+            <p className="font-[family-name:var(--font-dm-sans)] text-text-secondary mt-3 max-w-2xl mx-auto">
+              We provision your Supabase project and your Vercel deployment,
+              both in your name. You paste your Up Bank token once. That&apos;s
+              all you do.
+            </p>
           </div>
 
           <LandingClient feature="how-it-works" />
@@ -246,32 +266,47 @@ export default function LandingPage() {
                 />
               </div>
               <h2 className="font-[family-name:var(--font-nunito)] text-3xl md:text-4xl font-black text-white mb-3">
-                Deploy PiggyBack in 15 minutes
+                One click, then it&apos;s yours
               </h2>
               <p className="font-[family-name:var(--font-dm-sans)] text-base text-white/80 mb-8 max-w-lg mx-auto">
-                Fork the repo, set up Supabase, deploy to Vercel. The guide
-                walks you through every step.
+                A$19/month gets you a managed PiggyBack — provisioned in your
+                Supabase, deployed on your Vercel, on a custom subdomain. Cancel
+                anytime; you keep the app, the data, the keys.
               </p>
               <div className="flex flex-col sm:flex-row gap-3 justify-center">
                 <Link
-                  href="/home"
+                  href="/get-started"
                   className="inline-flex items-center gap-2 font-[family-name:var(--font-nunito)] font-bold text-base bg-white hover:bg-gray-50 text-brand-coral-hover px-7 py-3.5 rounded-2xl transition-all duration-200 hover:scale-105 hover:shadow-xl cursor-pointer"
                 >
-                  <Play className="w-5 h-5" />
-                  Try Live Demo
+                  Get started
+                  <ChevronRight className="w-5 h-5" />
                 </Link>
                 <Link
-                  href="/docs"
+                  href="/self-host"
                   className="inline-flex items-center gap-2 font-[family-name:var(--font-nunito)] font-bold text-base bg-transparent border-2 border-white/40 hover:border-white text-white px-7 py-3.5 rounded-2xl transition-all duration-200 hover:scale-105 cursor-pointer"
                 >
-                  <BookOpen className="w-5 h-5" />
-                  Documentation
+                  <Github className="w-5 h-5" />
+                  Self-host (free)
                 </Link>
               </div>
-              <div className="mt-5">
+              <div className="mt-5 flex items-center justify-center gap-4 flex-wrap">
+                <Link
+                  href="/pricing"
+                  className="font-[family-name:var(--font-dm-sans)] text-sm text-white/80 hover:text-white"
+                >
+                  See pricing
+                </Link>
+                <span className="text-white/40">·</span>
+                <Link
+                  href="/roadmap"
+                  className="font-[family-name:var(--font-dm-sans)] text-sm text-white/80 hover:text-white"
+                >
+                  Roadmap
+                </Link>
+                <span className="text-white/40">·</span>
                 <span className="inline-flex items-center gap-1.5 font-[family-name:var(--font-dm-sans)] text-sm text-white/60">
                   <Scale className="w-3.5 h-3.5" />
-                  MIT License
+                  MIT
                 </span>
               </div>
             </div>
