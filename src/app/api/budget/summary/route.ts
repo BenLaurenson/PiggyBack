@@ -162,10 +162,15 @@ export async function GET(request: Request) {
       //    expense_matches->transactions for category inference. The nested join
       //    lets us infer which budget subcategory an expense belongs to (see the
       //    "most-common-category" heuristic below).
+      //
+      //    Phase 1.1+ fix: also pull transaction_category_overrides.original_category_id
+      //    so the inference can use the BANK-original category when available.
+      //    Otherwise re-categorising one transaction would silently shift the
+      //    expense's inferred subcategory across all the others.
       supabase
         .from("expense_definitions")
         .select(
-          "id, name, expected_amount_cents, recurrence_type, next_due_date, expense_matches(transactions(category_id))"
+          "id, name, expected_amount_cents, recurrence_type, next_due_date, expense_matches(transactions(category_id, transaction_category_overrides(original_category_id)))"
         )
         .eq("partnership_id", partnershipId)
         .eq("is_active", true)
@@ -443,15 +448,33 @@ export async function GET(request: Request) {
 
       // PostgREST relation gotcha: `transactions` inside each expense_match.
       // Each expense_match has exactly one transaction (many-to-one FK), so
-      // PostgREST returns an object, not an array. The type below reflects this.
+      // PostgREST returns an object, not an array.
+      // transaction_category_overrides is a separate FK relationship on
+      // transaction_id; PostgREST may return either an object (1:1) or an
+      // array depending on uniqueness, so we handle both.
+      type OvObj = { original_category_id: string | null } | null;
+      type TxnRel = {
+        category_id: string | null;
+        transaction_category_overrides: OvObj | OvObj[];
+      } | null;
       const matches = exp.expense_matches as unknown as
-        | { transactions: { category_id: string | null } | null }[]
+        | { transactions: TxnRel }[]
         | null;
 
       if (matches && matches.length > 0) {
         const catCounts = new Map<string, number>();
         for (const match of matches) {
-          const catId = match.transactions?.category_id;
+          const txn = match.transactions;
+          if (!txn) continue;
+
+          // Prefer the BANK-original category when an override exists.
+          // Falls back to the live category_id when there's no override.
+          const ov = txn.transaction_category_overrides;
+          const originalFromOverride = Array.isArray(ov)
+            ? ov[0]?.original_category_id ?? null
+            : ov?.original_category_id ?? null;
+          const catId = originalFromOverride ?? txn.category_id;
+
           if (catId) {
             catCounts.set(catId, (catCounts.get(catId) ?? 0) + 1);
           }

@@ -10,6 +10,18 @@ permissions:
   contents: read
 
 jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v4
+      - uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+
   test:
     name: Test
     runs-on: ubuntu-latest
@@ -93,8 +105,7 @@ jobs:
       - run: npm ci
       - run: npm run build
 
-  # Lint is intentionally NOT a CI gate today.
-  # eslint 9.39.2 + @eslint/eslintrc 3.3.3 + ajv have a known incompatibility
-  # ("NOT SUPPORTED: option missingRefs"). The lint step crashes before any
-  # rule runs — it's a config bug, not a real lint failure. Will re-enable
-  # once the eslint config is migrated off the legacy ajv path.
+  # Lint was previously broken by an open-ended `"ajv": ">=6.14.0"` override
+  # in package.json that let pnpm pick ajv 8.x — incompatible with
+  # @eslint/eslintrc 3.3.3 which expects ajv 6.x. Pinned to ^6.14.0 in the
+  # commit that re-enabled this job.
