@@ -181,6 +181,22 @@ export interface CategoryMapping {
   new_child_name: string;
 }
 
+/**
+ * Fallback lookup for transactions whose category_id has no curated row in
+ * `category_mappings`. Without this, the budget engine would silently drop
+ * those transactions from the spent total. (Real-world cause: any of Up's 4
+ * top-level parent categories — good-life, home, personal, transport — and
+ * any inferred category like internal-transfer / salary-income.)
+ */
+export interface CategoryFallback {
+  /** category id, e.g. "good-life" or "salary-income" */
+  id: string;
+  /** display name from the categories table, e.g. "Good Life" */
+  name: string;
+  /** optional parent display name, resolved from categories.parent_category_id */
+  parent_name?: string | null;
+}
+
 export interface GoalInput {
   id: string;
   name: string;
@@ -248,6 +264,8 @@ export interface BudgetSummaryInput {
   expenseDefinitions: ExpenseDefInput[];
   splitSettings: SplitSettingInput[];
   categoryMappings: CategoryMapping[];
+  /** Fallback lookup so unmapped categories are never silently dropped. */
+  categoryFallbacks?: CategoryFallback[];
   carryoverFromPrevious: number;
   layoutSections?: { name: string; percentage?: number; itemIds: string[] }[];
   goals?: GoalInput[];
@@ -632,7 +650,14 @@ export function resolveSplitPercentage(
  * Returns Map<"parent::subcategory", amountInCents> where amounts are positive.
  *
  * - Only negative (expense) transactions are counted; income is ignored.
- * - Transactions with an unknown category_id (no mapping) are skipped.
+ * - Transactions whose category_id has a curated row in `categoryMappings`
+ *   land in their mapped (parent, child) bucket.
+ * - Transactions whose category_id is unmapped fall back to the
+ *   `categoryFallbacks` lookup (parent = the parent category's display name
+ *   if known, else "Uncategorised"; child = the category's own display name).
+ *   This guarantees no categorised transaction is silently dropped from the
+ *   budget.
+ * - Transactions with no category_id at all bucket under "Uncategorised::Uncategorised".
  * - In "individual" view, amounts are adjusted by the user's split percentage.
  * - A per-transaction split_override_percentage takes priority over the
  *   category-level split setting.
@@ -643,7 +668,8 @@ export function calculateSpent(
   splitSettings: SplitSettingInput[],
   budgetView: BudgetView,
   userId: string,
-  ownerUserId: string
+  ownerUserId: string,
+  categoryFallbacks: CategoryFallback[] = []
 ): Map<string, number> {
   const spentMap = new Map<string, number>();
 
@@ -652,12 +678,42 @@ export function calculateSpent(
     catLookup.set(m.up_category_id, { parent: m.new_parent_name, child: m.new_child_name });
   }
 
+  // Fallback table: id → { parent_name?, name }
+  // Used when category_id has no row in category_mappings, e.g. for the four
+  // top-level Up parents (good-life, home, personal, transport) or inferred
+  // categories like salary-income, internal-transfer.
+  const fallbackLookup = new Map<string, CategoryFallback>();
+  for (const f of categoryFallbacks) {
+    fallbackLookup.set(f.id, f);
+  }
+
+  const UNCATEGORISED = "Uncategorised";
+
   for (const txn of transactions) {
     if (txn.is_income || txn.amount_cents >= 0) continue;
-    if (!txn.category_id) continue;
 
-    const mapping = catLookup.get(txn.category_id);
-    if (!mapping) continue;
+    let mapping: { parent: string; child: string } | null = null;
+
+    if (txn.category_id) {
+      mapping = catLookup.get(txn.category_id) ?? null;
+      if (!mapping) {
+        // No curated mapping — fall back to the categories table.
+        const fb = fallbackLookup.get(txn.category_id);
+        if (fb) {
+          mapping = {
+            parent: fb.parent_name ?? UNCATEGORISED,
+            child: fb.name,
+          };
+        } else {
+          // Category exists on the transaction but isn't in either lookup.
+          // Use the raw category_id as the child label so the row is at
+          // least visible and the spend isn't silently lost.
+          mapping = { parent: UNCATEGORISED, child: txn.category_id };
+        }
+      }
+    } else {
+      mapping = { parent: UNCATEGORISED, child: UNCATEGORISED };
+    }
 
     let amount = Math.abs(txn.amount_cents);
 
@@ -716,6 +772,7 @@ export function calculateBudgetSummary(input: BudgetSummaryInput): BudgetSummary
     expenseDefinitions,
     splitSettings,
     categoryMappings,
+    categoryFallbacks,
     carryoverFromPrevious,
     layoutSections,
   } = input;
@@ -751,7 +808,8 @@ export function calculateBudgetSummary(input: BudgetSummaryInput): BudgetSummary
     splitSettings,
     budgetView,
     userId,
-    ownerUserId
+    ownerUserId,
+    categoryFallbacks ?? []
   );
 
   // 4. Carryover
