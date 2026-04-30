@@ -6,6 +6,7 @@ import {
   calculateIncome,
   calculateBudgeted,
   calculateSpent,
+  calculateSpentByPartner,
   calculateCarryover,
   calculateBudgetSummary,
   getNextPeriodDate,
@@ -442,8 +443,39 @@ describe("calculateSpent", () => {
     const splits: SplitSettingInput[] = [
       { category_name: "Food & Dining", split_type: "equal" },
     ];
+    // userId === ownerUserId, so the owner's share (30%) IS the user's share.
     const result = calculateSpent(txns, mappings, splits, "individual", "user-1", "user-1");
     expect(result.get("Food & Dining::Groceries")).toBe(3000);
+  });
+
+  it("transaction split override flips for the non-owner partner", () => {
+    // split_override_percentage stores the OWNER's share. When the requesting
+    // user IS the partner (not the owner), the engine should attribute
+    // (100 - ownerPct) to that user. 70/30 owner split → partner sees 30% of 10000.
+    const txns: TransactionInput[] = [
+      { id: "t1", amount_cents: -10000, category_id: "groceries", created_at: "2026-02-10", split_override_percentage: 70 },
+    ];
+    // Partnership default 60/40 — should be IGNORED because the per-txn override REPLACES it.
+    const splits: SplitSettingInput[] = [
+      { category_name: "Food & Dining", split_type: "custom", owner_percentage: 60 },
+    ];
+    const partnerView = calculateSpent(txns, mappings, splits, "individual", "user-2", "user-1");
+    expect(partnerView.get("Food & Dining::Groceries")).toBe(3000); // 30% of 10000
+    const ownerView = calculateSpent(txns, mappings, splits, "individual", "user-1", "user-1");
+    expect(ownerView.get("Food & Dining::Groceries")).toBe(7000); // 70% of 10000
+  });
+
+  it("transaction split override REPLACES (not stacks with) couple_split_settings", () => {
+    // If both an override and a partnership default exist for the same category,
+    // the override is used verbatim — the defaults must not influence the result.
+    const txns: TransactionInput[] = [
+      { id: "t1", amount_cents: -10000, category_id: "groceries", created_at: "2026-02-10", split_override_percentage: 70 },
+    ];
+    const splits: SplitSettingInput[] = [
+      { category_name: "Food & Dining", split_type: "custom", owner_percentage: 60 },
+    ];
+    const result = calculateSpent(txns, mappings, splits, "individual", "user-1", "user-1");
+    expect(result.get("Food & Dining::Groceries")).toBe(7000); // 70%, not 60% × 70% etc.
   });
 
   it("skips transactions with unknown category", () => {
@@ -462,6 +494,135 @@ describe("calculateSpent", () => {
     const result = calculateSpent(txns, mappings, [], "shared", "user-1", "user-1");
     const totalSpent = Array.from(result.values()).reduce((a, b) => a + b, 0);
     expect(totalSpent).toBe(105000);
+  });
+});
+
+describe("calculateSpentByPartner", () => {
+  const mappings: CategoryMapping[] = [
+    { up_category_id: "groceries", new_parent_name: "Food & Dining", new_child_name: "Groceries" },
+    { up_category_id: "rent", new_parent_name: "Housing", new_child_name: "Rent" },
+  ];
+
+  it("falls back to 100/0 owner when no settings or overrides exist", () => {
+    const txns: TransactionInput[] = [
+      { id: "t1", amount_cents: -10000, category_id: "groceries", created_at: "2026-02-10" },
+    ];
+    const result = calculateSpentByPartner(txns, mappings, [], "user-owner", "user-partner");
+    expect(result.ownerSpent).toBe(10000);
+    expect(result.partnerSpent).toBe(0);
+    expect(result.bySubcategory.get("Food & Dining::Groceries")).toEqual({ owner: 10000, partner: 0 });
+  });
+
+  it("applies category-level couple_split_settings (custom 60/40)", () => {
+    const txns: TransactionInput[] = [
+      { id: "t1", amount_cents: -10000, category_id: "groceries", created_at: "2026-02-10" },
+    ];
+    const splits: SplitSettingInput[] = [
+      { category_name: "Food & Dining", split_type: "custom", owner_percentage: 60 },
+    ];
+    const result = calculateSpentByPartner(txns, mappings, splits, "user-owner", "user-partner");
+    expect(result.ownerSpent).toBe(6000);
+    expect(result.partnerSpent).toBe(4000);
+  });
+
+  it("applies equal-split partnership default (50/50)", () => {
+    const txns: TransactionInput[] = [
+      { id: "t1", amount_cents: -10000, category_id: "groceries", created_at: "2026-02-10" },
+    ];
+    const splits: SplitSettingInput[] = [
+      { category_name: "Food & Dining", split_type: "equal" },
+    ];
+    const result = calculateSpentByPartner(txns, mappings, splits, "user-owner", "user-partner");
+    expect(result.ownerSpent).toBe(5000);
+    expect(result.partnerSpent).toBe(5000);
+  });
+
+  it("per-transaction override REPLACES partnership default (70/30 vs 60/40)", () => {
+    // Acceptance criterion from the task: a transaction marked 70/30 must
+    // override the partnership default of 60/40.
+    const txns: TransactionInput[] = [
+      { id: "t1", amount_cents: -10000, category_id: "groceries", created_at: "2026-02-10", split_override_percentage: 70 },
+    ];
+    const splits: SplitSettingInput[] = [
+      { category_name: "Food & Dining", split_type: "custom", owner_percentage: 60 },
+    ];
+    const result = calculateSpentByPartner(txns, mappings, splits, "user-owner", "user-partner");
+    expect(result.ownerSpent).toBe(7000); // 70% — partnership 60/40 NOT applied
+    expect(result.partnerSpent).toBe(3000); // 30%
+  });
+
+  it("mixed: overridden txn uses 70/30, sibling txn uses partnership 60/40", () => {
+    const txns: TransactionInput[] = [
+      { id: "t1", amount_cents: -10000, category_id: "groceries", created_at: "2026-02-10", split_override_percentage: 70 },
+      { id: "t2", amount_cents: -10000, category_id: "groceries", created_at: "2026-02-12" },
+    ];
+    const splits: SplitSettingInput[] = [
+      { category_name: "Food & Dining", split_type: "custom", owner_percentage: 60 },
+    ];
+    const result = calculateSpentByPartner(txns, mappings, splits, "user-owner", "user-partner");
+    // t1: 70/30 → owner 7000 / partner 3000
+    // t2: 60/40 (default) → owner 6000 / partner 4000
+    expect(result.ownerSpent).toBe(13000);
+    expect(result.partnerSpent).toBe(7000);
+    expect(result.bySubcategory.get("Food & Dining::Groceries")).toEqual({ owner: 13000, partner: 7000 });
+  });
+
+  it("expense-level split takes priority over category-level when no override", () => {
+    const txns: TransactionInput[] = [
+      { id: "t1", amount_cents: -10000, category_id: "groceries", created_at: "2026-02-10", matched_expense_id: "exp-1" },
+    ];
+    const splits: SplitSettingInput[] = [
+      { category_name: "Food & Dining", split_type: "custom", owner_percentage: 60 },
+      { expense_definition_id: "exp-1", split_type: "custom", owner_percentage: 80 },
+    ];
+    const result = calculateSpentByPartner(txns, mappings, splits, "user-owner", "user-partner");
+    expect(result.ownerSpent).toBe(8000); // 80%, not 60%
+    expect(result.partnerSpent).toBe(2000);
+  });
+
+  it("ignores positive (income) transactions", () => {
+    const txns: TransactionInput[] = [
+      { id: "t1", amount_cents: 500000, category_id: "groceries", created_at: "2026-02-10", is_income: true },
+      { id: "t2", amount_cents: -5000, category_id: "groceries", created_at: "2026-02-12" },
+    ];
+    const result = calculateSpentByPartner(txns, mappings, [], "user-owner", "user-partner");
+    expect(result.ownerSpent).toBe(5000);
+    expect(result.partnerSpent).toBe(0);
+  });
+
+  it("skips transactions with unknown category", () => {
+    const txns: TransactionInput[] = [
+      { id: "t1", amount_cents: -5000, category_id: "unknown-cat", created_at: "2026-02-10" },
+      { id: "t2", amount_cents: -5000, category_id: null, created_at: "2026-02-11" },
+    ];
+    const result = calculateSpentByPartner(txns, mappings, [], "user-owner", "user-partner");
+    expect(result.ownerSpent).toBe(0);
+    expect(result.partnerSpent).toBe(0);
+    expect(result.bySubcategory.size).toBe(0);
+  });
+
+  it("groups per-subcategory totals correctly", () => {
+    const txns: TransactionInput[] = [
+      { id: "t1", amount_cents: -10000, category_id: "groceries", created_at: "2026-02-10", split_override_percentage: 70 },
+      { id: "t2", amount_cents: -200000, category_id: "rent", created_at: "2026-02-01" },
+    ];
+    const splits: SplitSettingInput[] = [
+      { category_name: "Housing", split_type: "custom", owner_percentage: 50 },
+    ];
+    const result = calculateSpentByPartner(txns, mappings, splits, "user-owner", "user-partner");
+    expect(result.bySubcategory.get("Food & Dining::Groceries")).toEqual({ owner: 7000, partner: 3000 });
+    expect(result.bySubcategory.get("Housing::Rent")).toEqual({ owner: 100000, partner: 100000 });
+  });
+
+  it("handles null partnerUserId (solo partnership) by attributing everything to owner via defaults", () => {
+    const txns: TransactionInput[] = [
+      { id: "t1", amount_cents: -10000, category_id: "groceries", created_at: "2026-02-10" },
+    ];
+    const result = calculateSpentByPartner(txns, mappings, [], "user-owner", null);
+    expect(result.ownerSpent).toBe(10000);
+    expect(result.partnerSpent).toBe(0);
+    expect(result.partnerUserId).toBeNull();
+    expect(result.ownerUserId).toBe("user-owner");
   });
 });
 
@@ -590,6 +751,42 @@ describe("calculateBudgetSummary", () => {
     expect(groceries!.budgeted).toBe(0);
     expect(groceries!.spent).toBe(4000);
     expect(groceries!.available).toBe(-4000);
+  });
+
+  it("emits partnerBreakdown for shared view when partnerUserId is provided", () => {
+    // 2Up acceptance criterion: a transaction marked 70/30 (vs partnership default 60/40)
+    // shows the correct per-partner spend on the shared budget view.
+    const input: BudgetSummaryInput = {
+      ...baseInput,
+      partnerUserId: "user-2",
+      transactions: [
+        { id: "t1", amount_cents: -10000, category_id: "groceries", created_at: "2026-02-10", split_override_percentage: 70 },
+      ],
+      splitSettings: [
+        { category_name: "Food & Dining", split_type: "custom", owner_percentage: 60 },
+      ],
+    };
+    const result = calculateBudgetSummary(input);
+    expect(result.partnerBreakdown).toBeDefined();
+    expect(result.partnerBreakdown!.ownerSpent).toBe(7000); // 70% (override beats 60% default)
+    expect(result.partnerBreakdown!.partnerSpent).toBe(3000);
+    expect(result.partnerBreakdown!.ownerUserId).toBe("user-1");
+    expect(result.partnerBreakdown!.partnerUserId).toBe("user-2");
+  });
+
+  it("omits partnerBreakdown when partnerUserId is not provided", () => {
+    const result = calculateBudgetSummary(baseInput);
+    expect(result.partnerBreakdown).toBeUndefined();
+  });
+
+  it("omits partnerBreakdown for individual budget view", () => {
+    const input: BudgetSummaryInput = {
+      ...baseInput,
+      budgetView: "individual",
+      partnerUserId: "user-2",
+    };
+    const result = calculateBudgetSummary(input);
+    expect(result.partnerBreakdown).toBeUndefined();
   });
 });
 

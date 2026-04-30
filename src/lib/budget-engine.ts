@@ -13,6 +13,8 @@
 //   period boundary calculations (month-aligned weeks and fortnights).
 // - `calculateIncome` / `calculateBudgeted` / `calculateSpent` — individual
 //   aggregation functions, also usable standalone.
+// - `calculateSpentByPartner` — splits spending across both partners using
+//   couple_split_settings defaults plus per-transaction overrides.
 // - `countOccurrencesInPeriod` — anchor-based recurrence projection.
 // - `convertToTargetPeriod` — frequency normalisation (weekly <-> monthly etc).
 // - `calculateCarryover` — previous-period surplus calculation.
@@ -171,6 +173,14 @@ export interface TransactionInput {
   category_id: string | null;
   created_at: string;
   is_income?: boolean;
+  /**
+   * Per-transaction split override. Stored as the OWNER's share (0-100) — i.e.
+   * the percentage of the transaction attributable to the partnership owner
+   * (`ownerUserId`). The non-owner partner's share is `100 - split_override_percentage`.
+   * This semantic mirrors `couple_split_settings.owner_percentage` so the
+   * override REPLACES the partnership default cleanly.
+   * When present, takes priority over any matching `couple_split_settings` row.
+   */
   split_override_percentage?: number | null;
   matched_expense_id?: string | null;
 }
@@ -228,6 +238,13 @@ export interface BudgetSummary {
   tbb: number;
   rows: BudgetRow[];
   methodologySections?: MethodologySection[];
+  /**
+   * Per-partner spent split for shared budget views. Present when both a
+   * `partnerUserId` and `userId` are supplied AND the budget view is `shared`.
+   * Reflects per-transaction `split_override_percentage` overrides on top of
+   * partnership-level `couple_split_settings` defaults.
+   */
+  partnerBreakdown?: PartnerBreakdown;
 }
 
 // ─── Composite Input ─────────────────────────────────────────────────────────
@@ -241,6 +258,13 @@ export interface BudgetSummaryInput {
   totalBudget: number | null;
   userId: string;
   ownerUserId: string;
+  /**
+   * The other partnership member's user_id (the non-owner partner). When
+   * provided alongside a "shared" budget view, the engine produces a
+   * `partnerBreakdown` showing how categorised spending splits across both
+   * partners. May be `null` for solo partnerships.
+   */
+  partnerUserId?: string | null;
   periodRange: PeriodRange;
   incomeSources: IncomeSourceInput[];
   assignments: AssignmentInput[];
@@ -633,9 +657,10 @@ export function resolveSplitPercentage(
  *
  * - Only negative (expense) transactions are counted; income is ignored.
  * - Transactions with an unknown category_id (no mapping) are skipped.
- * - In "individual" view, amounts are adjusted by the user's split percentage.
- * - A per-transaction split_override_percentage takes priority over the
- *   category-level split setting.
+ * - In "individual" view, amounts are adjusted by the requesting user's share.
+ * - A per-transaction `split_override_percentage` (interpreted as the OWNER's
+ *   share) REPLACES the category-level split setting. The requesting user's
+ *   slice is computed via `userId === ownerUserId ? ownerPct : 100 - ownerPct`.
  */
 export function calculateSpent(
   transactions: TransactionInput[],
@@ -663,7 +688,11 @@ export function calculateSpent(
 
     if (budgetView === "individual") {
       if (txn.split_override_percentage != null) {
-        amount = Math.round(amount * txn.split_override_percentage / 100);
+        // Per-transaction override REPLACES partnership defaults. The stored
+        // value is the owner's share; flip for the partner.
+        const ownerPct = txn.split_override_percentage;
+        const userPct = userId === ownerUserId ? ownerPct : 100 - ownerPct;
+        amount = Math.round(amount * userPct / 100);
       } else {
         // Try expense-level split first (by matched_expense_id), then category-level
         const split =
@@ -683,6 +712,99 @@ export function calculateSpent(
   }
 
   return spentMap;
+}
+
+// ─── Per-Partner Spent Breakdown ────────────────────────────────────────────
+
+export interface PartnerBreakdown {
+  ownerUserId: string;
+  partnerUserId: string | null;
+  /** Total cents attributable to the owner across all categorised expense txns */
+  ownerSpent: number;
+  /** Total cents attributable to the partner (`null` if no partner present) */
+  partnerSpent: number;
+  /** Per-subcategory breakdown — Map<"Parent::Child", { owner, partner }> */
+  bySubcategory: Map<string, { owner: number; partner: number }>;
+}
+
+/**
+ * Split categorised spending across both partners.
+ *
+ * Resolution order per transaction:
+ * 1. `split_override_percentage` (owner's share) — REPLACES partnership defaults.
+ * 2. Expense-level `couple_split_settings` row matching `matched_expense_id`.
+ * 3. Category-level `couple_split_settings` row matching the parent category.
+ * 4. Default 100/0 to owner (matches `resolveSplitPercentage` no-setting case).
+ *
+ * Income, uncategorised, unmapped, and positive-amount rows are skipped — same
+ * as `calculateSpent`. All returned amounts are positive cents.
+ */
+export function calculateSpentByPartner(
+  transactions: TransactionInput[],
+  categoryMappings: CategoryMapping[],
+  splitSettings: SplitSettingInput[],
+  ownerUserId: string,
+  partnerUserId: string | null
+): PartnerBreakdown {
+  const bySubcategory = new Map<string, { owner: number; partner: number }>();
+  let ownerSpent = 0;
+  let partnerSpent = 0;
+
+  const catLookup = new Map<string, { parent: string; child: string }>();
+  for (const m of categoryMappings) {
+    catLookup.set(m.up_category_id, { parent: m.new_parent_name, child: m.new_child_name });
+  }
+
+  for (const txn of transactions) {
+    if (txn.is_income || txn.amount_cents >= 0) continue;
+    if (!txn.category_id) continue;
+
+    const mapping = catLookup.get(txn.category_id);
+    if (!mapping) continue;
+
+    const amount = Math.abs(txn.amount_cents);
+
+    // Determine the OWNER's share for this transaction
+    let ownerPct: number;
+    if (txn.split_override_percentage != null) {
+      ownerPct = txn.split_override_percentage;
+    } else {
+      // Fall back to expense-level then category-level couple_split_settings
+      const split =
+        (txn.matched_expense_id
+          ? splitSettings.find((s) => s.expense_definition_id === txn.matched_expense_id)
+          : undefined) ??
+        splitSettings.find((s) => s.category_name === mapping.parent);
+      if (split) {
+        // resolveSplitPercentage with userId=owner returns the owner's share
+        ownerPct = resolveSplitPercentage(split, ownerUserId, ownerUserId);
+      } else {
+        // No split setting — owner is fully responsible (mirrors
+        // `resolveSplitPercentage` returning 100 for `setting === undefined`).
+        ownerPct = 100;
+      }
+    }
+
+    const ownerAmount = Math.round((amount * ownerPct) / 100);
+    const partnerAmount = amount - ownerAmount;
+
+    ownerSpent += ownerAmount;
+    partnerSpent += partnerAmount;
+
+    const key = `${mapping.parent}::${mapping.child}`;
+    const existing = bySubcategory.get(key) ?? { owner: 0, partner: 0 };
+    existing.owner += ownerAmount;
+    existing.partner += partnerAmount;
+    bySubcategory.set(key, existing);
+  }
+
+  return {
+    ownerUserId,
+    partnerUserId,
+    ownerSpent,
+    partnerSpent,
+    bySubcategory,
+  };
 }
 
 // ─── Full Budget Summary Orchestrator ─────────────────────────────────────────
@@ -753,6 +875,20 @@ export function calculateBudgetSummary(input: BudgetSummaryInput): BudgetSummary
     userId,
     ownerUserId
   );
+
+  // 3b. Per-partner spent breakdown (only meaningful for shared view).
+  //     Reflects per-transaction `split_override_percentage` overrides on top
+  //     of partnership-level `couple_split_settings` defaults.
+  const partnerBreakdown =
+    budgetView === "shared" && input.partnerUserId !== undefined
+      ? calculateSpentByPartner(
+          transactions,
+          categoryMappings,
+          splitSettings,
+          ownerUserId,
+          input.partnerUserId
+        )
+      : undefined;
 
   // 4. Carryover
   const carryover = carryoverFromPrevious;
@@ -1048,6 +1184,7 @@ export function calculateBudgetSummary(input: BudgetSummaryInput): BudgetSummary
     tbb,
     rows,
     methodologySections,
+    partnerBreakdown,
   };
 }
 

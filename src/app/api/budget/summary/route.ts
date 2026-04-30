@@ -262,13 +262,16 @@ export async function GET(request: Request) {
       );
     }
 
-    // ── Fetch goal & investment contributions in parallel ──────────────
+    // ── Fetch goal & investment contributions + per-txn share overrides + partner ─
     const goalLinkedAccountIds = (goalsResult.data ?? [])
       .map((g) => g.linked_account_id)
       .filter(Boolean) as string[];
     const investmentIds = (investmentsResult.data ?? []).map((i) => i.id);
+    const transactionIds = (transactionResult.data ?? []).map((t) => t.id);
 
-    const [goalTransfersResult, investContribResult] = await Promise.all([
+    const ownerUserId = budget.created_by ?? user.id;
+
+    const [goalTransfersResult, investContribResult, shareOverrideResult, partnerMemberResult] = await Promise.all([
       goalLinkedAccountIds.length > 0
         ? supabase
             .from("transactions")
@@ -289,6 +292,32 @@ export async function GET(request: Request) {
             .lte("contributed_at", periodRange.end.toISOString())
             .limit(1000)
         : Promise.resolve({ data: [] as any[], error: null }),
+      // Per-transaction share overrides for this period's transactions.
+      // Each row's `share_percentage` represents the partnership OWNER's share
+      // (consistent with `couple_split_settings.owner_percentage`); the
+      // non-owner partner's share is `100 - share_percentage`. Rows with
+      // `is_shared = false` are skipped — non-shared txns fall back to the
+      // partnership default split rather than being split per-txn.
+      transactionIds.length > 0
+        ? supabase
+            .from("transaction_share_overrides")
+            .select("transaction_id, share_percentage, is_shared")
+            .eq("partnership_id", partnershipId)
+            .eq("is_shared", true)
+            .in("transaction_id", transactionIds)
+            .limit(5000)
+        : Promise.resolve({ data: [] as any[], error: null }),
+      // Other partnership member (the non-owner partner). Used to attach
+      // a `partnerBreakdown` to shared budget summaries so callers can see
+      // the per-partner spend split. `null` for solo partnerships.
+      supabase
+        .from("partnership_members")
+        .select("user_id")
+        .eq("partnership_id", partnershipId)
+        .neq("user_id", ownerUserId)
+        .order("joined_at", { ascending: true })
+        .limit(1)
+        .maybeSingle(),
     ]);
 
     const goalContributions = new Map<string, number>();
@@ -352,6 +381,19 @@ export async function GET(request: Request) {
       });
     }
 
+    // Build per-transaction share-override map so the engine can replace the
+    // partnership-level split defaults for individual transactions. The stored
+    // percentage is the OWNER's share (mirrors `couple_split_settings.owner_percentage`).
+    const shareOverrideMap = new Map<string, number>();
+    for (const o of (shareOverrideResult.data ?? []) as Array<{
+      transaction_id: string;
+      share_percentage: number | null;
+      is_shared: boolean;
+    }>) {
+      if (o.share_percentage == null) continue;
+      shareOverrideMap.set(o.transaction_id, Number(o.share_percentage));
+    }
+
     const transactions: TransactionInput[] = (transactionResult.data ?? []).map(
       (t) => {
         // PostgREST relation gotcha: `expense_matches` on a transaction.
@@ -363,12 +405,14 @@ export async function GET(request: Request) {
         const matchedExpenseId = raw
           ? (Array.isArray(raw) ? raw[0]?.expense_definition_id : raw.expense_definition_id) ?? null
           : null;
+        // Per-txn override REPLACES (not stacks with) `couple_split_settings`.
+        const override = shareOverrideMap.get(t.id);
         return {
           id: t.id,
           amount_cents: t.amount_cents,
           category_id: t.category_id,
           created_at: t.settled_at,
-          split_override_percentage: null,
+          split_override_percentage: override ?? null,
           matched_expense_id: matchedExpenseId,
         };
       }
@@ -508,6 +552,9 @@ export async function GET(request: Request) {
 
     // ── Build engine input and calculate ───────────────────────────────
 
+    const partnerUserId =
+      (partnerMemberResult.data?.user_id as string | undefined) ?? null;
+
     const input: BudgetSummaryInput = {
       periodType: budget.period_type,
       budgetView: budget.budget_view,
@@ -515,7 +562,8 @@ export async function GET(request: Request) {
       methodology: budget.methodology,
       totalBudget: budget.total_budget,
       userId: user.id,
-      ownerUserId: budget.created_by ?? user.id,
+      ownerUserId,
+      partnerUserId,
       periodRange,
       incomeSources,
       assignments,
@@ -591,8 +639,20 @@ export async function GET(request: Request) {
       }
     }
 
+    // Serialise the Map inside `partnerBreakdown` (Maps don't survive JSON.stringify).
+    const partnerBreakdown = summary.partnerBreakdown
+      ? {
+          ownerUserId: summary.partnerBreakdown.ownerUserId,
+          partnerUserId: summary.partnerBreakdown.partnerUserId,
+          ownerSpent: summary.partnerBreakdown.ownerSpent,
+          partnerSpent: summary.partnerBreakdown.partnerSpent,
+          bySubcategory: Object.fromEntries(summary.partnerBreakdown.bySubcategory),
+        }
+      : undefined;
+
     return NextResponse.json({
       ...summary,
+      partnerBreakdown,
       periodLabel: periodRange.label,
       periodStart: periodRange.start.toISOString(),
       periodEnd: periodRange.end.toISOString(),
