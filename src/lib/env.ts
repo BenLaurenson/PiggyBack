@@ -10,6 +10,9 @@ const envSchema = z.object({
     .regex(/^[0-9a-f]+$/i, "Must be a 64-character hex string")
     .optional(),
   CRON_SECRET: z.string().min(1).optional(),
+  // Comma-separated email allowlist for admin routes (e.g. /admin/*).
+  // Optional - if unset, no one is treated as admin.
+  ADMIN_EMAILS: z.string().optional(),
 });
 
 export function validateEnv() {
