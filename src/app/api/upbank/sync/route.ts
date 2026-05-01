@@ -515,28 +515,25 @@ export async function POST(request: Request) {
         // ─── Finishing ───────────────────────────────────────────────────────
         send({ phase: "finishing", message: "Finishing up...", txnCount: totalTxns });
 
-        // Only mark up_api_configs.last_synced_at when EVERY account synced
-        // successfully. If we marked it on partial failure, future incremental
-        // syncs would use it as their `since` cursor and skip back-history for
-        // the accounts that didn't make it — leaving the user with permanent
-        // gaps. Per-account state lives on accounts.last_synced_at; the
-        // health-check cron can find any user where account.last_synced_at
-        // < up_api_configs.created_at and force a re-sync.
-        const fullySynced = errors.length === 0;
-        if (fullySynced) {
-          const adminClientForSync = createServiceRoleClient();
-          const { data: configUpdateRows, error: configUpdateError } = await adminClientForSync
-            .from("up_api_configs")
-            .update({ last_synced_at: new Date().toISOString() })
-            .eq("user_id", user.id)
-            .select("user_id");
-          if (configUpdateError) {
-            console.error("Failed to update last_synced_at:", configUpdateError);
-            errors.push(`Failed to update sync timestamp: ${configUpdateError.message}`);
-          } else if (!configUpdateRows || configUpdateRows.length === 0) {
-            console.error("last_synced_at update matched 0 rows for user", user.id);
-            errors.push("Failed to record sync timestamp (no matching config row)");
-          }
+        // Bump up_api_configs.last_synced_at on every sync that completes,
+        // even with errors. The user-level marker is for UI display ("Last
+        // synced X minutes ago") — showing 'Never' when the user just synced
+        // 2900 transactions is wrong. The per-account cursor for the next
+        // sync's `since` window lives on accounts.last_synced_at (which IS
+        // only set on per-account success), so failed accounts will still
+        // re-fetch their full history on the next attempt.
+        const adminClientForSync = createServiceRoleClient();
+        const { data: configUpdateRows, error: configUpdateError } = await adminClientForSync
+          .from("up_api_configs")
+          .update({ last_synced_at: new Date().toISOString() })
+          .eq("user_id", user.id)
+          .select("user_id");
+        if (configUpdateError) {
+          console.error("Failed to update last_synced_at:", configUpdateError);
+          errors.push(`Failed to update sync timestamp: ${configUpdateError.message}`);
+        } else if (!configUpdateRows || configUpdateRows.length === 0) {
+          console.error("last_synced_at update matched 0 rows for user", user.id);
+          errors.push("Failed to record sync timestamp (no matching config row)");
         }
 
         // Bump rule application stats (fire-and-forget; errors logged).
