@@ -9,7 +9,13 @@ import { connectUpBank, registerUpWebhook } from "@/app/actions/upbank";
 import { createClient } from "@/utils/supabase/client";
 
 interface BankStepProps {
+  /** Skip path — currently a no-op in the BE state machine since the
+   *  spec requires at least one account synced before BANK → INCOME.
+   *  The wizard wires this to a no-state-change refresh. */
   onNext: () => void;
+  /** Advance to the INCOME state. Only invoked from this component after
+   *  we've verified at least one account was actually synced. Otherwise
+   *  the user stays on BANK and can retry. */
   onComplete: () => void;
   isStepCompleted?: boolean;
   serverAccountCount?: number;
@@ -221,12 +227,37 @@ export function BankStep({ onNext, onComplete, isStepCompleted, serverAccountCou
       }
 
       await runPostSyncSideEffects();
+      await refreshSyncedAccountCount();
       setSyncPhase("done");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to connect bank");
       setSyncPhase("idle");
     } finally {
       setLoading(false);
+    }
+  };
+
+  /**
+   * After a sync run, refresh `accountCount` from the DB — counting only
+   * accounts that actually got data (`last_synced_at NOT NULL`). The state
+   * machine spec requires at least one such account before advancing to
+   * INCOME; if zero, the user stays on BANK and the retry UI is offered.
+   */
+  const refreshSyncedAccountCount = async () => {
+    try {
+      const supabase = createClient();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) return;
+      const { count } = await supabase
+        .from("accounts")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", user.id)
+        .not("last_synced_at", "is", null);
+      setAccountCount(count ?? 0);
+    } catch {
+      // Non-critical — the existing accountCount stays valid.
     }
   };
 
@@ -252,12 +283,28 @@ export function BankStep({ onNext, onComplete, isStepCompleted, serverAccountCou
         return;
       }
       await runPostSyncSideEffects();
+      await refreshSyncedAccountCount();
       setSyncPhase("done");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to retry sync");
       setSyncPhase("error");
     } finally {
       setLoading(false);
+    }
+  };
+
+  /**
+   * Gate the "Continue to Income" advance on having at least one
+   * successfully-synced account, per the state machine spec. If zero,
+   * we keep the user on BANK and surface the retry UI instead.
+   */
+  const handleContinue = () => {
+    if (accountCount > 0) {
+      onComplete();
+    } else {
+      setError(
+        "No accounts have been synced yet. Try entering your Up Bank token and syncing first.",
+      );
     }
   };
 
@@ -270,22 +317,31 @@ export function BankStep({ onNext, onComplete, isStepCompleted, serverAccountCou
     );
   }
 
-  // Already connected screen
+  // Already connected screen — also serves as the "looks like you started
+  // syncing earlier — continue?" pickup banner when the user closed their
+  // tab mid-sync. Spec: if state is BANK but accounts already exist, the
+  // sync data made it through without the FE there to call advance.
   if (alreadyConnected && !showReconnectForm && syncPhase === "idle") {
+    const isPickup = serverAccountCount > 0 && !isStepCompleted;
     return (
       <div className="text-center space-y-6 py-8">
         <CheckCircle className="h-16 w-16 mx-auto" style={{ color: "var(--pastel-mint)" }} />
         <div className="space-y-2">
           <h2 className="text-xl font-[family-name:var(--font-nunito)] font-bold" style={{ color: "var(--text-primary)" }}>
-            Bank Connected
+            {isPickup ? "Looks like you already started syncing" : "Bank Connected"}
           </h2>
           <p className="font-[family-name:var(--font-dm-sans)]" style={{ color: "var(--text-secondary)" }}>
             {accountCount} account{accountCount !== 1 ? "s" : ""} synced with Up Bank
           </p>
+          {isPickup && (
+            <p className="text-xs font-[family-name:var(--font-dm-sans)]" style={{ color: "var(--text-tertiary)" }}>
+              Pick up where you left off — your data is already here.
+            </p>
+          )}
         </div>
         <div className="space-y-3 max-w-sm mx-auto">
           <Button
-            onClick={onComplete}
+            onClick={handleContinue}
             className="w-full rounded-xl font-[family-name:var(--font-nunito)] font-bold"
             style={{ backgroundColor: "var(--pastel-mint)", color: "white" }}
           >
@@ -390,7 +446,7 @@ export function BankStep({ onNext, onComplete, isStepCompleted, serverAccountCou
           {txnCount > 0 && (
             <Button
               variant="ghost"
-              onClick={onComplete}
+              onClick={handleContinue}
               className="w-full text-sm"
               style={{ color: "var(--text-tertiary)" }}
             >
@@ -430,7 +486,7 @@ export function BankStep({ onNext, onComplete, isStepCompleted, serverAccountCou
         </div>
         <div className="space-y-3 max-w-sm mx-auto">
           <Button
-            onClick={onComplete}
+            onClick={handleContinue}
             className="w-full rounded-xl font-[family-name:var(--font-nunito)] font-bold"
             style={{ backgroundColor: "var(--pastel-mint)", color: "white" }}
           >
