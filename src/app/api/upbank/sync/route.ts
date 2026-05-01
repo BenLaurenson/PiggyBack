@@ -314,6 +314,13 @@ export async function POST(request: Request) {
           let accountSucceeded = false;
           let lastAccountErr: unknown = null;
 
+          // Track windows that 5xx'd persistently (e.g., a single date range
+          // for which Up's backend has a corrupt transaction and 500s every
+          // request). After per-window retry, skip the window and continue
+          // — losing the txns in that one ~30-day slice is better than
+          // failing the whole account sync.
+          const skippedWindows: Array<{ since: string; until: string }> = [];
+
           while (accountAttempt < MAX_ACCOUNT_ATTEMPTS && !accountSucceeded) {
             accountAttempt++;
             const startTotalTxns = totalTxns;
@@ -326,25 +333,44 @@ export async function POST(request: Request) {
                 windowEnd.setDate(windowEnd.getDate() + SYNC_WINDOW_DAYS);
                 const upperBound = windowEnd > now ? now : windowEnd;
 
-                const windowSyncResult = await syncTransactionWindow({
-                  client,
-                  accountId: account.id,
-                  accountDisplayName: account.attributes.displayName,
-                  savedAccountId,
-                  since: cursor.toISOString(),
-                  until: upperBound.toISOString(),
-                  resolverCtx,
-                  txnIdByUpId,
-                  seenCategories,
-                  supabase,
-                  send,
-                  startCount: totalTxns,
-                  errors,
-                  userRuleAppliedIds,
-                  defaultRuleAppliedCounts,
-                });
-
-                totalTxns = windowSyncResult.newTotal;
+                // Per-window try/catch: a single window 5xx'ing should not
+                // kill the whole account loop. The Up SDK already retried
+                // once on 5xx; if we're here and it still 500'd, the window
+                // likely has a permanent server-side issue. Log it, skip,
+                // continue.
+                try {
+                  const windowSyncResult = await syncTransactionWindow({
+                    client,
+                    accountId: account.id,
+                    accountDisplayName: account.attributes.displayName,
+                    savedAccountId,
+                    since: cursor.toISOString(),
+                    until: upperBound.toISOString(),
+                    resolverCtx,
+                    txnIdByUpId,
+                    seenCategories,
+                    supabase,
+                    send,
+                    startCount: totalTxns,
+                    errors,
+                    userRuleAppliedIds,
+                    defaultRuleAppliedCounts,
+                  });
+                  totalTxns = windowSyncResult.newTotal;
+                } catch (windowErr) {
+                  // 401 still bails the whole sync — token is bad.
+                  if (windowErr instanceof UpUnauthorizedError) throw windowErr;
+                  // 5xx + other non-fatal failures: skip this window and
+                  // continue. Log so we have a record of the data gap.
+                  console.warn(
+                    `Skipping window ${cursor.toISOString()}..${upperBound.toISOString()} for "${account.attributes.displayName}" after persistent failure:`,
+                    windowErr instanceof Error ? windowErr.message : windowErr
+                  );
+                  skippedWindows.push({
+                    since: cursor.toISOString(),
+                    until: upperBound.toISOString(),
+                  });
+                }
                 cursor.setDate(cursor.getDate() + SYNC_WINDOW_DAYS);
               }
               // Mark this account as fully synced. Service-role write so we
@@ -362,6 +388,34 @@ export async function POST(request: Request) {
                   markErr
                 );
                 // Non-fatal — the data is in, the marker just won't update.
+              }
+              // Three outcomes after the for-loop completes:
+              //
+              //   A. All windows succeeded → accountSucceeded=true, no errors.
+              //   B. Some windows skipped, some succeeded → partial success.
+              //      Mark the account synced (we have data for it!) but
+              //      surface the data gap with specific date ranges so the
+              //      user knows what's missing.
+              //   C. ALL windows skipped → no data flowed in. Don't mark
+              //      synced; throw so the outer retry catch handles it.
+              //      Retrying the same windows usually 500s again, but at
+              //      least we treat it as a failure not a success.
+              if (skippedWindows.length > 0) {
+                const windowDescriptions = skippedWindows
+                  .map((w) => `${w.since.slice(0, 10)} to ${w.until.slice(0, 10)}`)
+                  .join(", ");
+
+                if (totalTxns === startTotalTxns) {
+                  // Outcome C — every window failed.
+                  throw new Error(
+                    `Up Bank returned errors for every 30-day window in the last year (${skippedWindows.length} skipped: ${windowDescriptions})`
+                  );
+                }
+
+                // Outcome B — partial success.
+                errors.push(
+                  `"${account.attributes.displayName}": ${skippedWindows.length} window(s) skipped due to Up Bank server errors — missing transactions from ${windowDescriptions}. Retry later or check the Up Bank app for these dates.`
+                );
               }
               accountSucceeded = true;
             } catch (accountErr) {
