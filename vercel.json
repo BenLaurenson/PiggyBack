@@ -22,6 +22,14 @@
     {
       "path": "/api/cron/funnel",
       "schedule": "0 1 * * *"
+    },
+    {
+      "path": "/api/admin/provision-worker",
+      "schedule": "0 2 * * *"
+    },
+    {
+      "path": "/api/cron/release-cancelled-provisions",
+      "schedule": "0 3 * * *"
     }
   ],
   "headers": [
