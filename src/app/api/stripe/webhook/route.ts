@@ -89,6 +89,31 @@ export async function POST(request: NextRequest) {
           });
           await audit(provisionId, "STRIPE_CHECKOUT_COMPLETED", { sessionId: session.id });
 
+          // Plan #5: advance the state machine STRIPE_CHECKOUT_OPEN → STRIPE_PAID
+          // → AWAITING_SUPABASE_OAUTH. The worker cron picks STRIPE_PAID up
+          // and auto-advances; the user-facing redirect post-checkout will
+          // either show a "redirecting to Supabase" page or send them
+          // directly to the Supabase consent URL.
+          try {
+            const { createServiceRoleClient } = await import(
+              "@/utils/supabase/service-role"
+            );
+            const supabase = createServiceRoleClient();
+            await supabase
+              .from("piggyback_provisions")
+              .update({
+                state: "STRIPE_PAID",
+                state_changed_at: new Date().toISOString(),
+                state_data: {
+                  stripe_session_id: session.id,
+                },
+              })
+              .eq("id", provisionId)
+              .in("state", ["NEW", "STRIPE_CHECKOUT_OPEN", "SIGNED_IN"]);
+          } catch (err) {
+            console.error("Failed to transition state on stripe checkout:", err);
+          }
+
           // Phase 4 funnel: stripe_checkout_completed fires from the webhook
           // (Stripe is the source of truth for completion, not the
           // browser-redirect success_url). Properties only include opaque
