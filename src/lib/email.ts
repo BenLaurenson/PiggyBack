@@ -114,3 +114,68 @@ Cancel anytime, keep your app — your Vercel project and Supabase data are your
 piggyback.finance`;
   return { subject, html, text };
 }
+
+/**
+ * Sends a partner-claim invitation email via Resend.
+ *
+ * Used by the orchestrator's POST /api/partners/invite flow. The recipient
+ * clicks the link, lands on /claim/{token}, and either signs up or signs in
+ * to accept. Token validity (expiry, reuse, email-binding) is enforced server-
+ * side at claim time — this email helper only formats the message.
+ *
+ * Behaviour mirrors `sendEmail` above: if RESEND_API_KEY is unset we log and
+ * return without throwing (so a transient email outage cannot tear down the
+ * whole invite flow), and Resend errors are logged rather than thrown.
+ */
+export async function sendPartnerInvitationEmail(args: {
+  to: string;
+  inviterDisplayName: string;
+  manualPartnerName: string | null;
+  token: string;
+}): Promise<void> {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) {
+    console.warn("[email] RESEND_API_KEY missing, skipping partner invitation to", args.to);
+    return;
+  }
+  const from = process.env.RESEND_FROM ?? "noreply@piggyback.finance";
+  const replyTo = process.env.RESEND_REPLY_TO ?? "hello@piggyback.finance";
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://piggyback.finance";
+  const claimUrl = `${appUrl}/claim/${args.token}`;
+  const greeting = args.manualPartnerName ? `Hey ${args.manualPartnerName},` : "Hey,";
+  const subject = `${args.inviterDisplayName} invited you to share their PiggyBack budget`;
+  const html = `<!doctype html>
+<html>
+  <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 40px auto; padding: 24px; color: #1f1f1f;">
+    <p>${greeting}</p>
+    <p>${args.inviterDisplayName} invited you to share their PiggyBack budget — split bills, track shared goals, and see your household's financial picture together.</p>
+    <p style="text-align: center; margin: 32px 0;">
+      <a href="${claimUrl}" style="display: inline-block; background: #7CC3A6; color: #ffffff; padding: 14px 28px; text-decoration: none; border-radius: 999px; font-weight: 600;">Accept invitation</a>
+    </p>
+    <p style="color: #555; font-size: 14px;">This link expires in 7 days.</p>
+    <p style="color: #888; font-size: 12px; margin-top: 24px;">Not expecting this? Ignore the email — nothing happens.</p>
+  </body>
+</html>`;
+  try {
+    const response = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        from,
+        to: [args.to],
+        subject,
+        html,
+        reply_to: replyTo,
+      }),
+    });
+    if (!response.ok) {
+      const text = await response.text();
+      console.error("[email] Resend failure for partner invitation", response.status, text);
+    }
+  } catch (err) {
+    console.error("[email] partner invitation send failed", err);
+  }
+}
