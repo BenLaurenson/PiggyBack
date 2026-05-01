@@ -36,6 +36,11 @@ export async function GET() {
   const admin = createServiceRoleClient();
 
   // Pull every user-shared rule
+  // TODO(orchestrator-split, spec #1): merchant_category_rules is a tenant
+  // table. In the multi-tenant model this admin endpoint must fan out across
+  // tenant Supabases instead of reading directly. Tracked as part of the
+  // orchestrator split work; suppressing rule until refactor.
+  // eslint-disable-next-line no-restricted-syntax
   const { data: userRules, error: rulesError } = await admin
     .from("merchant_category_rules")
     .select(

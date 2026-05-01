@@ -60,6 +60,10 @@ export async function POST(request: Request) {
 
   if (parsed.data.reject) {
     // Clear share flag on every matching user rule.
+    // TODO(orchestrator-split, spec #1): merchant_category_rules is a tenant
+    // table; this admin endpoint will fan out across tenants in the multi-
+    // tenant refactor. Suppressing rule until refactor.
+    // eslint-disable-next-line no-restricted-syntax
     const { error } = await admin
       .from("merchant_category_rules")
       .update({ share_with_everyone: false })
@@ -102,6 +106,8 @@ export async function POST(request: Request) {
     );
   }
 
+  // TODO(orchestrator-split, spec #1): see note above — pending fan-out refactor.
+  // eslint-disable-next-line no-restricted-syntax
   await admin
     .from("merchant_category_rules")
     .update({ share_with_everyone: false })
