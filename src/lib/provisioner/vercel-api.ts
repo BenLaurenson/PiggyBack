@@ -11,7 +11,13 @@
  *   - List recent deployments and tail logs (for admin tooling).
  */
 
+import { incrementResourceUsage } from "./resource-usage";
+
 const BASE = "https://api.vercel.com";
+
+function isDryRun(): boolean {
+  return process.env.PROVISIONER_DRY_RUN === "true";
+}
 
 export interface VercelAuth {
   /** Decrypted access token (from the Vercel OAuth integration flow). */
@@ -36,21 +42,29 @@ export class VercelApiError extends Error {
 async function vercelRequest<T>(
   auth: VercelAuth,
   path: string,
-  init: RequestInit = {}
+  init: RequestInit = {},
+  options: { idempotencyKey?: string } = {}
 ): Promise<T> {
+  await incrementResourceUsage("vercel");
+
   const url = new URL(BASE + path);
   if (auth.teamId) {
     url.searchParams.set("teamId", auth.teamId);
   }
 
+  const headers: Record<string, string> = {
+    Authorization: `Bearer ${auth.accessToken}`,
+    "Content-Type": "application/json",
+    Accept: "application/json",
+    ...((init.headers ?? {}) as Record<string, string>),
+  };
+  if (options.idempotencyKey) {
+    headers["x-vercel-idempotency-key"] = options.idempotencyKey;
+  }
+
   const response = await fetch(url.toString(), {
     ...init,
-    headers: {
-      Authorization: `Bearer ${auth.accessToken}`,
-      "Content-Type": "application/json",
-      Accept: "application/json",
-      ...init.headers,
-    },
+    headers,
   });
 
   if (!response.ok) {
@@ -93,20 +107,37 @@ export async function createProject(
     gitRepo: string;
     /** Branch we track for hosted deployments. */
     branch?: string;
+    /** Idempotency key (e.g. `provision-{id}-vercel-create`). */
+    idempotencyKey?: string;
   }
 ): Promise<VercelProject> {
-  return vercelRequest<VercelProject>(auth, "/v11/projects", {
-    method: "POST",
-    body: JSON.stringify({
+  if (isDryRun()) {
+    return {
+      id: "dry-vercel-project",
       name: input.name,
+      accountId: "dry-account",
       framework: "nextjs",
-      gitRepository: {
-        type: "github",
-        repo: input.gitRepo,
-      },
-      ...(input.branch ? { gitProductionBranch: input.branch } : {}),
-    }),
-  });
+      createdAt: Date.now(),
+      link: { type: "github", repo: input.gitRepo },
+    };
+  }
+  return vercelRequest<VercelProject>(
+    auth,
+    "/v11/projects",
+    {
+      method: "POST",
+      body: JSON.stringify({
+        name: input.name,
+        framework: "nextjs",
+        gitRepository: {
+          type: "github",
+          repo: input.gitRepo,
+        },
+        ...(input.branch ? { gitProductionBranch: input.branch } : {}),
+      }),
+    },
+    { idempotencyKey: input.idempotencyKey }
+  );
 }
 
 export async function getProject(auth: VercelAuth, projectId: string): Promise<VercelProject> {
@@ -126,6 +157,7 @@ export async function setEnvVars(
   projectId: string,
   vars: Array<{ key: string; value: string; type?: "plain" | "encrypted"; targets?: VercelEnvTarget[] }>
 ): Promise<void> {
+  if (isDryRun()) return;
   // Vercel's bulk-create endpoint takes an array.
   await vercelRequest(auth, `/v10/projects/${encodeURIComponent(projectId)}/env`, {
     method: "POST",
@@ -153,21 +185,77 @@ export interface VercelDeployment {
 /** Trigger a fresh deployment of the project's tracked branch. */
 export async function triggerDeployment(
   auth: VercelAuth,
-  input: { projectId: string; gitRepoId?: number; gitBranch?: string; name?: string }
+  input: {
+    projectId: string;
+    gitRepoId?: number;
+    gitBranch?: string;
+    name?: string;
+    idempotencyKey?: string;
+  }
 ): Promise<VercelDeployment> {
-  return vercelRequest<VercelDeployment>(auth, "/v13/deployments", {
-    method: "POST",
-    body: JSON.stringify({
-      name: input.name,
-      project: input.projectId,
-      target: "production",
-      gitSource: {
-        type: "github",
-        ref: input.gitBranch ?? "release",
-        repoId: input.gitRepoId,
-      },
-    }),
-  });
+  if (isDryRun()) {
+    return {
+      uid: "dry-deployment",
+      url: `${input.name ?? "dry"}-dryrun.vercel.app`,
+      state: "QUEUED",
+      createdAt: Date.now(),
+    };
+  }
+  return vercelRequest<VercelDeployment>(
+    auth,
+    "/v13/deployments",
+    {
+      method: "POST",
+      body: JSON.stringify({
+        name: input.name,
+        project: input.projectId,
+        target: "production",
+        gitSource: {
+          type: "github",
+          ref: input.gitBranch ?? "release",
+          repoId: input.gitRepoId,
+        },
+      }),
+    },
+    { idempotencyKey: input.idempotencyKey }
+  );
+}
+
+/**
+ * Poll deployment status until READY / ERROR / CANCELED, or timeout.
+ * Plan #5 spec: poll every 10s up to 5min.
+ */
+export async function pollDeploymentStatus(
+  auth: VercelAuth,
+  deploymentId: string,
+  options: { intervalMs?: number; timeoutMs?: number } = {}
+): Promise<VercelDeployment> {
+  if (isDryRun()) {
+    return {
+      uid: deploymentId,
+      url: "dry-run.vercel.app",
+      state: "READY",
+      createdAt: Date.now(),
+    };
+  }
+  const interval = options.intervalMs ?? 10_000;
+  const timeout = options.timeoutMs ?? 5 * 60_000;
+  const deadline = Date.now() + timeout;
+
+  while (Date.now() < deadline) {
+    const dep = await vercelRequest<VercelDeployment>(
+      auth,
+      `/v13/deployments/${encodeURIComponent(deploymentId)}`
+    );
+    if (dep.state === "READY" || dep.state === "ERROR" || dep.state === "CANCELED") {
+      return dep;
+    }
+    await new Promise((r) => setTimeout(r, interval));
+  }
+  throw new VercelApiError(
+    `Deployment ${deploymentId} did not reach a terminal state within ${timeout}ms`,
+    504
+  );
 }
 
 export async function listDeployments(
@@ -199,13 +287,17 @@ export async function addProjectDomain(
   projectId: string,
   domain: string
 ): Promise<VercelDomain> {
+  if (isDryRun()) {
+    return { name: domain, verified: true };
+  }
   return vercelRequest<VercelDomain>(
     auth,
     `/v10/projects/${encodeURIComponent(projectId)}/domains`,
     {
       method: "POST",
       body: JSON.stringify({ name: domain }),
-    }
+    },
+    { idempotencyKey: `domain-${projectId}-${domain}` }
   );
 }
 
@@ -214,6 +306,7 @@ export async function removeProjectDomain(
   projectId: string,
   domain: string
 ): Promise<void> {
+  if (isDryRun()) return;
   await vercelRequest(
     auth,
     `/v9/projects/${encodeURIComponent(projectId)}/domains/${encodeURIComponent(domain)}`,
