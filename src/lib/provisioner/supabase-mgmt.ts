@@ -12,7 +12,18 @@
  * Authentication: OAuth bearer token from /v1/oauth/token (refresh-token flow).
  */
 
+import { incrementResourceUsage } from "./resource-usage";
+
 const BASE = "https://api.supabase.com";
+
+/**
+ * Set this to a function that returns true to enable dry-run mode (used by
+ * `e2e-flow.test.ts`). When true, Mgmt requests return canned fixtures
+ * instead of hitting the network. Triggered by env `PROVISIONER_DRY_RUN=true`.
+ */
+function isDryRun(): boolean {
+  return process.env.PROVISIONER_DRY_RUN === "true";
+}
 
 export interface SupabaseMgmtAuth {
   /** Decrypted access token. Caller is responsible for refresh handling. */
@@ -65,16 +76,25 @@ export class SupabaseMgmtError extends Error {
 async function mgmtRequest<T>(
   auth: SupabaseMgmtAuth,
   path: string,
-  init: RequestInit = {}
+  init: RequestInit = {},
+  options: { idempotencyKey?: string } = {}
 ): Promise<T> {
+  // Always count the request (even in dry-run, for test-quota assertions).
+  await incrementResourceUsage("supabase_mgmt");
+
+  const headers: Record<string, string> = {
+    Authorization: `Bearer ${auth.accessToken}`,
+    "Content-Type": "application/json",
+    Accept: "application/json",
+    ...((init.headers ?? {}) as Record<string, string>),
+  };
+  if (options.idempotencyKey) {
+    headers["Idempotency-Key"] = options.idempotencyKey;
+  }
+
   const response = await fetch(`${BASE}${path}`, {
     ...init,
-    headers: {
-      Authorization: `Bearer ${auth.accessToken}`,
-      "Content-Type": "application/json",
-      Accept: "application/json",
-      ...init.headers,
-    },
+    headers,
   });
 
   if (!response.ok) {
@@ -107,7 +127,33 @@ export async function getProject(
   auth: SupabaseMgmtAuth,
   ref: string
 ): Promise<SupabaseProject> {
+  if (isDryRun()) {
+    return {
+      id: ref,
+      ref,
+      name: "dry-run",
+      region: "ap-southeast-2",
+      status: "ACTIVE_HEALTHY",
+      created_at: new Date().toISOString(),
+    };
+  }
   return mgmtRequest<SupabaseProject>(auth, `/v1/projects/${encodeURIComponent(ref)}`);
+}
+
+/**
+ * Convenience alias for the worker — returns the project's status string,
+ * polling until ACTIVE_HEALTHY (or throws on terminal failure / timeout).
+ *
+ * Plan #5 names this `pollProjectStatus`. Wrapper around `waitForProjectHealthy`.
+ */
+export async function pollProjectStatus(
+  auth: SupabaseMgmtAuth,
+  ref: string,
+  options: { intervalMs?: number; timeoutMs?: number } = {}
+): Promise<SupabaseProject["status"]> {
+  if (isDryRun()) return "ACTIVE_HEALTHY";
+  const project = await waitForProjectHealthy(auth, ref, options);
+  return project.status;
 }
 
 export async function createProject(
@@ -121,18 +167,36 @@ export async function createProject(
     region?: string;
     /** "free", "pro", "team", "enterprise". Defaults to free. */
     plan?: "free" | "pro" | "team" | "enterprise";
+    /** Idempotency key (e.g. `provision-{id}-supabase-create`). */
+    idempotencyKey?: string;
   }
 ): Promise<SupabaseProject> {
-  return mgmtRequest<SupabaseProject>(auth, "/v1/projects", {
-    method: "POST",
-    body: JSON.stringify({
-      organization_id: input.organizationId,
+  if (isDryRun()) {
+    return {
+      id: "dry-supabase-id",
+      ref: "dryxxxxxxxxxxxxxxxxx",
       name: input.name,
-      db_pass: input.dbPass,
       region: input.region ?? "ap-southeast-2",
-      plan: input.plan ?? "free",
-    }),
-  });
+      status: "COMING_UP",
+      created_at: new Date().toISOString(),
+      organization_id: input.organizationId,
+    };
+  }
+  return mgmtRequest<SupabaseProject>(
+    auth,
+    "/v1/projects",
+    {
+      method: "POST",
+      body: JSON.stringify({
+        organization_id: input.organizationId,
+        name: input.name,
+        db_pass: input.dbPass,
+        region: input.region ?? "ap-southeast-2",
+        plan: input.plan ?? "free",
+      }),
+    },
+    { idempotencyKey: input.idempotencyKey }
+  );
 }
 
 /**
@@ -144,6 +208,7 @@ export async function runSql(
   ref: string,
   query: string
 ): Promise<unknown[]> {
+  if (isDryRun()) return [];
   const result = await mgmtRequest<{ result?: unknown[] } | unknown[]>(
     auth,
     `/v1/projects/${encodeURIComponent(ref)}/database/query`,
@@ -157,6 +222,29 @@ export async function runSql(
 }
 
 /**
+ * Apply a single migration file to a freshly-provisioned tenant project.
+ * Uses the Mgmt API's /database/migrations endpoint, which records the
+ * migration in supabase_migrations.schema_migrations on the target project.
+ */
+export async function applyMigration(
+  auth: SupabaseMgmtAuth,
+  ref: string,
+  query: string,
+  name: string
+): Promise<void> {
+  if (isDryRun()) return;
+  await mgmtRequest(
+    auth,
+    `/v1/projects/${encodeURIComponent(ref)}/database/migrations`,
+    {
+      method: "POST",
+      body: JSON.stringify({ query, name }),
+    },
+    { idempotencyKey: `migration-${ref}-${name}` }
+  );
+}
+
+/**
  * Fetch the project's anon + service role keys via the Mgmt API.
  * @see https://supabase.com/docs/reference/api/v1-get-project-api-keys
  */
@@ -164,6 +252,13 @@ export async function getProjectKeys(
   auth: SupabaseMgmtAuth,
   ref: string
 ): Promise<SupabaseProjectKeys> {
+  if (isDryRun()) {
+    return {
+      url: `https://${ref}.supabase.co`,
+      anonKey: "dry-run-anon-key",
+      serviceRoleKey: "dry-run-service-role-key",
+    };
+  }
   const keys = await mgmtRequest<Array<{ name: string; api_key: string }>>(
     auth,
     `/v1/projects/${encodeURIComponent(ref)}/api-keys`
