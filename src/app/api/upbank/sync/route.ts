@@ -85,11 +85,18 @@ export async function POST(request: Request) {
   const ip = getClientIp(request);
   const rateLimitResult = syncLimiter.check(rateLimitKey(user.id, ip));
   if (!rateLimitResult.allowed) {
+    const retryAfterSec = Math.ceil((rateLimitResult.retryAfterMs ?? 0) / 1000);
+    const minutes = Math.ceil(retryAfterSec / 60);
     return Response.json(
-      { error: "Too many requests. Please try again later." },
+      {
+        error:
+          minutes > 1
+            ? `You've synced too many times in a row. Try again in ${minutes} minutes.`
+            : `You've synced too many times in a row. Try again in ${retryAfterSec} seconds.`,
+      },
       {
         status: 429,
-        headers: { "Retry-After": String(Math.ceil((rateLimitResult.retryAfterMs ?? 0) / 1000)) },
+        headers: { "Retry-After": String(retryAfterSec) },
       }
     );
   }

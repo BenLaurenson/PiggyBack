@@ -152,9 +152,13 @@ export const aiSettingsLimiter = new RateLimiter({
   windowMs: 3_600_000, // 1 hour
 });
 
-// Sync endpoint: 2 syncs per 5 minutes
+// Sync endpoint: 6 syncs per 5 minutes.
+// The FE auto-retries once on partial failure (so a single user-triggered
+// sync can be 2 BE invocations), and users hitting per-account errors
+// often want to manually retry a couple times to confirm the failure.
+// 6/5min gives genuine users headroom while still blocking runaway loops.
 export const syncLimiter = new RateLimiter({
-  maxRequests: 2,
+  maxRequests: 6,
   windowMs: 5 * 60_000, // 5 minutes
 });
 

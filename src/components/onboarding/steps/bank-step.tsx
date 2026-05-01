@@ -142,10 +142,28 @@ export function BankStep({ onNext, onComplete, isStepCompleted, serverAccountCou
   };
 
   /**
+   * If every error in errors[] is deterministic (Up Bank 5xx, skipped
+   * windows), auto-retry won't help — Up's backend has the same bad
+   * data 1.5s later. Skip auto-retry to preserve the rate-limit budget;
+   * the user can still manually click 'Retry sync'.
+   */
+  const errorsLookTransient = (errs: string[]): boolean => {
+    if (errs.length === 0) return false;
+    const allDeterministic = errs.every(
+      (e) =>
+        /Up Bank had a server error/i.test(e) ||
+        /Up Bank server error/i.test(e) ||
+        /window\(s\) skipped/i.test(e) ||
+        /Up Bank returned errors for every/i.test(e)
+    );
+    return !allDeterministic;
+  };
+
+  /**
    * Run the sync stream up to `maxAttempts` times. After the first attempt
-   * we only re-run if there were errors (and we keep the lower error count
-   * across retries — sometimes the second pass catches stragglers from the
-   * first pass that needed Up Bank's pagination state to settle).
+   * we only re-run if there were errors that look transient. Up Bank 5xx
+   * errors and skipped-window errors are persistent on Up's backend, so
+   * retrying them just burns rate-limit budget for no benefit.
    *
    * The transaction upsert uses ON CONFLICT, so re-running is fully idempotent.
    */
@@ -155,6 +173,7 @@ export function BankStep({ onNext, onComplete, isStepCompleted, serverAccountCou
     while (
       bestResult.phase === "done" &&
       bestResult.errors.length > 0 &&
+      errorsLookTransient(bestResult.errors) &&
       attempt < maxAttempts
     ) {
       attempt++;
