@@ -59,7 +59,7 @@ export async function POST(request: NextRequest) {
   for (const p of pickups ?? []) {
     try {
       const r = await advanceProvision(p.id);
-      results.push({ id: p.id, ...r });
+      results.push({ ...r, id: p.id });
     } catch (err) {
       results.push({ id: p.id, error: err instanceof Error ? err.message : String(err) });
     }

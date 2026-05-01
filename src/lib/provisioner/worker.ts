@@ -305,7 +305,7 @@ async function advanceSupabaseCreating(p: ProvisionState5Row): Promise<AdvanceRe
 
   let projectRef = stateData.supabase_project_ref as string | undefined;
   let dbPass = stateData.supabase_db_pass as string | undefined;
-  let orgId = stateData.supabase_org_id as string | undefined;
+  const orgId = stateData.supabase_org_id as string | undefined;
 
   // First pass: create the project.
   if (!projectRef) {

@@ -194,9 +194,7 @@ vi.mock("fs", async (importActual) => {
 import { advanceProvision } from "../worker";
 
 function seedRow(row: Partial<Record<string, unknown>> & { id: string; state: string }) {
-  mocks.rows.set(row.id, {
-    id: row.id,
-    state: row.state,
+  const defaults: Record<string, unknown> = {
     state_data: {},
     retry_count: 0,
     next_retry_at: null,
@@ -206,8 +204,8 @@ function seedRow(row: Partial<Record<string, unknown>> & { id: string; state: st
     subdomain_short_id: "abc123",
     vercel_team_id: "team-1",
     stripe_subscription_id: "sub-1",
-    ...row,
-  });
+  };
+  mocks.rows.set(row.id, { ...defaults, ...row });
 }
 
 function seedToken(provisionId: string, provider: "supabase" | "vercel") {

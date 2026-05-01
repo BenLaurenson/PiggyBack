@@ -322,7 +322,10 @@ describe("e2e provisioning flow (mocked APIs)", () => {
 
   it("preflight failure (no_stripe_sub) marks FAILED_PERMANENT", async () => {
     seed("SUPABASE_CREATING");
-    mocks.preflightCheck.mockResolvedValue({ ok: false, blocker: "no_stripe_sub" });
+    mocks.preflightCheck.mockResolvedValue({
+      ok: false,
+      blocker: "no_stripe_sub",
+    } as { ok: boolean; blocker?: string });
     const r = await advanceProvision("p1");
     expect(r.to).toBe("FAILED_PERMANENT");
   });
