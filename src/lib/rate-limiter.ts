@@ -185,3 +185,11 @@ export const webhookLimiter = new RateLimiter({
   maxRequests: 120,
   windowMs: 60_000, // 1 minute
 });
+
+// Partner-invite endpoint: 5 per hour per inviter. Defends against email
+// enumeration attacks (someone spamming `/api/partners/invite` to find which
+// addresses bounce vs accept). Spec #2 — risks #1.
+export const partnerInviteLimiter = new RateLimiter({
+  maxRequests: 5,
+  windowMs: 60 * 60_000, // 1 hour
+});
