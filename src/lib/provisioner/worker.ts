@@ -36,6 +36,7 @@ import {
   type VercelAuth,
 } from "./vercel-api";
 import { listMigrationFiles } from "./migration-runner";
+import { preflightCheck } from "./preflight";
 import { decryptVaultToken, encryptVaultToken } from "./token-vault";
 
 // ─── Plan #5 state vocabulary ──────────────────────────────────────────────
@@ -281,13 +282,27 @@ async function advanceStripePaid(p: ProvisionState5Row): Promise<AdvanceResult> 
 }
 
 async function advanceSupabaseCreating(p: ProvisionState5Row): Promise<AdvanceResult> {
+  // Pre-flight gate: only proceed if Stripe + quota + uniqueness check out.
+  const stateData = p.state_data ?? {};
+  if (!stateData.supabase_project_ref) {
+    const pre = await preflightCheck(p.id);
+    if (!pre.ok) {
+      if (pre.blocker === "no_stripe_sub" || pre.blocker === "stripe_inactive" || pre.blocker === "duplicate_ready") {
+        await markPermanent(p.id, "SUPABASE_CREATING", `preflight: ${pre.blocker}`);
+        return { id: p.id, from: p.state, to: "FAILED_PERMANENT", error: pre.blocker };
+      }
+      // quota_exceeded — wait an hour, retry.
+      await markRetryable(p.id, "SUPABASE_CREATING", `preflight: ${pre.blocker}`);
+      return { id: p.id, from: p.state, to: "FAILED_RETRYABLE", error: pre.blocker };
+    }
+  }
+
   const auth = await getSupabaseAuthForProvision(p.id);
   if (!auth) {
     await markPermanent(p.id, "SUPABASE_CREATING", "no Supabase OAuth token");
     return { id: p.id, from: p.state, to: "FAILED_PERMANENT", error: "no token" };
   }
 
-  const stateData = p.state_data ?? {};
   let projectRef = stateData.supabase_project_ref as string | undefined;
   let dbPass = stateData.supabase_db_pass as string | undefined;
   let orgId = stateData.supabase_org_id as string | undefined;

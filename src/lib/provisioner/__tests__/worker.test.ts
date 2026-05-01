@@ -178,6 +178,10 @@ vi.mock("../migration-runner", () => ({
   listMigrationFiles: mocks.listMigrationFiles,
 }));
 
+vi.mock("../preflight", () => ({
+  preflightCheck: vi.fn(async () => ({ ok: true })),
+}));
+
 // Avoid actually reading .sql files.
 vi.mock("fs", async (importActual) => {
   const actual = await importActual<typeof import("fs")>();
