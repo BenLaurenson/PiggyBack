@@ -16,8 +16,8 @@
       "schedule": "0 13 * * *"
     },
     {
-      "path": "/api/admin/release-aliases",
-      "schedule": "0 14 * * *"
+      "path": "/api/cron/onboarding-abandonment",
+      "schedule": "0 2 * * *"
     },
     {
       "path": "/api/cron/funnel",
