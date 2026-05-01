@@ -30,6 +30,10 @@
     {
       "path": "/api/cron/release-cancelled-provisions",
       "schedule": "0 3 * * *"
+    },
+    {
+      "path": "/api/cron/sync-reconciliation",
+      "schedule": "0 4 * * *"
     }
   ],
   "headers": [

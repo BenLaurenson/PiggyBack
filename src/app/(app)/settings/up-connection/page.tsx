@@ -56,6 +56,74 @@ const dmSans = DM_Sans({
   weight: ["400", "500"]
 });
 
+type SyncState =
+  | "IDLE"
+  | "SYNCING"
+  | "CURRENT"
+  | "STALE_PARTIAL"
+  | "SYNC_FAILED_PERMANENT";
+
+function SyncStateBadge({ state }: { state?: SyncState }) {
+  // Defensive default for accounts created before the migration.
+  const value: SyncState = state ?? "IDLE";
+  const styles: Record<SyncState, { dot: string; label: string; text: string }> = {
+    CURRENT: { dot: "bg-green-500", label: "Current", text: "text-green-700" },
+    SYNCING: { dot: "bg-blue-500", label: "Syncing", text: "text-blue-700" },
+    STALE_PARTIAL: {
+      dot: "bg-amber-500",
+      label: "Catching up",
+      text: "text-amber-700",
+    },
+    SYNC_FAILED_PERMANENT: {
+      dot: "bg-red-500",
+      label: "Needs help",
+      text: "text-red-700",
+    },
+    IDLE: { dot: "bg-gray-400", label: "Idle", text: "text-gray-600" },
+  };
+  const s = styles[value];
+  return (
+    <span
+      className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium bg-white/60 border border-border ${s.text}`}
+      data-testid="sync-state-badge"
+      data-sync-state={value}
+    >
+      <span className={`h-1.5 w-1.5 rounded-full ${s.dot}`} />
+      {s.label}
+    </span>
+  );
+}
+
+function SyncStateMessage({
+  account,
+}: {
+  account: { id: string; sync_state?: SyncState };
+}) {
+  const state = account.sync_state ?? "IDLE";
+  if (state === "STALE_PARTIAL") {
+    return (
+      <p className="font-[family-name:var(--font-dm-sans)] text-xs text-amber-700 mt-1">
+        Some data missing — auto-retry queued
+      </p>
+    );
+  }
+  if (state === "SYNC_FAILED_PERMANENT") {
+    return (
+      <p className="font-[family-name:var(--font-dm-sans)] text-xs text-red-700 mt-1">
+        Up Bank can&apos;t return data for this account — contact{" "}
+        <a
+          href={`mailto:support@up.com.au?subject=Account%20${account.id}`}
+          className="underline"
+        >
+          support@up.com.au
+        </a>{" "}
+        with reference {account.id}
+      </p>
+    );
+  }
+  return null;
+}
+
 export default function UpConnectionPage() {
   const [token, setToken] = useState("");
   const [showToken, setShowToken] = useState(false);
@@ -333,15 +401,19 @@ export default function UpConnectionPage() {
                     key={account.id}
                     className="flex items-center justify-between p-4 rounded-xl bg-muted/50 border border-border"
                   >
-                    <div>
-                      <p className="font-[family-name:var(--font-nunito)] font-bold text-text-primary">
-                        {account.display_name}
-                      </p>
-                      <p className="font-[family-name:var(--font-dm-sans)] text-xs text-text-tertiary uppercase tracking-wide">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <SyncStateBadge state={account.sync_state} />
+                        <p className="font-[family-name:var(--font-nunito)] font-bold text-text-primary truncate">
+                          {account.display_name}
+                        </p>
+                      </div>
+                      <p className="font-[family-name:var(--font-dm-sans)] text-xs text-text-tertiary uppercase tracking-wide mt-1">
                         {account.account_type}
                       </p>
+                      <SyncStateMessage account={account} />
                     </div>
-                    <span className="font-[family-name:var(--font-nunito)] font-bold text-text-primary">
+                    <span className="font-[family-name:var(--font-nunito)] font-bold text-text-primary whitespace-nowrap pl-3">
                       {formatCurrency(account.balance_cents)}
                     </span>
                   </div>
