@@ -76,7 +76,27 @@ export async function GET(request: NextRequest) {
     expiresInSeconds: exchanged.expires_in,
   });
 
+  // Legacy state-machine transition (kept for backward compat).
   await transitionState(provisionId, "SUPABASE_AUTHED", "Supabase OAuth authorized");
+
+  // Plan #5 state-machine transition. Move to AWAITING_VERCEL_OAUTH so the
+  // user is prompted to authorize Vercel next. Only writes if the row is
+  // currently in AWAITING_SUPABASE_OAUTH or a compatible legacy state.
+  try {
+    const { createServiceRoleClient } = await import("@/utils/supabase/service-role");
+    const supabase = createServiceRoleClient();
+    await supabase
+      .from("piggyback_provisions")
+      .update({
+        state: "AWAITING_VERCEL_OAUTH",
+        state_changed_at: new Date().toISOString(),
+      })
+      .eq("id", provisionId)
+      .in("state", ["AWAITING_SUPABASE_OAUTH", "SIGNED_IN", "SUPABASE_AUTHED", "STRIPE_PAID"]);
+    await audit(provisionId, "STATE_AWAITING_VERCEL_OAUTH");
+  } catch (err) {
+    await audit(provisionId, "STATE_TRANSITION_FAILED", { message: String(err) });
+  }
 
   // Phase 4 funnel: supabase_oauth_completed fires only after the auth-code
   // exchange + token storage succeeds. Tokens are NEVER included in the

@@ -79,6 +79,27 @@ export async function GET(request: NextRequest) {
 
   await transitionState(provisionId, "VERCEL_AUTHED", "Vercel integration authorized");
 
+  // Plan #5 state transition: AWAITING_VERCEL_OAUTH → SUPABASE_CREATING.
+  // The worker takes over from here.
+  try {
+    const supabase = createServiceRoleClient();
+    // We need the user's chosen Supabase organization in state_data so the
+    // worker can create a project. If it's already on the row from a prior
+    // step, leave it; otherwise the post-OAuth /get-started flow can collect
+    // it before triggering the worker.
+    await supabase
+      .from("piggyback_provisions")
+      .update({
+        state: "SUPABASE_CREATING",
+        state_changed_at: new Date().toISOString(),
+      })
+      .eq("id", provisionId)
+      .in("state", ["AWAITING_VERCEL_OAUTH", "VERCEL_AUTHED", "AWAITING_SUPABASE_OAUTH"]);
+    await audit(provisionId, "STATE_SUPABASE_CREATING");
+  } catch (err) {
+    await audit(provisionId, "STATE_TRANSITION_FAILED", { message: String(err) });
+  }
+
   // Phase 4 funnel: vercel_oauth_completed fires only after the auth-code
   // exchange + token storage succeeds. Tokens are NEVER included in the
   // event payload. team_id and configuration_id are opaque IDs returned in
@@ -94,5 +115,5 @@ export async function GET(request: NextRequest) {
     },
   });
 
-  return NextResponse.redirect(`${appUrl()}/get-started?step=provision`);
+  return NextResponse.redirect(`${appUrl()}/get-started?step=provisioning`);
 }
