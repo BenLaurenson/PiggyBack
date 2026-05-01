@@ -23,7 +23,8 @@ vi.mock("@/utils/supabase/server", () => ({
   }),
 }));
 
-const demoGuardMock = vi.fn(() => null);
+type DemoGuardResult = { error: string; demo: true; success: false } | null;
+const demoGuardMock = vi.fn<() => DemoGuardResult>(() => null);
 vi.mock("@/lib/demo-guard", () => ({
   demoActionGuard: () => demoGuardMock(),
 }));
