@@ -70,7 +70,7 @@ describe("/api/cron/onboarding-abandonment", () => {
   it("counts ABANDONED transitions for stuck users", async () => {
     const { createServiceRoleClient } = await import("@/utils/supabase/service-role");
     const supabase = makeSupabaseMock([{ id: "u1" }, { id: "u2" }, { id: "u3" }]);
-    (createServiceRoleClient as any).mockReturnValue(supabase);
+    (createServiceRoleClient as unknown as { mockReturnValue: (v: unknown) => void }).mockReturnValue(supabase);
 
     const { GET } = await import("@/app/api/cron/onboarding-abandonment/route");
     const res = await GET(makeRequest(`Bearer ${CRON_SECRET}`));
@@ -92,7 +92,7 @@ describe("/api/cron/onboarding-abandonment", () => {
       [{ id: "u1" }, { id: "u2" }],
       { u1: null }, // RPC error for u1
     );
-    (createServiceRoleClient as any).mockReturnValue(supabase);
+    (createServiceRoleClient as unknown as { mockReturnValue: (v: unknown) => void }).mockReturnValue(supabase);
 
     const { GET } = await import("@/app/api/cron/onboarding-abandonment/route");
     const res = await GET(makeRequest(`Bearer ${CRON_SECRET}`));
@@ -105,7 +105,7 @@ describe("/api/cron/onboarding-abandonment", () => {
   it("returns checked=0 when nobody is stuck", async () => {
     const { createServiceRoleClient } = await import("@/utils/supabase/service-role");
     const supabase = makeSupabaseMock([]);
-    (createServiceRoleClient as any).mockReturnValue(supabase);
+    (createServiceRoleClient as unknown as { mockReturnValue: (v: unknown) => void }).mockReturnValue(supabase);
 
     const { GET } = await import("@/app/api/cron/onboarding-abandonment/route");
     const res = await GET(makeRequest(`Bearer ${CRON_SECRET}`));
@@ -119,7 +119,7 @@ describe("/api/cron/onboarding-abandonment", () => {
   it("queries stuck users with the 7-day cutoff", async () => {
     const { createServiceRoleClient } = await import("@/utils/supabase/service-role");
     const supabase = makeSupabaseMock([]);
-    (createServiceRoleClient as any).mockReturnValue(supabase);
+    (createServiceRoleClient as unknown as { mockReturnValue: (v: unknown) => void }).mockReturnValue(supabase);
 
     const before = Date.now();
     const { GET } = await import("@/app/api/cron/onboarding-abandonment/route");

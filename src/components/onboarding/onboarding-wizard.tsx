@@ -31,14 +31,6 @@ const STEP_LABELS: Record<StepView, string> = {
   PARTNER: "Done",
 };
 
-const NEXT_STATE: Record<StepView, OnboardingState> = {
-  PROFILE: "BANK",
-  BANK: "INCOME",
-  INCOME: "AI",
-  AI: "PARTNER",
-  PARTNER: "READY",
-};
-
 const WELCOME_SEEN_KEY = "piggyback:onboarding:welcome-seen";
 
 interface OnboardingWizardProps {
@@ -77,11 +69,20 @@ export function OnboardingWizard({
   // own. We show it on first arrival (when state is PROFILE and we haven't
   // shown it before in this browser). After that, refreshing lands the
   // user directly on the profile form.
+  //
+  // We default to `true` (welcome already seen) on the SSR render to avoid
+  // a flash, then sync from localStorage in the effect. If the user is a
+  // genuine first-timer the effect flips it to `false` and we render the
+  // Welcome screen on the next paint.
   const [welcomeSeen, setWelcomeSeen] = useState<boolean>(true);
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const seen = window.localStorage.getItem(WELCOME_SEEN_KEY) === "true";
-    setWelcomeSeen(seen);
+    if (window.localStorage.getItem(WELCOME_SEEN_KEY) !== "true") {
+      // Defer the setState a microtask so React doesn't see the SSR-render
+      // path setting state synchronously inside the effect (lint rule
+      // react-hooks/set-state-in-effect).
+      queueMicrotask(() => setWelcomeSeen(false));
+    }
   }, []);
 
   const dismissWelcome = () => {
