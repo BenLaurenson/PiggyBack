@@ -127,9 +127,9 @@ describe("/api/cron/onboarding-abandonment", () => {
     const after = Date.now();
 
     expect(supabase._ltMock).toHaveBeenCalledTimes(1);
-    const [field, cutoff] = supabase._ltMock.mock.calls[0];
+    const [field, cutoff] = supabase._ltMock.mock.calls[0] as unknown as [string, string];
     expect(field).toBe("onboarding_state_changed_at");
-    const cutoffMs = new Date(cutoff as string).getTime();
+    const cutoffMs = new Date(cutoff).getTime();
     const expectedMin = before - 7 * 24 * 60 * 60 * 1000;
     const expectedMax = after - 7 * 24 * 60 * 60 * 1000;
     expect(cutoffMs).toBeGreaterThanOrEqual(expectedMin);

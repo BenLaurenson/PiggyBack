@@ -42,6 +42,10 @@ export async function GET() {
   }
 
   const service = createServiceRoleClient();
+  // This is a tenant-side admin observability route, not orchestrator-only.
+  // The lint rule covers all of src/app/api/admin/** because most admin
+  // paths there are orchestrator-only; this route is the exception.
+  // eslint-disable-next-line no-restricted-syntax
   const { data: accounts, error } = await service
     .from("accounts")
     .select(
