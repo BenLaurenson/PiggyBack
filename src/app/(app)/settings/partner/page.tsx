@@ -12,6 +12,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, Loader2, Users, UserPlus, Trash2, Pencil, Info } from "lucide-react";
 import { saveManualPartner, removeManualPartner, getManualPartnerInfo, type ManualPartnerData } from "@/app/actions/partner";
+import { PartnerConfig } from "@/components/settings/partner-config";
 
 const nunito = Nunito({
   subsets: ["latin"],
@@ -27,6 +28,7 @@ const dmSans = DM_Sans({
 
 export default function PartnerPage() {
   const [partners, setPartners] = useState<any[]>([]);
+  const [partnershipId, setPartnershipId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -64,6 +66,7 @@ export default function PartnerPage() {
       .maybeSingle();
 
     if (membership) {
+      setPartnershipId(membership.partnership_id);
       const { data: members } = await supabase
         .from("partnership_members")
         .select(`
@@ -465,6 +468,13 @@ export default function PartnerPage() {
             </Button>
           </CardContent>
         </Card>
+      )}
+
+      {/* Real-partner invitation + consent UI (spec #2) */}
+      {partnershipId && (
+        <div className="mb-6">
+          <PartnerConfig localPartnershipId={partnershipId} />
+        </div>
       )}
 
       {/* Info */}
