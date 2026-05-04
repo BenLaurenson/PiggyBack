@@ -21,10 +21,10 @@
     "test:run": "vitest run"
   },
   "dependencies": {
-    "@ai-sdk/anthropic": "^3.0.69",
-    "@ai-sdk/google": "^3.0.63",
-    "@ai-sdk/openai": "^3.0.52",
-    "@ai-sdk/react": "^3.0.161",
+    "@ai-sdk/anthropic": "^3.0.74",
+    "@ai-sdk/google": "^3.0.67",
+    "@ai-sdk/openai": "^3.0.60",
+    "@ai-sdk/react": "^3.0.177",
     "@ferrucc-io/emoji-picker": "^0.0.48",
     "@hello-pangea/dnd": "^18.0.1",
     "@radix-ui/react-alert-dialog": "^1.1.15",
@@ -45,7 +45,7 @@
     "@radix-ui/react-tabs": "^1.1.13",
     "@radix-ui/react-visually-hidden": "1.2.4",
     "@supabase/ssr": "^0.10.2",
-    "@supabase/supabase-js": "^2.100.0",
+    "@supabase/supabase-js": "^2.105.3",
     "@vercel/analytics": "^2.0.1",
     "@vercel/speed-insights": "^2.0.0",
     "ai": "^6.0.77",
@@ -54,9 +54,9 @@
     "date-fns": "^4.1.0",
     "framer-motion": "^12.38.0",
     "goey-toast": "^0.4.0",
-    "lucide-react": "^1.8.0",
+    "lucide-react": "^1.14.0",
     "motion": "^12.38.0",
-    "next": "^16.2.3",
+    "next": "^16.2.4",
     "react": "19.2.5",
     "react-dom": "19.2.5",
     "react-intersection-observer": "^10.0.3",
@@ -65,7 +65,7 @@
     "remark-gfm": "^4.0.1",
     "tailwind-merge": "^3.5.0",
     "vaul": "^1.1.2",
-    "zod": "^4.1.13"
+    "zod": "^4.4.3"
   },
   "overrides": {
     "minimatch": ">=10.2.3",
@@ -93,20 +93,20 @@
     }
   },
   "devDependencies": {
-    "@fast-check/vitest": "^0.4.0",
+    "@fast-check/vitest": "^0.4.1",
     "@tailwindcss/postcss": "^4",
     "@testing-library/react": "^16.3.2",
     "@types/node": "^25",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
-    "eslint-config-next": "16.2.3",
-    "jsdom": "^29.0.2",
-    "knip": "^6.4.1",
-    "shadcn": "^4.2.0",
+    "eslint-config-next": "16.2.4",
+    "jsdom": "^29.1.1",
+    "knip": "^6.11.0",
+    "shadcn": "^4.6.0",
     "tailwindcss": "^4",
     "tw-animate-css": "^1.4.0",
     "typescript": "^5",
-    "vitest": "^4.1.4"
+    "vitest": "^4.1.5"
   }
 }
