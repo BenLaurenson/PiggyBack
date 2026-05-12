@@ -1,4 +1,4 @@
-FROM node:22-alpine@sha256:8094c002d08262dba12645a3b4a15cd6cd627d30bc782f53229a2ec13ee22a00 AS base
+FROM node:26-alpine@sha256:e71ac5e964b9201072425d59d2e876359efa25dc96bb1768cb73295728d6e4ea AS base
 
 # Patch Alpine OS package CVEs (zlib + openssl/musl)
 RUN apk upgrade --no-cache zlib libssl3 libcrypto3 musl musl-utils
