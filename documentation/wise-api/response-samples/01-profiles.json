@@ -1,0 +1,105 @@
+[
+  {
+    "id": 1733444,
+    "publicId": "REDACTED",
+    "userId": "REDACTED_NUMERIC",
+    "type": "PERSONAL",
+    "address": {
+      "id": 9376194,
+      "addressFirstLine": "REDACTED",
+      "city": "REDACTED",
+      "countryIso2Code": "REDACTED",
+      "countryIso3Code": "REDACTED",
+      "postCode": "REDACTED",
+      "stateCode": "REDACTED"
+    },
+    "email": "REDACTED",
+    "createdAt": "2016-06-02T03:41:10",
+    "updatedAt": "2023-05-22T08:35:49",
+    "version": 38,
+    "obfuscated": false,
+    "avatar": "REDACTED",
+    "currentState": "VISIBLE",
+    "contactDetails": {
+      "email": "REDACTED",
+      "phoneNumber": "REDACTED"
+    },
+    "contractingWithWise": true,
+    "firstName": "REDACTED",
+    "lastName": "REDACTED",
+    "dateOfBirth": "REDACTED",
+    "placeOfBirth": {
+      "rawValue": "REDACTED",
+      "city": null,
+      "countryIso2Code": null,
+      "countryIso3Code": null,
+      "postCode": null,
+      "stateCode": null
+    },
+    "phoneNumber": "REDACTED",
+    "secondaryAddresses": [],
+    "jointProfile": false,
+    "partner": false,
+    "dataObfuscated": false,
+    "fullName": "REDACTED",
+    "partnerCustomer": false
+  },
+  {
+    "id": 61997996,
+    "publicId": "REDACTED",
+    "userId": "REDACTED_NUMERIC",
+    "type": "BUSINESS",
+    "address": {
+      "id": 89217440,
+      "addressFirstLine": "REDACTED",
+      "city": "REDACTED",
+      "countryIso2Code": "REDACTED",
+      "countryIso3Code": "REDACTED",
+      "postCode": "REDACTED",
+      "stateCode": "REDACTED"
+    },
+    "email": "REDACTED",
+    "createdAt": "2024-11-17T01:38:59",
+    "updatedAt": "2024-11-17T08:36:50",
+    "creatorClientId": "transferwise_web",
+    "version": 6,
+    "obfuscated": false,
+    "avatar": "REDACTED",
+    "currentState": "VISIBLE",
+    "profileRole": "DIRECT_CUSTOMER_PROFILE",
+    "contactDetails": {
+      "email": "REDACTED",
+      "phoneNumber": "REDACTED"
+    },
+    "contractingWithWise": true,
+    "businessName": "REDACTED",
+    "registrationNumber": "REDACTED",
+    "descriptionOfBusiness": "IT_SERVICES",
+    "webpage": "REDACTED",
+    "companyType": "SOLE_TRADER",
+    "companyRole": "OWNER",
+    "abn": "REDACTED",
+    "firstLevelCategory": "CONSULTING_IT_BUSINESS_SERVICES",
+    "secondLevelCategory": "SOFTWARE_AS_A_SERVICE",
+    "industryCategories": [
+      "SOFTWARE_DEVELOPMENT_PUBLISHING",
+      "DATA_HOSTING_WEB_PORTALS"
+    ],
+    "operationalAddresses": [
+      {
+        "id": 89226165,
+        "addressFirstLine": "REDACTED",
+        "city": "REDACTED",
+        "countryIso2Code": "AU",
+        "countryIso3Code": "aus",
+        "postCode": "REDACTED",
+        "stateCode": "REDACTED"
+      }
+    ],
+    "onboardingFlow": "DEFAULT",
+    "dataObfuscated": false,
+    "fullName": "REDACTED",
+    "partner": false,
+    "partnerCustomer": false
+  }
+]

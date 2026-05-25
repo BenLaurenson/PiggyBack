@@ -1,0 +1,203 @@
+{
+  "accountHolder": {
+    "type": "BUSINESS",
+    "profileId": 61997996,
+    "address": {
+      "addressFirstLine": "REDACTED",
+      "city": "REDACTED",
+      "postCode": "REDACTED",
+      "stateCode": "REDACTED",
+      "countryName": "REDACTED"
+    },
+    "businessName": "REDACTED",
+    "registrationNumber": "REDACTED",
+    "companyType": "SOLE_TRADER"
+  },
+  "issuer": {
+    "name": "REDACTED",
+    "firstLine": "REDACTED",
+    "city": "REDACTED",
+    "postCode": "REDACTED",
+    "stateCode": null,
+    "countryCode": "REDACTED",
+    "country": "REDACTED"
+  },
+  "issuers": {
+    "payments": {
+      "name": "REDACTED",
+      "firstLine": "REDACTED",
+      "city": "REDACTED",
+      "postCode": "REDACTED",
+      "stateCode": null,
+      "countryCode": "REDACTED",
+      "country": "REDACTED"
+    },
+    "assets": []
+  },
+  "bankDetails": "REDACTED",
+  "transactions": [
+    {
+      "type": "CREDIT",
+      "date": "2026-05-20T23:01:33.153144Z",
+      "amount": {
+        "value": 1.0,
+        "currency": "AUD",
+        "zero": false
+      },
+      "totalFees": {
+        "value": 0.0,
+        "currency": "AUD",
+        "zero": true
+      },
+      "details": {
+        "type": "CARD",
+        "description": "REDACTED",
+        "amount": {
+          "value": 1.0,
+          "currency": "AUD",
+          "zero": false
+        },
+        "category": "Advertising Services",
+        "merchant": {
+          "name": "REDACTED",
+          "firstLine": null,
+          "postCode": "REDACTED",
+          "city": "REDACTED",
+          "state": null,
+          "country": "REDACTED",
+          "category": "Advertising Services"
+        },
+        "cardLastFourDigits": "REDACTED",
+        "cardHolderFullName": "REDACTED"
+      },
+      "exchangeDetails": null,
+      "runningBalance": {
+        "value": 50.0,
+        "currency": "AUD",
+        "zero": false
+      },
+      "referenceNumber": "CARD-REDACTED_NUMERIC",
+      "attachment": null,
+      "activityAssetAttributions": []
+    },
+    {
+      "type": "DEBIT",
+      "date": "2026-05-20T23:00:43.419144Z",
+      "amount": {
+        "value": -1.0,
+        "currency": "AUD",
+        "zero": false
+      },
+      "totalFees": {
+        "value": 0.0,
+        "currency": "AUD",
+        "zero": true
+      },
+      "details": {
+        "type": "CARD",
+        "description": "REDACTED",
+        "amount": {
+          "value": 1.0,
+          "currency": "AUD",
+          "zero": false
+        },
+        "category": "Advertising Services",
+        "merchant": {
+          "name": "REDACTED",
+          "firstLine": null,
+          "postCode": "REDACTED",
+          "city": "REDACTED",
+          "state": null,
+          "country": "REDACTED",
+          "category": "Advertising Services"
+        },
+        "cardLastFourDigits": "REDACTED",
+        "cardHolderFullName": "REDACTED"
+      },
+      "exchangeDetails": null,
+      "runningBalance": {
+        "value": 49.0,
+        "currency": "AUD",
+        "zero": false
+      },
+      "referenceNumber": "CARD-REDACTED_NUMERIC",
+      "attachment": null,
+      "activityAssetAttributions": []
+    },
+    {
+      "type": "CREDIT",
+      "date": "2026-05-20T22:59:58.66892Z",
+      "amount": {
+        "value": 50.0,
+        "currency": "AUD",
+        "zero": false
+      },
+      "totalFees": {
+        "value": 0.0,
+        "currency": "AUD",
+        "zero": true
+      },
+      "details": {
+        "type": "DEPOSIT",
+        "description": "REDACTED",
+        "senderName": "REDACTED",
+        "senderAccount": "REDACTED",
+        "paymentReference": "REDACTED",
+        "recipientAccountNumber": "REDACTED",
+        "recipientAccountDetailsId": null
+      },
+      "exchangeDetails": null,
+      "runningBalance": {
+        "value": 50.0,
+        "currency": "AUD",
+        "zero": false
+      },
+      "referenceNumber": "TRANSFER-REDACTED_NUMERIC",
+      "attachment": null,
+      "activityAssetAttributions": []
+    }
+  ],
+  "startOfStatementBalance": {
+    "value": 0.0,
+    "currency": "AUD",
+    "zero": true
+  },
+  "endOfStatementBalance": {
+    "value": 50.0,
+    "currency": "AUD",
+    "zero": false
+  },
+  "endOfStatementUnrealisedGainLoss": null,
+  "balanceAssetConfiguration": null,
+  "query": {
+    "intervalStart": "2026-01-01T00:00:00Z",
+    "intervalEnd": "2026-05-25T23:59:59.999Z",
+    "type": "COMPACT",
+    "splitRefundFees": false,
+    "addStamp": false,
+    "currency": "AUD",
+    "profileId": 61997996,
+    "timezone": "Z"
+  },
+  "request": {
+    "id": "797cdd1b-f3d6-450d-1f93-fcee1d6b7e9d",
+    "creationTime": "2026-05-25T12:58:38.716587357Z",
+    "profileId": 61997996,
+    "currency": "AUD",
+    "balanceId": 105799002,
+    "balanceName": null,
+    "intervalStart": "2026-01-01T00:00:00Z",
+    "intervalEnd": "2026-05-25T23:59:59.999Z",
+    "formatSpecificConfiguration": null
+  },
+  "feeSummary": {
+    "summaryTitle": "Fees Summary",
+    "fromTitle": "From",
+    "toTitle": "To",
+    "feesTitle": "Fees",
+    "feeSummaryItems": []
+  },
+  "locale": {
+    "code": "en-GB"
+  }
+}
