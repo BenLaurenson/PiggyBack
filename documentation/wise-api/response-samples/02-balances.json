@@ -1,0 +1,122 @@
+[
+  {
+    "id": 105798961,
+    "currency": "USD",
+    "amount": {
+      "value": 162.36,
+      "currency": "USD"
+    },
+    "reservedAmount": {
+      "value": 13.2,
+      "currency": "USD"
+    },
+    "cashAmount": {
+      "value": 162.36,
+      "currency": "USD"
+    },
+    "totalWorth": {
+      "value": 162.36,
+      "currency": "USD"
+    },
+    "type": "STANDARD",
+    "name": null,
+    "icon": null,
+    "investmentState": "NOT_INVESTED",
+    "creationTime": "2024-11-17T01:40:03.376934Z",
+    "modificationTime": "2026-05-25T08:02:04.732285Z",
+    "visible": true,
+    "primary": true,
+    "groupId": null,
+    "recipientId": 900016561
+  },
+  {
+    "id": 105799002,
+    "currency": "AUD",
+    "amount": {
+      "value": 50.0,
+      "currency": "AUD"
+    },
+    "reservedAmount": {
+      "value": 0.0,
+      "currency": "AUD"
+    },
+    "cashAmount": {
+      "value": 50.0,
+      "currency": "AUD"
+    },
+    "totalWorth": {
+      "value": 50.0,
+      "currency": "AUD"
+    },
+    "type": "STANDARD",
+    "name": null,
+    "icon": null,
+    "investmentState": "NOT_INVESTED",
+    "creationTime": "2024-11-17T01:40:02.889897Z",
+    "modificationTime": "2026-05-20T23:01:33.153168Z",
+    "visible": true,
+    "primary": true,
+    "groupId": null,
+    "recipientId": 900016560
+  },
+  {
+    "id": 105798912,
+    "currency": "GBP",
+    "amount": {
+      "value": 0.0,
+      "currency": "GBP"
+    },
+    "reservedAmount": {
+      "value": 0.0,
+      "currency": "GBP"
+    },
+    "cashAmount": {
+      "value": 0.0,
+      "currency": "GBP"
+    },
+    "totalWorth": {
+      "value": 0.0,
+      "currency": "GBP"
+    },
+    "type": "STANDARD",
+    "name": null,
+    "icon": null,
+    "investmentState": "NOT_INVESTED",
+    "creationTime": "2024-11-17T01:40:02.259902Z",
+    "modificationTime": "2025-09-02T02:54:42.974376Z",
+    "visible": true,
+    "primary": true,
+    "groupId": null,
+    "recipientId": 900016557
+  },
+  {
+    "id": 105799003,
+    "currency": "NZD",
+    "amount": {
+      "value": 0.0,
+      "currency": "NZD"
+    },
+    "reservedAmount": {
+      "value": 0.0,
+      "currency": "NZD"
+    },
+    "cashAmount": {
+      "value": 0.0,
+      "currency": "NZD"
+    },
+    "totalWorth": {
+      "value": 0.0,
+      "currency": "NZD"
+    },
+    "type": "STANDARD",
+    "name": null,
+    "icon": null,
+    "investmentState": "NOT_INVESTED",
+    "creationTime": "2024-11-17T01:40:03.868025Z",
+    "modificationTime": "2025-09-02T02:54:42.974376Z",
+    "visible": true,
+    "primary": true,
+    "groupId": null,
+    "recipientId": 900016562
+  }
+]

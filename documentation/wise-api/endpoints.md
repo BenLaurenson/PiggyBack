@@ -175,9 +175,102 @@ Rationale: the activity endpoint's `primaryAmount`/`secondaryAmount` are display
 
 The Phase 1A `getStatementPage` signature in the task spec includes a `nextCursor` param. Because the statement endpoint does **not** paginate, `nextCursor` in our client wrapper will be effectively unused for `getStatement` — the sync worker is responsible for chunking by date window. Keep the parameter in the signature for shape parity, but treat it as a no-op for the statement path. Reconsider if Wise adds pagination later.
 
+## Empirically Verified Shapes
+
+Verified live against `https://api.wise.com` on 2026-05-25. Redacted response samples in `documentation/wise-api/response-samples/`. These findings supersede any conflicting detail above.
+
+### profile.type casing
+
+- **Actual values observed:** `"PERSONAL"` and `"BUSINESS"` — both uppercase.
+- **Recommendation:** case-sensitive equality against the verified uppercase strings. The Wise narrative docs that use lowercase appear to be inaccurate; the live API returns uppercase consistently.
+- **Source:** `response-samples/01-profiles.json` (also confirmed on `accountHolder.type` in statement responses).
+
+### Statement endpoint path
+
+- **Verified working path:** `GET /v1/profiles/{profileId}/balance-statements/{balanceId}/statement.json`
+  - Note: the `{balanceId}` here is the balance `id` from `/v4/profiles/{profileId}/balances`, **not** the `borderless-accounts` account id.
+  - `v3/...balance-statements/...` also returns 200 with the same payload shape (both v1 and v3 prefixes work and return identical structure for this resource).
+- **Verified non-working paths (404):**
+  - `/v1/profiles/{profileId}/borderless-accounts/{balanceId}/statement.json` — 404. The old "borderless-accounts" path requires the **borderless account id**, not the balance id.
+  - `/v3/profiles/{profileId}/borderless-accounts/{accountId}/statement.json` returned 200 when called with the borderless-account id (e.g. `43095924`) — same payload — but using the `balance-statements` path with the balance id is the cleaner, current pattern since `/v4/profiles/{profileId}/balances` is the canonical way to enumerate balances.
+  - `/v4/profiles/{profileId}/balance-statements/...` — 404 (no v4 yet).
+
+### Statement transaction shape
+
+- **`amount.value`: numeric** (JSON number, e.g. `1.00`, `-17.94`). Not a string. Same for `amount.value` on nested objects (`totalFees`, `runningBalance`, `details.amount`, `details.sourceAmount`, `details.targetAmount`, `exchangeDetails.fromAmount`, `exchangeDetails.toAmount`).
+- **`amount.currency`: string** (ISO 4217 code, uppercase).
+- **`amount.zero`: boolean** — extra convenience flag present on every monetary object inside the statement payload (`true` when value is 0). Not in any docs we've found, but consistent across all samples.
+- **`referenceNumber`: always present**, string, format `PREFIX-DIGITS`. Observed prefixes:
+  - `CARD-NNNNNNNNNN` — card transactions
+  - `TRANSFER-NNNNNNNNNN` — deposits and outbound transfers
+  - `BALANCE-NNNNNNNNNN` — conversions (cross-currency moves within own balances)
+  - `FEE-TRANSFER-NNNNNNNNNN` — fee-only legs (note: double-prefix)
+  - Treat the entire `referenceNumber` string as opaque — do not parse the prefix as a discriminator.
+  - **Not unique by itself.** A single `referenceNumber` can appear as both `DEBIT` (charge) and `CREDIT` (refund) on the same balance, and FX legs share the reference across balances. The dedupe key must be at least `(referenceNumber, type, balanceId)`. Confirmed in `response-samples/05-statement-flat-foreign.json` — two CARD references each appear twice within USD as a DEBIT/CREDIT pair.
+- **`nextCursor`: absent.** The statement response has no `cursor`, `nextCursor`, `page`, or any pagination token at the root, inside `transactions`, or anywhere. Pagination is purely date-window chunking by `intervalStart` / `intervalEnd`.
+- **Top-level `type`** (`CREDIT` | `DEBIT`) — distinct from `details.type`. Sign of `amount.value` matches: `DEBIT` is negative, `CREDIT` is positive.
+- **`details.type` sample values:** `CARD`, `DEPOSIT`, `TRANSFER`, `CONVERSION`, `MONEY_ADDED` (uppercase). `details` schema varies by `details.type`:
+  - `CARD`: `{type, description, amount, category, merchant, cardLastFourDigits, cardHolderFullName}`
+  - `DEPOSIT`: `{type, description, senderName, senderAccount, paymentReference, recipientAccountNumber, recipientAccountDetailsId}`
+  - `TRANSFER`: `{type, description, recipient: {name, bankAccount}, paymentReference, creatorTrackingId}`
+  - `CONVERSION`: `{type, description, sourceAmount, targetAmount, rate}`
+  - `MONEY_ADDED`: `{type, description}` (minimal)
+- **`runningBalance` shape:** `{value: number, currency: string, zero: boolean}` — same shape as `amount`.
+- **`exchangeDetails` shape (when present):**
+  ```json
+  {
+    "toAmount":   {"value": 1.00,  "currency": "AUD", "zero": false},
+    "fromAmount": {"value": 0.73,  "currency": "USD", "zero": false},
+    "rate":       1.39850
+  }
+  ```
+  Present on FX legs (cross-currency `CARD`, `TRANSFER`, `CONVERSION`). `null` on pure same-currency activity.
+- **`attachment`: `null`** in every observed transaction.
+- **`activityAssetAttributions`: empty array** in every observed transaction.
+- **`date`: ISO 8601 with `Z` suffix and microsecond precision** (e.g. `"2026-05-20T23:01:33.153144Z"`).
+
+### Statement response envelope (top-level)
+
+```json
+{
+  "accountHolder":     { type, profileId, address, businessName, registrationNumber, companyType },
+  "issuer":            { name, firstLine, city, postCode, stateCode, countryCode, country },
+  "issuers":           { payments: {...}, assets: [...] },
+  "bankDetails":       { ... },
+  "transactions":      [ ... ],
+  "startOfStatementBalance": { value, currency, zero },
+  "endOfStatementBalance":   { value, currency, zero },
+  "endOfStatementUnrealisedGainLoss": null | {...},
+  "balanceAssetConfiguration": null | {...},
+  "query":             { intervalStart, intervalEnd, type, splitRefundFees, addStamp, currency, profileId, timezone },
+  "request":           { id (UUID), creationTime, profileId, currency, balanceId, ... },
+  "feeSummary":        { summaryTitle, fromTitle, toTitle, feesTitle, feeSummaryItems: [] },
+  "locale":            { code: "en-GB" }
+}
+```
+
+### FLAT vs COMPACT
+
+- **For our test interval (3 transactions, no FX), FLAT and COMPACT returned identical structure** — same top-level keys, same per-transaction keys, same `details.*` keys.
+- The Wise docs imply `FLAT` may expand some nested objects in cases where COMPACT collapses them, but we did not observe a difference in our samples. Treat them as schema-equivalent for client interface purposes.
+- **Recommendation for Phase 1A: `type=FLAT`.** Explicit, matches the verified shape, and is the safer choice if Wise ever ships a COMPACT-only collapse for some `details.type`.
+
+### Balances response (`/v4/profiles/{profileId}/balances?types=STANDARD`)
+
+- Returns flat array of balance objects (not wrapped).
+- Each balance: `{id, currency, amount, reservedAmount, cashAmount, totalWorth, type, name, icon, investmentState, creationTime, modificationTime, visible, primary, groupId, recipientId}`.
+- All monetary fields are `{value: number, currency: string}` — no `zero` flag at this layer (the `zero` flag appears only in statement responses).
+- `type`: `"STANDARD"` (uppercase) — confirms casing.
+- `investmentState`: `"NOT_INVESTED"` observed; presumably `"INVESTED"` for jar/investment balances.
+
+### Profiles response (`/v2/profiles`)
+
+- Returns flat array. Each profile has `id` (number), `type` (`"PERSONAL"` | `"BUSINESS"`), and a large set of profile fields. Business profiles include `businessName`, `registrationNumber`, `companyType` (e.g. `"SOLE_TRADER"`), `descriptionOfBusiness`, `firstLevelCategory`, `secondLevelCategory`, `industryCategories`, `operationalAddresses[]`.
+- The business-resolution function should: fetch `/v2/profiles`, filter `type === "BUSINESS"`, take `.id`. If multiple business profiles exist, additional disambiguation will be needed (out of scope for Phase 1A).
+
 ## Verification notes
 
-- **Casing of profile `type`:** Wise docs show both `PERSONAL`/`BUSINESS` (uppercase, in OpenAPI excerpts) and `personal`/`business` (lowercase, in narrative). Confirm empirically in sandbox before doing strict-equality matching; safest implementation is case-insensitive comparison.
+- **Casing of profile `type`:** ~~Wise docs show both `PERSONAL`/`BUSINESS` (uppercase, in OpenAPI excerpts) and `personal`/`business` (lowercase, in narrative). Confirm empirically in sandbox before doing strict-equality matching; safest implementation is case-insensitive comparison.~~ **Resolved 2026-05-25:** live API returns uppercase (`"PERSONAL"`, `"BUSINESS"`). Use case-sensitive equality. See "Empirically Verified Shapes" above.
 - **Balance `types` parameter is required.** Forgetting it returns an empty array or 400. Default to `STANDARD` for Phase 1A.
 - **469-day window cap is real.** The sync worker must chunk longer historical pulls. A reasonable default is monthly windows for fresh syncs and a since-cursor windowed query for incremental updates.
 - **`details.description` is the only human-readable field.** There is no Wise "category" taxonomy comparable to Up Bank — categorization is downstream of ingest.

@@ -1,0 +1,5004 @@
+{
+  "accountHolder": {
+    "type": "BUSINESS",
+    "profileId": 61997996,
+    "address": {
+      "addressFirstLine": "REDACTED",
+      "city": "REDACTED",
+      "postCode": "REDACTED",
+      "stateCode": "REDACTED",
+      "countryName": "REDACTED"
+    },
+    "businessName": "REDACTED",
+    "registrationNumber": "REDACTED",
+    "companyType": "SOLE_TRADER"
+  },
+  "issuer": {
+    "name": "REDACTED",
+    "firstLine": "REDACTED",
+    "city": "REDACTED",
+    "postCode": "REDACTED",
+    "stateCode": null,
+    "countryCode": "REDACTED",
+    "country": "REDACTED"
+  },
+  "issuers": {
+    "payments": {
+      "name": "REDACTED",
+      "firstLine": "REDACTED",
+      "city": "REDACTED",
+      "postCode": "REDACTED",
+      "stateCode": null,
+      "countryCode": "REDACTED",
+      "country": "REDACTED"
+    },
+    "assets": []
+  },
+  "bankDetails": "REDACTED",
+  "transactions": [
+    {
+      "type": "DEBIT",
+      "date": "2026-05-25T08:02:04.732272Z",
+      "amount": {
+        "value": -13.2,
+        "currency": "USD",
+        "zero": false
+      },
+      "totalFees": {
+        "value": 0.0,
+        "currency": "USD",
+        "zero": true
+      },
+      "details": {
+        "type": "CARD",
+        "description": "REDACTED",
+        "amount": {
+          "value": 13.2,
+          "currency": "USD",
+          "zero": false
+        },
+        "category": "Computer Programming, Data Proce",
+        "merchant": {
+          "name": "REDACTED",
+          "firstLine": null,
+          "postCode": "REDACTED",
+          "city": "REDACTED",
+          "state": null,
+          "country": "REDACTED",
+          "category": "Computer Programming, Data Proce"
+        },
+        "cardLastFourDigits": "REDACTED",
+        "cardHolderFullName": "REDACTED"
+      },
+      "exchangeDetails": null,
+      "runningBalance": {
+        "value": 162.36,
+        "currency": "USD",
+        "zero": false
+      },
+      "referenceNumber": "CARD-REDACTED_NUMERIC",
+      "attachment": null,
+      "activityAssetAttributions": []
+    },
+    {
+      "type": "DEBIT",
+      "date": "2026-05-17T22:00:10.352104Z",
+      "amount": {
+        "value": -20.0,
+        "currency": "USD",
+        "zero": false
+      },
+      "totalFees": {
+        "value": 0.0,
+        "currency": "USD",
+        "zero": true
+      },
+      "details": {
+        "type": "CARD",
+        "description": "REDACTED",
+        "amount": {
+          "value": 20.0,
+          "currency": "USD",
+          "zero": false
+        },
+        "category": "Computer Programming, Data Proce",
+        "merchant": {
+          "name": "REDACTED",
+          "firstLine": null,
+          "postCode": null,
+          "city": "REDACTED",
+          "state": null,
+          "country": "REDACTED",
+          "category": "Computer Programming, Data Proce"
+        },
+        "cardLastFourDigits": "REDACTED",
+        "cardHolderFullName": "REDACTED"
+      },
+      "exchangeDetails": null,
+      "runningBalance": {
+        "value": 175.56,
+        "currency": "USD",
+        "zero": false
+      },
+      "referenceNumber": "CARD-REDACTED_NUMERIC",
+      "attachment": null,
+      "activityAssetAttributions": []
+    },
+    {
+      "type": "CREDIT",
+      "date": "2026-05-17T06:27:44.482742Z",
+      "amount": {
+        "value": 0.73,
+        "currency": "USD",
+        "zero": false
+      },
+      "totalFees": {
+        "value": 0.0,
+        "currency": "USD",
+        "zero": true
+      },
+      "details": {
+        "type": "CARD",
+        "description": "REDACTED",
+        "amount": {
+          "value": 1.0,
+          "currency": "AUD",
+          "zero": false
+        },
+        "category": "Computers, Computer Peripheral E",
+        "merchant": {
+          "name": "REDACTED",
+          "firstLine": null,
+          "postCode": "REDACTED",
+          "city": "REDACTED",
+          "state": null,
+          "country": "REDACTED",
+          "category": "Computers, Computer Peripheral E"
+        },
+        "cardLastFourDigits": "REDACTED",
+        "cardHolderFullName": "REDACTED"
+      },
+      "exchangeDetails": {
+        "toAmount": {
+          "value": 1.0,
+          "currency": "AUD",
+          "zero": false
+        },
+        "fromAmount": {
+          "value": 0.73,
+          "currency": "USD",
+          "zero": false
+        },
+        "rate": 1.3985
+      },
+      "runningBalance": {
+        "value": 195.56,
+        "currency": "USD",
+        "zero": false
+      },
+      "referenceNumber": "CARD-REDACTED_NUMERIC",
+      "attachment": null,
+      "activityAssetAttributions": []
+    },
+    {
+      "type": "DEBIT",
+      "date": "2026-05-17T06:27:04.787646Z",
+      "amount": {
+        "value": -0.73,
+        "currency": "USD",
+        "zero": false
+      },
+      "totalFees": {
+        "value": 0.0,
+        "currency": "USD",
+        "zero": true
+      },
+      "details": {
+        "type": "CARD",
+        "description": "REDACTED",
+        "amount": {
+          "value": 1.0,
+          "currency": "AUD",
+          "zero": false
+        },
+        "category": "Computers, Computer Peripheral E",
+        "merchant": {
+          "name": "REDACTED",
+          "firstLine": null,
+          "postCode": "REDACTED",
+          "city": "REDACTED",
+          "state": null,
+          "country": "REDACTED",
+          "category": "Computers, Computer Peripheral E"
+        },
+        "cardLastFourDigits": "REDACTED",
+        "cardHolderFullName": "REDACTED"
+      },
+      "exchangeDetails": {
+        "toAmount": {
+          "value": 1.0,
+          "currency": "AUD",
+          "zero": false
+        },
+        "fromAmount": {
+          "value": 0.73,
+          "currency": "USD",
+          "zero": false
+        },
+        "rate": 1.3985
+      },
+      "runningBalance": {
+        "value": 194.83,
+        "currency": "USD",
+        "zero": false
+      },
+      "referenceNumber": "CARD-REDACTED_NUMERIC",
+      "attachment": null,
+      "activityAssetAttributions": []
+    },
+    {
+      "type": "DEBIT",
+      "date": "2026-05-14T07:21:04.389463Z",
+      "amount": {
+        "value": -110.0,
+        "currency": "USD",
+        "zero": false
+      },
+      "totalFees": {
+        "value": 0.0,
+        "currency": "USD",
+        "zero": true
+      },
+      "details": {
+        "type": "CARD",
+        "description": "REDACTED",
+        "amount": {
+          "value": 110.0,
+          "currency": "USD",
+          "zero": false
+        },
+        "category": "Computer Software Stores",
+        "merchant": {
+          "name": "REDACTED",
+          "firstLine": null,
+          "postCode": null,
+          "city": "REDACTED",
+          "state": null,
+          "country": "REDACTED",
+          "category": "Computer Software Stores"
+        },
+        "cardLastFourDigits": "REDACTED",
+        "cardHolderFullName": "REDACTED"
+      },
+      "exchangeDetails": null,
+      "runningBalance": {
+        "value": 195.56,
+        "currency": "USD",
+        "zero": false
+      },
+      "referenceNumber": "CARD-REDACTED_NUMERIC",
+      "attachment": null,
+      "activityAssetAttributions": []
+    },
+    {
+      "type": "CREDIT",
+      "date": "2026-05-14T07:19:59.781477Z",
+      "amount": {
+        "value": 200.0,
+        "currency": "USD",
+        "zero": false
+      },
+      "totalFees": {
+        "value": 0.0,
+        "currency": "USD",
+        "zero": true
+      },
+      "details": {
+        "type": "MONEY_ADDED",
+        "description": "REDACTED"
+      },
+      "exchangeDetails": {
+        "toAmount": {
+          "value": 200.0,
+          "currency": "USD",
+          "zero": false
+        },
+        "fromAmount": {
+          "value": 275.71,
+          "currency": "AUD",
+          "zero": false
+        },
+        "rate": 0.7254
+      },
+      "runningBalance": {
+        "value": 305.56,
+        "currency": "USD",
+        "zero": false
+      },
+      "referenceNumber": "TRANSFER-REDACTED_NUMERIC",
+      "attachment": null,
+      "activityAssetAttributions": []
+    },
+    {
+      "type": "DEBIT",
+      "date": "2026-05-13T18:50:30.228975Z",
+      "amount": {
+        "value": -8.0,
+        "currency": "USD",
+        "zero": false
+      },
+      "totalFees": {
+        "value": 0.0,
+        "currency": "USD",
+        "zero": true
+      },
+      "details": {
+        "type": "CARD",
+        "description": "REDACTED",
+        "amount": {
+          "value": 8.0,
+          "currency": "USD",
+          "zero": false
+        },
+        "category": "Computer Programming, Data Proce",
+        "merchant": {
+          "name": "REDACTED",
+          "firstLine": null,
+          "postCode": null,
+          "city": "REDACTED",
+          "state": null,
+          "country": "REDACTED",
+          "category": "Computer Programming, Data Proce"
+        },
+        "cardLastFourDigits": "REDACTED",
+        "cardHolderFullName": "REDACTED"
+      },
+      "exchangeDetails": null,
+      "runningBalance": {
+        "value": 105.56,
+        "currency": "USD",
+        "zero": false
+      },
+      "referenceNumber": "CARD-REDACTED_NUMERIC",
+      "attachment": null,
+      "activityAssetAttributions": []
+    },
+    {
+      "type": "DEBIT",
+      "date": "2026-05-10T03:03:01.146522Z",
+      "amount": {
+        "value": -25.0,
+        "currency": "USD",
+        "zero": false
+      },
+      "totalFees": {
+        "value": 0.0,
+        "currency": "USD",
+        "zero": true
+      },
+      "details": {
+        "type": "CARD",
+        "description": "REDACTED",
+        "amount": {
+          "value": 25.0,
+          "currency": "USD",
+          "zero": false
+        },
+        "category": "Computer Software Stores",
+        "merchant": {
+          "name": "REDACTED",
+          "firstLine": null,
+          "postCode": null,
+          "city": "REDACTED",
+          "state": null,
+          "country": "REDACTED",
+          "category": "Computer Software Stores"
+        },
+        "cardLastFourDigits": "REDACTED",
+        "cardHolderFullName": "REDACTED"
+      },
+      "exchangeDetails": null,
+      "runningBalance": {
+        "value": 113.56,
+        "currency": "USD",
+        "zero": false
+      },
+      "referenceNumber": "CARD-REDACTED_NUMERIC",
+      "attachment": null,
+      "activityAssetAttributions": []
+    },
+    {
+      "type": "DEBIT",
+      "date": "2026-04-28T09:05:43.255698Z",
+      "amount": {
+        "value": -20.0,
+        "currency": "USD",
+        "zero": false
+      },
+      "totalFees": {
+        "value": 0.0,
+        "currency": "USD",
+        "zero": true
+      },
+      "details": {
+        "type": "CARD",
+        "description": "REDACTED",
+        "amount": {
+          "value": 20.0,
+          "currency": "USD",
+          "zero": false
+        },
+        "category": "Computer Programming, Data Proce",
+        "merchant": {
+          "name": "REDACTED",
+          "firstLine": null,
+          "postCode": null,
+          "city": "REDACTED",
+          "state": null,
+          "country": "REDACTED",
+          "category": "Computer Programming, Data Proce"
+        },
+        "cardLastFourDigits": "REDACTED",
+        "cardHolderFullName": "REDACTED"
+      },
+      "exchangeDetails": null,
+      "runningBalance": {
+        "value": 138.56,
+        "currency": "USD",
+        "zero": false
+      },
+      "referenceNumber": "CARD-REDACTED_NUMERIC",
+      "attachment": null,
+      "activityAssetAttributions": []
+    },
+    {
+      "type": "DEBIT",
+      "date": "2026-04-25T08:00:56.406542Z",
+      "amount": {
+        "value": -13.2,
+        "currency": "USD",
+        "zero": false
+      },
+      "totalFees": {
+        "value": 0.0,
+        "currency": "USD",
+        "zero": true
+      },
+      "details": {
+        "type": "CARD",
+        "description": "REDACTED",
+        "amount": {
+          "value": 13.2,
+          "currency": "USD",
+          "zero": false
+        },
+        "category": "Computer Programming, Data Proce",
+        "merchant": {
+          "name": "REDACTED",
+          "firstLine": null,
+          "postCode": null,
+          "city": "REDACTED",
+          "state": null,
+          "country": "REDACTED",
+          "category": "Computer Programming, Data Proce"
+        },
+        "cardLastFourDigits": "REDACTED",
+        "cardHolderFullName": "REDACTED"
+      },
+      "exchangeDetails": null,
+      "runningBalance": {
+        "value": 158.56,
+        "currency": "USD",
+        "zero": false
+      },
+      "referenceNumber": "CARD-REDACTED_NUMERIC",
+      "attachment": null,
+      "activityAssetAttributions": []
+    },
+    {
+      "type": "DEBIT",
+      "date": "2026-04-23T22:30:55.657772Z",
+      "amount": {
+        "value": -15.0,
+        "currency": "USD",
+        "zero": false
+      },
+      "totalFees": {
+        "value": 0.0,
+        "currency": "USD",
+        "zero": true
+      },
+      "details": {
+        "type": "CARD",
+        "description": "REDACTED",
+        "amount": {
+          "value": 15.0,
+          "currency": "USD",
+          "zero": false
+        },
+        "category": "Computer Software Stores",
+        "merchant": {
+          "name": "REDACTED",
+          "firstLine": null,
+          "postCode": null,
+          "city": "REDACTED",
+          "state": null,
+          "country": "REDACTED",
+          "category": "Computer Software Stores"
+        },
+        "cardLastFourDigits": "REDACTED",
+        "cardHolderFullName": "REDACTED"
+      },
+      "exchangeDetails": null,
+      "runningBalance": {
+        "value": 171.76,
+        "currency": "USD",
+        "zero": false
+      },
+      "referenceNumber": "CARD-REDACTED_NUMERIC",
+      "attachment": null,
+      "activityAssetAttributions": []
+    },
+    {
+      "type": "DEBIT",
+      "date": "2026-04-18T02:11:12.356987Z",
+      "amount": {
+        "value": -20.0,
+        "currency": "USD",
+        "zero": false
+      },
+      "totalFees": {
+        "value": 0.0,
+        "currency": "USD",
+        "zero": true
+      },
+      "details": {
+        "type": "CARD",
+        "description": "REDACTED",
+        "amount": {
+          "value": 20.0,
+          "currency": "USD",
+          "zero": false
+        },
+        "category": "Computer Programming, Data Proce",
+        "merchant": {
+          "name": "REDACTED",
+          "firstLine": null,
+          "postCode": null,
+          "city": "REDACTED",
+          "state": null,
+          "country": "REDACTED",
+          "category": "Computer Programming, Data Proce"
+        },
+        "cardLastFourDigits": "REDACTED",
+        "cardHolderFullName": "REDACTED"
+      },
+      "exchangeDetails": null,
+      "runningBalance": {
+        "value": 186.76,
+        "currency": "USD",
+        "zero": false
+      },
+      "referenceNumber": "CARD-REDACTED_NUMERIC",
+      "attachment": null,
+      "activityAssetAttributions": []
+    },
+    {
+      "type": "CREDIT",
+      "date": "2026-04-14T02:37:40.877943Z",
+      "amount": {
+        "value": 200.0,
+        "currency": "USD",
+        "zero": false
+      },
+      "totalFees": {
+        "value": 0.0,
+        "currency": "USD",
+        "zero": true
+      },
+      "details": {
+        "type": "MONEY_ADDED",
+        "description": "REDACTED"
+      },
+      "exchangeDetails": {
+        "toAmount": {
+          "value": 200.0,
+          "currency": "USD",
+          "zero": false
+        },
+        "fromAmount": {
+          "value": 282.41,
+          "currency": "AUD",
+          "zero": false
+        },
+        "rate": 0.7082
+      },
+      "runningBalance": {
+        "value": 206.76,
+        "currency": "USD",
+        "zero": false
+      },
+      "referenceNumber": "TRANSFER-REDACTED_NUMERIC",
+      "attachment": null,
+      "activityAssetAttributions": []
+    },
+    {
+      "type": "DEBIT",
+      "date": "2026-04-14T02:32:48.872141Z",
+      "amount": {
+        "value": -110.0,
+        "currency": "USD",
+        "zero": false
+      },
+      "totalFees": {
+        "value": 0.0,
+        "currency": "USD",
+        "zero": true
+      },
+      "details": {
+        "type": "CARD",
+        "description": "REDACTED",
+        "amount": {
+          "value": 110.0,
+          "currency": "USD",
+          "zero": false
+        },
+        "category": "Computer Software Stores",
+        "merchant": {
+          "name": "REDACTED",
+          "firstLine": null,
+          "postCode": null,
+          "city": "REDACTED",
+          "state": null,
+          "country": "REDACTED",
+          "category": "Computer Software Stores"
+        },
+        "cardLastFourDigits": "REDACTED",
+        "cardHolderFullName": "REDACTED"
+      },
+      "exchangeDetails": null,
+      "runningBalance": {
+        "value": 6.76,
+        "currency": "USD",
+        "zero": false
+      },
+      "referenceNumber": "CARD-REDACTED_NUMERIC",
+      "attachment": null,
+      "activityAssetAttributions": []
+    },
+    {
+      "type": "DEBIT",
+      "date": "2026-04-04T15:28:35.314399Z",
+      "amount": {
+        "value": -8.0,
+        "currency": "USD",
+        "zero": false
+      },
+      "totalFees": {
+        "value": 0.0,
+        "currency": "USD",
+        "zero": true
+      },
+      "details": {
+        "type": "CARD",
+        "description": "REDACTED",
+        "amount": {
+          "value": 8.0,
+          "currency": "USD",
+          "zero": false
+        },
+        "category": "Computer Programming, Data Proce",
+        "merchant": {
+          "name": "REDACTED",
+          "firstLine": null,
+          "postCode": null,
+          "city": "REDACTED",
+          "state": null,
+          "country": "REDACTED",
+          "category": "Computer Programming, Data Proce"
+        },
+        "cardLastFourDigits": "REDACTED",
+        "cardHolderFullName": "REDACTED"
+      },
+      "exchangeDetails": null,
+      "runningBalance": {
+        "value": 116.76,
+        "currency": "USD",
+        "zero": false
+      },
+      "referenceNumber": "CARD-REDACTED_NUMERIC",
+      "attachment": null,
+      "activityAssetAttributions": []
+    },
+    {
+      "type": "DEBIT",
+      "date": "2026-03-28T09:14:14.190361Z",
+      "amount": {
+        "value": -20.0,
+        "currency": "USD",
+        "zero": false
+      },
+      "totalFees": {
+        "value": 0.0,
+        "currency": "USD",
+        "zero": true
+      },
+      "details": {
+        "type": "CARD",
+        "description": "REDACTED",
+        "amount": {
+          "value": 20.0,
+          "currency": "USD",
+          "zero": false
+        },
+        "category": "Computer Programming, Data Proce",
+        "merchant": {
+          "name": "REDACTED",
+          "firstLine": null,
+          "postCode": null,
+          "city": "REDACTED",
+          "state": null,
+          "country": "REDACTED",
+          "category": "Computer Programming, Data Proce"
+        },
+        "cardLastFourDigits": "REDACTED",
+        "cardHolderFullName": "REDACTED"
+      },
+      "exchangeDetails": null,
+      "runningBalance": {
+        "value": 124.76,
+        "currency": "USD",
+        "zero": false
+      },
+      "referenceNumber": "CARD-REDACTED_NUMERIC",
+      "attachment": null,
+      "activityAssetAttributions": []
+    },
+    {
+      "type": "DEBIT",
+      "date": "2026-03-25T08:01:18.58837Z",
+      "amount": {
+        "value": -13.2,
+        "currency": "USD",
+        "zero": false
+      },
+      "totalFees": {
+        "value": 0.0,
+        "currency": "USD",
+        "zero": true
+      },
+      "details": {
+        "type": "CARD",
+        "description": "REDACTED",
+        "amount": {
+          "value": 13.2,
+          "currency": "USD",
+          "zero": false
+        },
+        "category": "Computer Programming, Data Proce",
+        "merchant": {
+          "name": "REDACTED",
+          "firstLine": null,
+          "postCode": null,
+          "city": "REDACTED",
+          "state": null,
+          "country": "REDACTED",
+          "category": "Computer Programming, Data Proce"
+        },
+        "cardLastFourDigits": "REDACTED",
+        "cardHolderFullName": "REDACTED"
+      },
+      "exchangeDetails": null,
+      "runningBalance": {
+        "value": 144.76,
+        "currency": "USD",
+        "zero": false
+      },
+      "referenceNumber": "CARD-REDACTED_NUMERIC",
+      "attachment": null,
+      "activityAssetAttributions": []
+    },
+    {
+      "type": "DEBIT",
+      "date": "2026-03-17T21:44:12.802628Z",
+      "amount": {
+        "value": -20.0,
+        "currency": "USD",
+        "zero": false
+      },
+      "totalFees": {
+        "value": 0.0,
+        "currency": "USD",
+        "zero": true
+      },
+      "details": {
+        "type": "CARD",
+        "description": "REDACTED",
+        "amount": {
+          "value": 20.0,
+          "currency": "USD",
+          "zero": false
+        },
+        "category": "Computer Programming, Data Proce",
+        "merchant": {
+          "name": "REDACTED",
+          "firstLine": null,
+          "postCode": null,
+          "city": "REDACTED",
+          "state": null,
+          "country": "REDACTED",
+          "category": "Computer Programming, Data Proce"
+        },
+        "cardLastFourDigits": "REDACTED",
+        "cardHolderFullName": "REDACTED"
+      },
+      "exchangeDetails": null,
+      "runningBalance": {
+        "value": 157.96,
+        "currency": "USD",
+        "zero": false
+      },
+      "referenceNumber": "CARD-REDACTED_NUMERIC",
+      "attachment": null,
+      "activityAssetAttributions": []
+    },
+    {
+      "type": "DEBIT",
+      "date": "2026-03-16T22:30:50.122239Z",
+      "amount": {
+        "value": -15.0,
+        "currency": "USD",
+        "zero": false
+      },
+      "totalFees": {
+        "value": 0.0,
+        "currency": "USD",
+        "zero": true
+      },
+      "details": {
+        "type": "CARD",
+        "description": "REDACTED",
+        "amount": {
+          "value": 15.0,
+          "currency": "USD",
+          "zero": false
+        },
+        "category": "Computer Software Stores",
+        "merchant": {
+          "name": "REDACTED",
+          "firstLine": null,
+          "postCode": null,
+          "city": "REDACTED",
+          "state": null,
+          "country": "REDACTED",
+          "category": "Computer Software Stores"
+        },
+        "cardLastFourDigits": "REDACTED",
+        "cardHolderFullName": "REDACTED"
+      },
+      "exchangeDetails": null,
+      "runningBalance": {
+        "value": 177.96,
+        "currency": "USD",
+        "zero": false
+      },
+      "referenceNumber": "CARD-REDACTED_NUMERIC",
+      "attachment": null,
+      "activityAssetAttributions": []
+    },
+    {
+      "type": "DEBIT",
+      "date": "2026-03-15T05:29:00.280819Z",
+      "amount": {
+        "value": -10.59,
+        "currency": "USD",
+        "zero": false
+      },
+      "totalFees": {
+        "value": 0.0,
+        "currency": "USD",
+        "zero": true
+      },
+      "details": {
+        "type": "CARD",
+        "description": "REDACTED",
+        "amount": {
+          "value": 10.59,
+          "currency": "USD",
+          "zero": false
+        },
+        "category": "Computer Programming, Data Proce",
+        "merchant": {
+          "name": "REDACTED",
+          "firstLine": null,
+          "postCode": null,
+          "city": "REDACTED",
+          "state": null,
+          "country": "REDACTED",
+          "category": "Computer Programming, Data Proce"
+        },
+        "cardLastFourDigits": "REDACTED",
+        "cardHolderFullName": "REDACTED"
+      },
+      "exchangeDetails": null,
+      "runningBalance": {
+        "value": 192.96,
+        "currency": "USD",
+        "zero": false
+      },
+      "referenceNumber": "CARD-REDACTED_NUMERIC",
+      "attachment": null,
+      "activityAssetAttributions": []
+    },
+    {
+      "type": "DEBIT",
+      "date": "2026-03-14T02:26:30.09588Z",
+      "amount": {
+        "value": -2.84,
+        "currency": "USD",
+        "zero": false
+      },
+      "totalFees": {
+        "value": 0.0,
+        "currency": "USD",
+        "zero": true
+      },
+      "details": {
+        "type": "CARD",
+        "description": "REDACTED",
+        "amount": {
+          "value": 2.84,
+          "currency": "USD",
+          "zero": false
+        },
+        "category": "Computer Programming, Data Proce",
+        "merchant": {
+          "name": "REDACTED",
+          "firstLine": null,
+          "postCode": null,
+          "city": "REDACTED",
+          "state": null,
+          "country": "REDACTED",
+          "category": "Computer Programming, Data Proce"
+        },
+        "cardLastFourDigits": "REDACTED",
+        "cardHolderFullName": "REDACTED"
+      },
+      "exchangeDetails": null,
+      "runningBalance": {
+        "value": 203.55,
+        "currency": "USD",
+        "zero": false
+      },
+      "referenceNumber": "CARD-REDACTED_NUMERIC",
+      "attachment": null,
+      "activityAssetAttributions": []
+    },
+    {
+      "type": "DEBIT",
+      "date": "2026-03-14T01:30:40.153663Z",
+      "amount": {
+        "value": -94.43,
+        "currency": "USD",
+        "zero": false
+      },
+      "totalFees": {
+        "value": 0.0,
+        "currency": "USD",
+        "zero": true
+      },
+      "details": {
+        "type": "CARD",
+        "description": "REDACTED",
+        "amount": {
+          "value": 94.43,
+          "currency": "USD",
+          "zero": false
+        },
+        "category": "Computer Software Stores",
+        "merchant": {
+          "name": "REDACTED",
+          "firstLine": null,
+          "postCode": null,
+          "city": "REDACTED",
+          "state": null,
+          "country": "REDACTED",
+          "category": "Computer Software Stores"
+        },
+        "cardLastFourDigits": "REDACTED",
+        "cardHolderFullName": "REDACTED"
+      },
+      "exchangeDetails": null,
+      "runningBalance": {
+        "value": 206.39,
+        "currency": "USD",
+        "zero": false
+      },
+      "referenceNumber": "CARD-REDACTED_NUMERIC",
+      "attachment": null,
+      "activityAssetAttributions": []
+    },
+    {
+      "type": "CREDIT",
+      "date": "2026-03-13T04:30:41.25812Z",
+      "amount": {
+        "value": 300.0,
+        "currency": "USD",
+        "zero": false
+      },
+      "totalFees": {
+        "value": 0.0,
+        "currency": "USD",
+        "zero": true
+      },
+      "details": {
+        "type": "MONEY_ADDED",
+        "description": "REDACTED"
+      },
+      "exchangeDetails": {
+        "toAmount": {
+          "value": 300.0,
+          "currency": "USD",
+          "zero": false
+        },
+        "fromAmount": {
+          "value": 424.48,
+          "currency": "AUD",
+          "zero": false
+        },
+        "rate": 0.70675
+      },
+      "runningBalance": {
+        "value": 300.82,
+        "currency": "USD",
+        "zero": false
+      },
+      "referenceNumber": "TRANSFER-REDACTED_NUMERIC",
+      "attachment": null,
+      "activityAssetAttributions": []
+    },
+    {
+      "type": "DEBIT",
+      "date": "2026-03-03T09:54:12.593776Z",
+      "amount": {
+        "value": -22.0,
+        "currency": "USD",
+        "zero": false
+      },
+      "totalFees": {
+        "value": 0.0,
+        "currency": "USD",
+        "zero": true
+      },
+      "details": {
+        "type": "CARD",
+        "description": "REDACTED",
+        "amount": {
+          "value": 22.0,
+          "currency": "USD",
+          "zero": false
+        },
+        "category": "Computer Software Stores",
+        "merchant": {
+          "name": "REDACTED",
+          "firstLine": null,
+          "postCode": null,
+          "city": "REDACTED",
+          "state": null,
+          "country": "REDACTED",
+          "category": "Computer Software Stores"
+        },
+        "cardLastFourDigits": "REDACTED",
+        "cardHolderFullName": "REDACTED"
+      },
+      "exchangeDetails": null,
+      "runningBalance": {
+        "value": 0.82,
+        "currency": "USD",
+        "zero": false
+      },
+      "referenceNumber": "CARD-REDACTED_NUMERIC",
+      "attachment": null,
+      "activityAssetAttributions": []
+    },
+    {
+      "type": "DEBIT",
+      "date": "2026-03-01T05:40:20.740465Z",
+      "amount": {
+        "value": -20.0,
+        "currency": "USD",
+        "zero": false
+      },
+      "totalFees": {
+        "value": 0.0,
+        "currency": "USD",
+        "zero": true
+      },
+      "details": {
+        "type": "CARD",
+        "description": "REDACTED",
+        "amount": {
+          "value": 20.0,
+          "currency": "USD",
+          "zero": false
+        },
+        "category": "Computer Programming, Data Proce",
+        "merchant": {
+          "name": "REDACTED",
+          "firstLine": null,
+          "postCode": null,
+          "city": "REDACTED",
+          "state": null,
+          "country": "REDACTED",
+          "category": "Computer Programming, Data Proce"
+        },
+        "cardLastFourDigits": "REDACTED",
+        "cardHolderFullName": "REDACTED"
+      },
+      "exchangeDetails": null,
+      "runningBalance": {
+        "value": 22.82,
+        "currency": "USD",
+        "zero": false
+      },
+      "referenceNumber": "CARD-REDACTED_NUMERIC",
+      "attachment": null,
+      "activityAssetAttributions": []
+    },
+    {
+      "type": "DEBIT",
+      "date": "2026-02-25T08:02:39.343786Z",
+      "amount": {
+        "value": -13.2,
+        "currency": "USD",
+        "zero": false
+      },
+      "totalFees": {
+        "value": 0.0,
+        "currency": "USD",
+        "zero": true
+      },
+      "details": {
+        "type": "CARD",
+        "description": "REDACTED",
+        "amount": {
+          "value": 13.2,
+          "currency": "USD",
+          "zero": false
+        },
+        "category": "Computer Programming, Data Proce",
+        "merchant": {
+          "name": "REDACTED",
+          "firstLine": null,
+          "postCode": null,
+          "city": "REDACTED",
+          "state": null,
+          "country": "REDACTED",
+          "category": "Computer Programming, Data Proce"
+        },
+        "cardLastFourDigits": "REDACTED",
+        "cardHolderFullName": "REDACTED"
+      },
+      "exchangeDetails": null,
+      "runningBalance": {
+        "value": 42.82,
+        "currency": "USD",
+        "zero": false
+      },
+      "referenceNumber": "CARD-REDACTED_NUMERIC",
+      "attachment": null,
+      "activityAssetAttributions": []
+    },
+    {
+      "type": "DEBIT",
+      "date": "2026-02-19T07:00:43.731805Z",
+      "amount": {
+        "value": -13.2,
+        "currency": "USD",
+        "zero": false
+      },
+      "totalFees": {
+        "value": 0.0,
+        "currency": "USD",
+        "zero": true
+      },
+      "details": {
+        "type": "CARD",
+        "description": "REDACTED",
+        "amount": {
+          "value": 13.2,
+          "currency": "USD",
+          "zero": false
+        },
+        "category": "Computer Programming, Data Proce",
+        "merchant": {
+          "name": "REDACTED",
+          "firstLine": null,
+          "postCode": null,
+          "city": "REDACTED",
+          "state": null,
+          "country": "REDACTED",
+          "category": "Computer Programming, Data Proce"
+        },
+        "cardLastFourDigits": "REDACTED",
+        "cardHolderFullName": "REDACTED"
+      },
+      "exchangeDetails": null,
+      "runningBalance": {
+        "value": 56.02,
+        "currency": "USD",
+        "zero": false
+      },
+      "referenceNumber": "CARD-REDACTED_NUMERIC",
+      "attachment": null,
+      "activityAssetAttributions": []
+    },
+    {
+      "type": "DEBIT",
+      "date": "2026-02-17T21:48:29.302544Z",
+      "amount": {
+        "value": -20.0,
+        "currency": "USD",
+        "zero": false
+      },
+      "totalFees": {
+        "value": 0.0,
+        "currency": "USD",
+        "zero": true
+      },
+      "details": {
+        "type": "CARD",
+        "description": "REDACTED",
+        "amount": {
+          "value": 20.0,
+          "currency": "USD",
+          "zero": false
+        },
+        "category": "Computer Programming, Data Proce",
+        "merchant": {
+          "name": "REDACTED",
+          "firstLine": null,
+          "postCode": null,
+          "city": "REDACTED",
+          "state": null,
+          "country": "REDACTED",
+          "category": "Computer Programming, Data Proce"
+        },
+        "cardLastFourDigits": "REDACTED",
+        "cardHolderFullName": "REDACTED"
+      },
+      "exchangeDetails": null,
+      "runningBalance": {
+        "value": 69.22,
+        "currency": "USD",
+        "zero": false
+      },
+      "referenceNumber": "CARD-REDACTED_NUMERIC",
+      "attachment": null,
+      "activityAssetAttributions": []
+    },
+    {
+      "type": "DEBIT",
+      "date": "2026-02-17T09:19:19.849685Z",
+      "amount": {
+        "value": -110.78,
+        "currency": "USD",
+        "zero": false
+      },
+      "totalFees": {
+        "value": 0.0,
+        "currency": "USD",
+        "zero": true
+      },
+      "details": {
+        "type": "CARD",
+        "description": "REDACTED",
+        "amount": {
+          "value": 110.78,
+          "currency": "USD",
+          "zero": false
+        },
+        "category": "Computer Software Stores",
+        "merchant": {
+          "name": "REDACTED",
+          "firstLine": null,
+          "postCode": null,
+          "city": "REDACTED",
+          "state": null,
+          "country": "REDACTED",
+          "category": "Computer Software Stores"
+        },
+        "cardLastFourDigits": "REDACTED",
+        "cardHolderFullName": "REDACTED"
+      },
+      "exchangeDetails": null,
+      "runningBalance": {
+        "value": 89.22,
+        "currency": "USD",
+        "zero": false
+      },
+      "referenceNumber": "CARD-REDACTED_NUMERIC",
+      "attachment": null,
+      "activityAssetAttributions": []
+    },
+    {
+      "type": "CREDIT",
+      "date": "2026-02-17T09:18:10.241371Z",
+      "amount": {
+        "value": 200.0,
+        "currency": "USD",
+        "zero": false
+      },
+      "totalFees": {
+        "value": 0.0,
+        "currency": "USD",
+        "zero": true
+      },
+      "details": {
+        "type": "MONEY_ADDED",
+        "description": "REDACTED"
+      },
+      "exchangeDetails": {
+        "toAmount": {
+          "value": 200.0,
+          "currency": "USD",
+          "zero": false
+        },
+        "fromAmount": {
+          "value": 282.97,
+          "currency": "AUD",
+          "zero": false
+        },
+        "rate": 0.7068
+      },
+      "runningBalance": {
+        "value": 200.0,
+        "currency": "USD",
+        "zero": false
+      },
+      "referenceNumber": "TRANSFER-REDACTED_NUMERIC",
+      "attachment": null,
+      "activityAssetAttributions": []
+    },
+    {
+      "type": "DEBIT",
+      "date": "2026-01-11T21:21:29.469521Z",
+      "amount": {
+        "value": -17.94,
+        "currency": "USD",
+        "zero": false
+      },
+      "totalFees": {
+        "value": 0.05,
+        "currency": "USD",
+        "zero": false
+      },
+      "details": {
+        "type": "TRANSFER",
+        "description": "REDACTED",
+        "recipient": {
+          "name": "REDACTED",
+          "bankAccount": "REDACTED"
+        },
+        "paymentReference": "REDACTED",
+        "creatorTrackingId": null
+      },
+      "exchangeDetails": {
+        "toAmount": {
+          "value": 26.86,
+          "currency": "AUD",
+          "zero": false
+        },
+        "fromAmount": {
+          "value": 17.94,
+          "currency": "USD",
+          "zero": false
+        },
+        "rate": 1.49701
+      },
+      "runningBalance": {
+        "value": 0.0,
+        "currency": "USD",
+        "zero": true
+      },
+      "referenceNumber": "TRANSFER-REDACTED_NUMERIC",
+      "attachment": null,
+      "activityAssetAttributions": []
+    },
+    {
+      "type": "DEBIT",
+      "date": "2026-01-11T21:21:29.468521Z",
+      "amount": {
+        "value": -0.05,
+        "currency": "USD",
+        "zero": false
+      },
+      "totalFees": {
+        "value": 0,
+        "currency": "USD",
+        "zero": true
+      },
+      "details": {
+        "type": "TRANSFER",
+        "description": "REDACTED",
+        "recipient": {
+          "name": "REDACTED",
+          "bankAccount": "REDACTED"
+        },
+        "paymentReference": "REDACTED",
+        "creatorTrackingId": null
+      },
+      "exchangeDetails": null,
+      "runningBalance": {
+        "value": 17.94,
+        "currency": "USD",
+        "zero": false
+      },
+      "referenceNumber": "FEE-TRANSFER-REDACTED_NUMERIC",
+      "attachment": null,
+      "activityAssetAttributions": []
+    },
+    {
+      "type": "DEBIT",
+      "date": "2025-12-26T15:04:17.196879Z",
+      "amount": {
+        "value": -89.68,
+        "currency": "USD",
+        "zero": false
+      },
+      "totalFees": {
+        "value": 0.0,
+        "currency": "USD",
+        "zero": true
+      },
+      "details": {
+        "type": "CARD",
+        "description": "REDACTED",
+        "amount": {
+          "value": 89.68,
+          "currency": "USD",
+          "zero": false
+        },
+        "category": "Computer Software Stores",
+        "merchant": {
+          "name": "REDACTED",
+          "firstLine": null,
+          "postCode": null,
+          "city": "REDACTED",
+          "state": null,
+          "country": "REDACTED",
+          "category": "Computer Software Stores"
+        },
+        "cardLastFourDigits": "REDACTED",
+        "cardHolderFullName": "REDACTED"
+      },
+      "exchangeDetails": null,
+      "runningBalance": {
+        "value": 17.99,
+        "currency": "USD",
+        "zero": false
+      },
+      "referenceNumber": "CARD-REDACTED_NUMERIC",
+      "attachment": null,
+      "activityAssetAttributions": []
+    },
+    {
+      "type": "DEBIT",
+      "date": "2025-12-25T08:00:27.908595Z",
+      "amount": {
+        "value": -13.2,
+        "currency": "USD",
+        "zero": false
+      },
+      "totalFees": {
+        "value": 0.0,
+        "currency": "USD",
+        "zero": true
+      },
+      "details": {
+        "type": "CARD",
+        "description": "REDACTED",
+        "amount": {
+          "value": 13.2,
+          "currency": "USD",
+          "zero": false
+        },
+        "category": "Computer Programming, Data Proce",
+        "merchant": {
+          "name": "REDACTED",
+          "firstLine": null,
+          "postCode": null,
+          "city": "REDACTED",
+          "state": null,
+          "country": "REDACTED",
+          "category": "Computer Programming, Data Proce"
+        },
+        "cardLastFourDigits": "REDACTED",
+        "cardHolderFullName": "REDACTED"
+      },
+      "exchangeDetails": null,
+      "runningBalance": {
+        "value": 107.67,
+        "currency": "USD",
+        "zero": false
+      },
+      "referenceNumber": "CARD-REDACTED_NUMERIC",
+      "attachment": null,
+      "activityAssetAttributions": []
+    },
+    {
+      "type": "CREDIT",
+      "date": "2025-12-22T00:39:29.797882Z",
+      "amount": {
+        "value": 60.0,
+        "currency": "USD",
+        "zero": false
+      },
+      "totalFees": {
+        "value": 0.0,
+        "currency": "USD",
+        "zero": true
+      },
+      "details": {
+        "type": "DEPOSIT",
+        "description": "REDACTED",
+        "senderName": "REDACTED",
+        "senderAccount": "REDACTED",
+        "paymentReference": "REDACTED",
+        "recipientAccountNumber": "REDACTED",
+        "recipientAccountDetailsId": null
+      },
+      "exchangeDetails": null,
+      "runningBalance": {
+        "value": 120.87,
+        "currency": "USD",
+        "zero": false
+      },
+      "referenceNumber": "TRANSFER-REDACTED_NUMERIC",
+      "attachment": null,
+      "activityAssetAttributions": []
+    },
+    {
+      "type": "DEBIT",
+      "date": "2025-12-17T22:33:18.881901Z",
+      "amount": {
+        "value": -20.0,
+        "currency": "USD",
+        "zero": false
+      },
+      "totalFees": {
+        "value": 0.0,
+        "currency": "USD",
+        "zero": true
+      },
+      "details": {
+        "type": "CARD",
+        "description": "REDACTED",
+        "amount": {
+          "value": 20.0,
+          "currency": "USD",
+          "zero": false
+        },
+        "category": "Computer Programming, Data Proce",
+        "merchant": {
+          "name": "REDACTED",
+          "firstLine": null,
+          "postCode": null,
+          "city": "REDACTED",
+          "state": null,
+          "country": "REDACTED",
+          "category": "Computer Programming, Data Proce"
+        },
+        "cardLastFourDigits": "REDACTED",
+        "cardHolderFullName": "REDACTED"
+      },
+      "exchangeDetails": null,
+      "runningBalance": {
+        "value": 60.87,
+        "currency": "USD",
+        "zero": false
+      },
+      "referenceNumber": "CARD-REDACTED_NUMERIC",
+      "attachment": null,
+      "activityAssetAttributions": []
+    },
+    {
+      "type": "CREDIT",
+      "date": "2025-12-17T21:32:45.884955Z",
+      "amount": {
+        "value": 0.5,
+        "currency": "USD",
+        "zero": false
+      },
+      "totalFees": {
+        "value": 0.0,
+        "currency": "USD",
+        "zero": true
+      },
+      "details": {
+        "type": "CARD",
+        "description": "REDACTED",
+        "amount": {
+          "value": 0.5,
+          "currency": "USD",
+          "zero": false
+        },
+        "category": "Computer Programming, Data Proce",
+        "merchant": {
+          "name": "REDACTED",
+          "firstLine": null,
+          "postCode": "REDACTED",
+          "city": "REDACTED",
+          "state": null,
+          "country": "REDACTED",
+          "category": "Computer Programming, Data Proce"
+        },
+        "cardLastFourDigits": "REDACTED",
+        "cardHolderFullName": "REDACTED"
+      },
+      "exchangeDetails": null,
+      "runningBalance": {
+        "value": 80.87,
+        "currency": "USD",
+        "zero": false
+      },
+      "referenceNumber": "CARD-REDACTED_NUMERIC",
+      "attachment": null,
+      "activityAssetAttributions": []
+    },
+    {
+      "type": "DEBIT",
+      "date": "2025-12-17T21:30:58.031235Z",
+      "amount": {
+        "value": -0.5,
+        "currency": "USD",
+        "zero": false
+      },
+      "totalFees": {
+        "value": 0.0,
+        "currency": "USD",
+        "zero": true
+      },
+      "details": {
+        "type": "CARD",
+        "description": "REDACTED",
+        "amount": {
+          "value": 0.5,
+          "currency": "USD",
+          "zero": false
+        },
+        "category": "Computer Programming, Data Proce",
+        "merchant": {
+          "name": "REDACTED",
+          "firstLine": null,
+          "postCode": "REDACTED",
+          "city": "REDACTED",
+          "state": null,
+          "country": "REDACTED",
+          "category": "Computer Programming, Data Proce"
+        },
+        "cardLastFourDigits": "REDACTED",
+        "cardHolderFullName": "REDACTED"
+      },
+      "exchangeDetails": null,
+      "runningBalance": {
+        "value": 80.37,
+        "currency": "USD",
+        "zero": false
+      },
+      "referenceNumber": "CARD-REDACTED_NUMERIC",
+      "attachment": null,
+      "activityAssetAttributions": []
+    },
+    {
+      "type": "DEBIT",
+      "date": "2025-12-16T22:29:50.920528Z",
+      "amount": {
+        "value": -15.0,
+        "currency": "USD",
+        "zero": false
+      },
+      "totalFees": {
+        "value": 0.0,
+        "currency": "USD",
+        "zero": true
+      },
+      "details": {
+        "type": "CARD",
+        "description": "REDACTED",
+        "amount": {
+          "value": 15.0,
+          "currency": "USD",
+          "zero": false
+        },
+        "category": "Computer Software Stores",
+        "merchant": {
+          "name": "REDACTED",
+          "firstLine": null,
+          "postCode": null,
+          "city": "REDACTED",
+          "state": null,
+          "country": "REDACTED",
+          "category": "Computer Software Stores"
+        },
+        "cardLastFourDigits": "REDACTED",
+        "cardHolderFullName": "REDACTED"
+      },
+      "exchangeDetails": null,
+      "runningBalance": {
+        "value": 80.87,
+        "currency": "USD",
+        "zero": false
+      },
+      "referenceNumber": "CARD-REDACTED_NUMERIC",
+      "attachment": null,
+      "activityAssetAttributions": []
+    },
+    {
+      "type": "DEBIT",
+      "date": "2025-12-05T00:46:04.24669Z",
+      "amount": {
+        "value": -22.0,
+        "currency": "USD",
+        "zero": false
+      },
+      "totalFees": {
+        "value": 0.0,
+        "currency": "USD",
+        "zero": true
+      },
+      "details": {
+        "type": "CARD",
+        "description": "REDACTED",
+        "amount": {
+          "value": 22.0,
+          "currency": "USD",
+          "zero": false
+        },
+        "category": "Computer Software Stores",
+        "merchant": {
+          "name": "REDACTED",
+          "firstLine": null,
+          "postCode": null,
+          "city": "REDACTED",
+          "state": null,
+          "country": "REDACTED",
+          "category": "Computer Software Stores"
+        },
+        "cardLastFourDigits": "REDACTED",
+        "cardHolderFullName": "REDACTED"
+      },
+      "exchangeDetails": null,
+      "runningBalance": {
+        "value": 95.87,
+        "currency": "USD",
+        "zero": false
+      },
+      "referenceNumber": "CARD-REDACTED_NUMERIC",
+      "attachment": null,
+      "activityAssetAttributions": []
+    },
+    {
+      "type": "DEBIT",
+      "date": "2025-11-25T08:03:33.745559Z",
+      "amount": {
+        "value": -13.2,
+        "currency": "USD",
+        "zero": false
+      },
+      "totalFees": {
+        "value": 0.0,
+        "currency": "USD",
+        "zero": true
+      },
+      "details": {
+        "type": "CARD",
+        "description": "REDACTED",
+        "amount": {
+          "value": 13.2,
+          "currency": "USD",
+          "zero": false
+        },
+        "category": "Computer Programming, Data Proce",
+        "merchant": {
+          "name": "REDACTED",
+          "firstLine": null,
+          "postCode": null,
+          "city": "REDACTED",
+          "state": null,
+          "country": "REDACTED",
+          "category": "Computer Programming, Data Proce"
+        },
+        "cardLastFourDigits": "REDACTED",
+        "cardHolderFullName": "REDACTED"
+      },
+      "exchangeDetails": null,
+      "runningBalance": {
+        "value": 117.87,
+        "currency": "USD",
+        "zero": false
+      },
+      "referenceNumber": "CARD-REDACTED_NUMERIC",
+      "attachment": null,
+      "activityAssetAttributions": []
+    },
+    {
+      "type": "DEBIT",
+      "date": "2025-11-18T22:19:01.615247Z",
+      "amount": {
+        "value": -105.5,
+        "currency": "USD",
+        "zero": false
+      },
+      "totalFees": {
+        "value": 0.0,
+        "currency": "USD",
+        "zero": true
+      },
+      "details": {
+        "type": "CARD",
+        "description": "REDACTED",
+        "amount": {
+          "value": 105.5,
+          "currency": "USD",
+          "zero": false
+        },
+        "category": "Computer Software Stores",
+        "merchant": {
+          "name": "REDACTED",
+          "firstLine": null,
+          "postCode": null,
+          "city": "REDACTED",
+          "state": null,
+          "country": "REDACTED",
+          "category": "Computer Software Stores"
+        },
+        "cardLastFourDigits": "REDACTED",
+        "cardHolderFullName": "REDACTED"
+      },
+      "exchangeDetails": null,
+      "runningBalance": {
+        "value": 131.07,
+        "currency": "USD",
+        "zero": false
+      },
+      "referenceNumber": "CARD-REDACTED_NUMERIC",
+      "attachment": null,
+      "activityAssetAttributions": []
+    },
+    {
+      "type": "DEBIT",
+      "date": "2025-11-18T22:18:24.90192Z",
+      "amount": {
+        "value": -15.0,
+        "currency": "USD",
+        "zero": false
+      },
+      "totalFees": {
+        "value": 0.0,
+        "currency": "USD",
+        "zero": true
+      },
+      "details": {
+        "type": "CARD",
+        "description": "REDACTED",
+        "amount": {
+          "value": 15.0,
+          "currency": "USD",
+          "zero": false
+        },
+        "category": "Computer Software Stores",
+        "merchant": {
+          "name": "REDACTED",
+          "firstLine": null,
+          "postCode": null,
+          "city": "REDACTED",
+          "state": null,
+          "country": "REDACTED",
+          "category": "Computer Software Stores"
+        },
+        "cardLastFourDigits": "REDACTED",
+        "cardHolderFullName": "REDACTED"
+      },
+      "exchangeDetails": null,
+      "runningBalance": {
+        "value": 236.57,
+        "currency": "USD",
+        "zero": false
+      },
+      "referenceNumber": "CARD-REDACTED_NUMERIC",
+      "attachment": null,
+      "activityAssetAttributions": []
+    },
+    {
+      "type": "CREDIT",
+      "date": "2025-11-18T22:16:00.521023Z",
+      "amount": {
+        "value": 250.0,
+        "currency": "USD",
+        "zero": false
+      },
+      "totalFees": {
+        "value": 0.0,
+        "currency": "USD",
+        "zero": true
+      },
+      "details": {
+        "type": "DEPOSIT",
+        "description": "REDACTED",
+        "senderName": "REDACTED",
+        "senderAccount": "REDACTED",
+        "paymentReference": "REDACTED",
+        "recipientAccountNumber": "REDACTED",
+        "recipientAccountDetailsId": null
+      },
+      "exchangeDetails": null,
+      "runningBalance": {
+        "value": 251.57,
+        "currency": "USD",
+        "zero": false
+      },
+      "referenceNumber": "TRANSFER-REDACTED_NUMERIC",
+      "attachment": null,
+      "activityAssetAttributions": []
+    },
+    {
+      "type": "DEBIT",
+      "date": "2025-11-10T22:49:45.183868Z",
+      "amount": {
+        "value": -52.75,
+        "currency": "USD",
+        "zero": false
+      },
+      "totalFees": {
+        "value": 0.0,
+        "currency": "USD",
+        "zero": true
+      },
+      "details": {
+        "type": "CARD",
+        "description": "REDACTED",
+        "amount": {
+          "value": 52.75,
+          "currency": "USD",
+          "zero": false
+        },
+        "category": "Computer Software Stores",
+        "merchant": {
+          "name": "REDACTED",
+          "firstLine": null,
+          "postCode": null,
+          "city": "REDACTED",
+          "state": null,
+          "country": "REDACTED",
+          "category": "Computer Software Stores"
+        },
+        "cardLastFourDigits": "REDACTED",
+        "cardHolderFullName": "REDACTED"
+      },
+      "exchangeDetails": null,
+      "runningBalance": {
+        "value": 1.57,
+        "currency": "USD",
+        "zero": false
+      },
+      "referenceNumber": "CARD-REDACTED_NUMERIC",
+      "attachment": null,
+      "activityAssetAttributions": []
+    },
+    {
+      "type": "DEBIT",
+      "date": "2025-11-10T19:42:12.143906Z",
+      "amount": {
+        "value": -22.0,
+        "currency": "USD",
+        "zero": false
+      },
+      "totalFees": {
+        "value": 0.0,
+        "currency": "USD",
+        "zero": true
+      },
+      "details": {
+        "type": "CARD",
+        "description": "REDACTED",
+        "amount": {
+          "value": 22.0,
+          "currency": "USD",
+          "zero": false
+        },
+        "category": "Computer Software Stores",
+        "merchant": {
+          "name": "REDACTED",
+          "firstLine": null,
+          "postCode": null,
+          "city": "REDACTED",
+          "state": null,
+          "country": "REDACTED",
+          "category": "Computer Software Stores"
+        },
+        "cardLastFourDigits": "REDACTED",
+        "cardHolderFullName": "REDACTED"
+      },
+      "exchangeDetails": null,
+      "runningBalance": {
+        "value": 54.32,
+        "currency": "USD",
+        "zero": false
+      },
+      "referenceNumber": "CARD-REDACTED_NUMERIC",
+      "attachment": null,
+      "activityAssetAttributions": []
+    },
+    {
+      "type": "CREDIT",
+      "date": "2025-11-10T19:32:18.631483Z",
+      "amount": {
+        "value": 73.89,
+        "currency": "USD",
+        "zero": false
+      },
+      "totalFees": {
+        "value": 0.0,
+        "currency": "USD",
+        "zero": true
+      },
+      "details": {
+        "type": "DEPOSIT",
+        "description": "REDACTED",
+        "senderName": "REDACTED",
+        "senderAccount": "REDACTED",
+        "paymentReference": "REDACTED",
+        "recipientAccountNumber": "REDACTED",
+        "recipientAccountDetailsId": null
+      },
+      "exchangeDetails": null,
+      "runningBalance": {
+        "value": 76.32,
+        "currency": "USD",
+        "zero": false
+      },
+      "referenceNumber": "TRANSFER-REDACTED_NUMERIC",
+      "attachment": null,
+      "activityAssetAttributions": []
+    },
+    {
+      "type": "DEBIT",
+      "date": "2025-10-25T08:00:09.557219Z",
+      "amount": {
+        "value": -13.2,
+        "currency": "USD",
+        "zero": false
+      },
+      "totalFees": {
+        "value": 0.0,
+        "currency": "USD",
+        "zero": true
+      },
+      "details": {
+        "type": "CARD",
+        "description": "REDACTED",
+        "amount": {
+          "value": 13.2,
+          "currency": "USD",
+          "zero": false
+        },
+        "category": "Computer Programming, Data Proce",
+        "merchant": {
+          "name": "REDACTED",
+          "firstLine": null,
+          "postCode": null,
+          "city": "REDACTED",
+          "state": null,
+          "country": "REDACTED",
+          "category": "Computer Programming, Data Proce"
+        },
+        "cardLastFourDigits": "REDACTED",
+        "cardHolderFullName": "REDACTED"
+      },
+      "exchangeDetails": null,
+      "runningBalance": {
+        "value": 2.43,
+        "currency": "USD",
+        "zero": false
+      },
+      "referenceNumber": "CARD-REDACTED_NUMERIC",
+      "attachment": null,
+      "activityAssetAttributions": []
+    },
+    {
+      "type": "DEBIT",
+      "date": "2025-10-22T22:19:56.549352Z",
+      "amount": {
+        "value": -31.65,
+        "currency": "USD",
+        "zero": false
+      },
+      "totalFees": {
+        "value": 0.0,
+        "currency": "USD",
+        "zero": true
+      },
+      "details": {
+        "type": "CARD",
+        "description": "REDACTED",
+        "amount": {
+          "value": 31.65,
+          "currency": "USD",
+          "zero": false
+        },
+        "category": "Computer Software Stores",
+        "merchant": {
+          "name": "REDACTED",
+          "firstLine": null,
+          "postCode": null,
+          "city": "REDACTED",
+          "state": null,
+          "country": "REDACTED",
+          "category": "Computer Software Stores"
+        },
+        "cardLastFourDigits": "REDACTED",
+        "cardHolderFullName": "REDACTED"
+      },
+      "exchangeDetails": null,
+      "runningBalance": {
+        "value": 15.63,
+        "currency": "USD",
+        "zero": false
+      },
+      "referenceNumber": "CARD-REDACTED_NUMERIC",
+      "attachment": null,
+      "activityAssetAttributions": []
+    },
+    {
+      "type": "DEBIT",
+      "date": "2025-10-18T23:00:22.061261Z",
+      "amount": {
+        "value": -13.2,
+        "currency": "USD",
+        "zero": false
+      },
+      "totalFees": {
+        "value": 0.0,
+        "currency": "USD",
+        "zero": true
+      },
+      "details": {
+        "type": "CARD",
+        "description": "REDACTED",
+        "amount": {
+          "value": 13.2,
+          "currency": "USD",
+          "zero": false
+        },
+        "category": "Computer Programming, Data Proce",
+        "merchant": {
+          "name": "REDACTED",
+          "firstLine": null,
+          "postCode": null,
+          "city": "REDACTED",
+          "state": null,
+          "country": "REDACTED",
+          "category": "Computer Programming, Data Proce"
+        },
+        "cardLastFourDigits": "REDACTED",
+        "cardHolderFullName": "REDACTED"
+      },
+      "exchangeDetails": null,
+      "runningBalance": {
+        "value": 47.28,
+        "currency": "USD",
+        "zero": false
+      },
+      "referenceNumber": "CARD-REDACTED_NUMERIC",
+      "attachment": null,
+      "activityAssetAttributions": []
+    },
+    {
+      "type": "DEBIT",
+      "date": "2025-10-17T23:50:19.649568Z",
+      "amount": {
+        "value": -22.0,
+        "currency": "USD",
+        "zero": false
+      },
+      "totalFees": {
+        "value": 0.0,
+        "currency": "USD",
+        "zero": true
+      },
+      "details": {
+        "type": "CARD",
+        "description": "REDACTED",
+        "amount": {
+          "value": 22.0,
+          "currency": "USD",
+          "zero": false
+        },
+        "category": "Computer Software Stores",
+        "merchant": {
+          "name": "REDACTED",
+          "firstLine": null,
+          "postCode": null,
+          "city": "REDACTED",
+          "state": null,
+          "country": "REDACTED",
+          "category": "Computer Software Stores"
+        },
+        "cardLastFourDigits": "REDACTED",
+        "cardHolderFullName": "REDACTED"
+      },
+      "exchangeDetails": null,
+      "runningBalance": {
+        "value": 60.48,
+        "currency": "USD",
+        "zero": false
+      },
+      "referenceNumber": "CARD-REDACTED_NUMERIC",
+      "attachment": null,
+      "activityAssetAttributions": []
+    },
+    {
+      "type": "DEBIT",
+      "date": "2025-10-16T21:30:28.119171Z",
+      "amount": {
+        "value": -63.3,
+        "currency": "USD",
+        "zero": false
+      },
+      "totalFees": {
+        "value": 0.0,
+        "currency": "USD",
+        "zero": true
+      },
+      "details": {
+        "type": "CARD",
+        "description": "REDACTED",
+        "amount": {
+          "value": 63.3,
+          "currency": "USD",
+          "zero": false
+        },
+        "category": "Computer Software Stores",
+        "merchant": {
+          "name": "REDACTED",
+          "firstLine": null,
+          "postCode": null,
+          "city": "REDACTED",
+          "state": null,
+          "country": "REDACTED",
+          "category": "Computer Software Stores"
+        },
+        "cardLastFourDigits": "REDACTED",
+        "cardHolderFullName": "REDACTED"
+      },
+      "exchangeDetails": null,
+      "runningBalance": {
+        "value": 82.48,
+        "currency": "USD",
+        "zero": false
+      },
+      "referenceNumber": "CARD-REDACTED_NUMERIC",
+      "attachment": null,
+      "activityAssetAttributions": []
+    },
+    {
+      "type": "DEBIT",
+      "date": "2025-10-16T21:29:17.219146Z",
+      "amount": {
+        "value": -15.0,
+        "currency": "USD",
+        "zero": false
+      },
+      "totalFees": {
+        "value": 0.0,
+        "currency": "USD",
+        "zero": true
+      },
+      "details": {
+        "type": "CARD",
+        "description": "REDACTED",
+        "amount": {
+          "value": 15.0,
+          "currency": "USD",
+          "zero": false
+        },
+        "category": "Computer Software Stores",
+        "merchant": {
+          "name": "REDACTED",
+          "firstLine": null,
+          "postCode": null,
+          "city": "REDACTED",
+          "state": null,
+          "country": "REDACTED",
+          "category": "Computer Software Stores"
+        },
+        "cardLastFourDigits": "REDACTED",
+        "cardHolderFullName": "REDACTED"
+      },
+      "exchangeDetails": null,
+      "runningBalance": {
+        "value": 145.78,
+        "currency": "USD",
+        "zero": false
+      },
+      "referenceNumber": "CARD-REDACTED_NUMERIC",
+      "attachment": null,
+      "activityAssetAttributions": []
+    },
+    {
+      "type": "CREDIT",
+      "date": "2025-10-16T21:26:35.989939Z",
+      "amount": {
+        "value": 160.0,
+        "currency": "USD",
+        "zero": false
+      },
+      "totalFees": {
+        "value": 0.0,
+        "currency": "USD",
+        "zero": true
+      },
+      "details": {
+        "type": "MONEY_ADDED",
+        "description": "REDACTED"
+      },
+      "exchangeDetails": {
+        "toAmount": {
+          "value": 160.0,
+          "currency": "USD",
+          "zero": false
+        },
+        "fromAmount": {
+          "value": 246.78,
+          "currency": "AUD",
+          "zero": false
+        },
+        "rate": 0.64835
+      },
+      "runningBalance": {
+        "value": 160.78,
+        "currency": "USD",
+        "zero": false
+      },
+      "referenceNumber": "TRANSFER-REDACTED_NUMERIC",
+      "attachment": null,
+      "activityAssetAttributions": []
+    },
+    {
+      "type": "DEBIT",
+      "date": "2025-09-05T00:45:58.359111Z",
+      "amount": {
+        "value": -22.0,
+        "currency": "USD",
+        "zero": false
+      },
+      "totalFees": {
+        "value": 0.0,
+        "currency": "USD",
+        "zero": true
+      },
+      "details": {
+        "type": "CARD",
+        "description": "REDACTED",
+        "amount": {
+          "value": 22.0,
+          "currency": "USD",
+          "zero": false
+        },
+        "category": "Computer Software Stores",
+        "merchant": {
+          "name": "REDACTED",
+          "firstLine": null,
+          "postCode": null,
+          "city": "REDACTED",
+          "state": null,
+          "country": "REDACTED",
+          "category": "Computer Software Stores"
+        },
+        "cardLastFourDigits": "REDACTED",
+        "cardHolderFullName": "REDACTED"
+      },
+      "exchangeDetails": null,
+      "runningBalance": {
+        "value": 0.78,
+        "currency": "USD",
+        "zero": false
+      },
+      "referenceNumber": "CARD-REDACTED_NUMERIC",
+      "attachment": null,
+      "activityAssetAttributions": []
+    },
+    {
+      "type": "DEBIT",
+      "date": "2025-09-02T05:27:28.139771Z",
+      "amount": {
+        "value": -15.0,
+        "currency": "USD",
+        "zero": false
+      },
+      "totalFees": {
+        "value": 0.0,
+        "currency": "USD",
+        "zero": true
+      },
+      "details": {
+        "type": "CARD",
+        "description": "REDACTED",
+        "amount": {
+          "value": 15.0,
+          "currency": "USD",
+          "zero": false
+        },
+        "category": "Computer Software Stores",
+        "merchant": {
+          "name": "REDACTED",
+          "firstLine": null,
+          "postCode": null,
+          "city": "REDACTED",
+          "state": null,
+          "country": "REDACTED",
+          "category": "Computer Software Stores"
+        },
+        "cardLastFourDigits": "REDACTED",
+        "cardHolderFullName": "REDACTED"
+      },
+      "exchangeDetails": null,
+      "runningBalance": {
+        "value": 22.78,
+        "currency": "USD",
+        "zero": false
+      },
+      "referenceNumber": "CARD-REDACTED_NUMERIC",
+      "attachment": null,
+      "activityAssetAttributions": []
+    },
+    {
+      "type": "DEBIT",
+      "date": "2025-08-25T08:02:00.817822Z",
+      "amount": {
+        "value": -13.2,
+        "currency": "USD",
+        "zero": false
+      },
+      "totalFees": {
+        "value": 0.0,
+        "currency": "USD",
+        "zero": true
+      },
+      "details": {
+        "type": "CARD",
+        "description": "REDACTED",
+        "amount": {
+          "value": 13.2,
+          "currency": "USD",
+          "zero": false
+        },
+        "category": "Computer Programming, Data Proce",
+        "merchant": {
+          "name": "REDACTED",
+          "firstLine": null,
+          "postCode": null,
+          "city": "REDACTED",
+          "state": null,
+          "country": "REDACTED",
+          "category": "Computer Programming, Data Proce"
+        },
+        "cardLastFourDigits": "REDACTED",
+        "cardHolderFullName": "REDACTED"
+      },
+      "exchangeDetails": null,
+      "runningBalance": {
+        "value": 37.78,
+        "currency": "USD",
+        "zero": false
+      },
+      "referenceNumber": "CARD-REDACTED_NUMERIC",
+      "attachment": null,
+      "activityAssetAttributions": []
+    },
+    {
+      "type": "DEBIT",
+      "date": "2025-08-24T07:36:55.300526Z",
+      "amount": {
+        "value": -29.0,
+        "currency": "USD",
+        "zero": false
+      },
+      "totalFees": {
+        "value": 0.0,
+        "currency": "USD",
+        "zero": true
+      },
+      "details": {
+        "type": "CARD",
+        "description": "REDACTED",
+        "amount": {
+          "value": 29.0,
+          "currency": "USD",
+          "zero": false
+        },
+        "category": "Computer Software Stores",
+        "merchant": {
+          "name": "REDACTED",
+          "firstLine": null,
+          "postCode": null,
+          "city": "REDACTED",
+          "state": null,
+          "country": "REDACTED",
+          "category": "Computer Software Stores"
+        },
+        "cardLastFourDigits": "REDACTED",
+        "cardHolderFullName": "REDACTED"
+      },
+      "exchangeDetails": null,
+      "runningBalance": {
+        "value": 50.98,
+        "currency": "USD",
+        "zero": false
+      },
+      "referenceNumber": "CARD-REDACTED_NUMERIC",
+      "attachment": null,
+      "activityAssetAttributions": []
+    },
+    {
+      "type": "DEBIT",
+      "date": "2025-08-23T07:58:07.989441Z",
+      "amount": {
+        "value": -20.0,
+        "currency": "USD",
+        "zero": false
+      },
+      "totalFees": {
+        "value": 0.0,
+        "currency": "USD",
+        "zero": true
+      },
+      "details": {
+        "type": "CARD",
+        "description": "REDACTED",
+        "amount": {
+          "value": 20.0,
+          "currency": "USD",
+          "zero": false
+        },
+        "category": "Computer Software Stores",
+        "merchant": {
+          "name": "REDACTED",
+          "firstLine": null,
+          "postCode": null,
+          "city": "REDACTED",
+          "state": null,
+          "country": "REDACTED",
+          "category": "Computer Software Stores"
+        },
+        "cardLastFourDigits": "REDACTED",
+        "cardHolderFullName": "REDACTED"
+      },
+      "exchangeDetails": null,
+      "runningBalance": {
+        "value": 79.98,
+        "currency": "USD",
+        "zero": false
+      },
+      "referenceNumber": "CARD-REDACTED_NUMERIC",
+      "attachment": null,
+      "activityAssetAttributions": []
+    },
+    {
+      "type": "DEBIT",
+      "date": "2025-08-21T03:19:32.853417Z",
+      "amount": {
+        "value": -100.23,
+        "currency": "USD",
+        "zero": false
+      },
+      "totalFees": {
+        "value": 0.0,
+        "currency": "USD",
+        "zero": true
+      },
+      "details": {
+        "type": "CARD",
+        "description": "REDACTED",
+        "amount": {
+          "value": 100.23,
+          "currency": "USD",
+          "zero": false
+        },
+        "category": "Computer Software Stores",
+        "merchant": {
+          "name": "REDACTED",
+          "firstLine": null,
+          "postCode": null,
+          "city": "REDACTED",
+          "state": null,
+          "country": "REDACTED",
+          "category": "Computer Software Stores"
+        },
+        "cardLastFourDigits": "REDACTED",
+        "cardHolderFullName": "REDACTED"
+      },
+      "exchangeDetails": null,
+      "runningBalance": {
+        "value": 99.98,
+        "currency": "USD",
+        "zero": false
+      },
+      "referenceNumber": "CARD-REDACTED_NUMERIC",
+      "attachment": null,
+      "activityAssetAttributions": []
+    },
+    {
+      "type": "CREDIT",
+      "date": "2025-08-21T03:17:41.876168Z",
+      "amount": {
+        "value": 200.0,
+        "currency": "USD",
+        "zero": false
+      },
+      "totalFees": {
+        "value": 0.0,
+        "currency": "USD",
+        "zero": true
+      },
+      "details": {
+        "type": "MONEY_ADDED",
+        "description": "REDACTED"
+      },
+      "exchangeDetails": {
+        "toAmount": {
+          "value": 200.0,
+          "currency": "USD",
+          "zero": false
+        },
+        "fromAmount": {
+          "value": 311.38,
+          "currency": "AUD",
+          "zero": false
+        },
+        "rate": 0.6423
+      },
+      "runningBalance": {
+        "value": 200.21,
+        "currency": "USD",
+        "zero": false
+      },
+      "referenceNumber": "TRANSFER-REDACTED_NUMERIC",
+      "attachment": null,
+      "activityAssetAttributions": []
+    },
+    {
+      "type": "DEBIT",
+      "date": "2025-08-11T00:10:44.226715Z",
+      "amount": {
+        "value": -22.0,
+        "currency": "USD",
+        "zero": false
+      },
+      "totalFees": {
+        "value": 0.0,
+        "currency": "USD",
+        "zero": true
+      },
+      "details": {
+        "type": "CARD",
+        "description": "REDACTED",
+        "amount": {
+          "value": 22.0,
+          "currency": "USD",
+          "zero": false
+        },
+        "category": "D-Goods:Media,Books,Movies,Music",
+        "merchant": {
+          "name": "REDACTED",
+          "firstLine": null,
+          "postCode": null,
+          "city": "REDACTED",
+          "state": null,
+          "country": "REDACTED",
+          "category": "D-Goods:Media,Books,Movies,Music"
+        },
+        "cardLastFourDigits": "REDACTED",
+        "cardHolderFullName": "REDACTED"
+      },
+      "exchangeDetails": null,
+      "runningBalance": {
+        "value": 0.21,
+        "currency": "USD",
+        "zero": false
+      },
+      "referenceNumber": "CARD-REDACTED_NUMERIC",
+      "attachment": null,
+      "activityAssetAttributions": []
+    },
+    {
+      "type": "DEBIT",
+      "date": "2025-08-09T06:50:36.79598Z",
+      "amount": {
+        "value": -52.75,
+        "currency": "USD",
+        "zero": false
+      },
+      "totalFees": {
+        "value": 0.0,
+        "currency": "USD",
+        "zero": true
+      },
+      "details": {
+        "type": "CARD",
+        "description": "REDACTED",
+        "amount": {
+          "value": 52.75,
+          "currency": "USD",
+          "zero": false
+        },
+        "category": "Computer Software Stores",
+        "merchant": {
+          "name": "REDACTED",
+          "firstLine": null,
+          "postCode": null,
+          "city": "REDACTED",
+          "state": null,
+          "country": "REDACTED",
+          "category": "Computer Software Stores"
+        },
+        "cardLastFourDigits": "REDACTED",
+        "cardHolderFullName": "REDACTED"
+      },
+      "exchangeDetails": null,
+      "runningBalance": {
+        "value": 22.21,
+        "currency": "USD",
+        "zero": false
+      },
+      "referenceNumber": "CARD-REDACTED_NUMERIC",
+      "attachment": null,
+      "activityAssetAttributions": []
+    },
+    {
+      "type": "DEBIT",
+      "date": "2025-08-08T22:11:20.354192Z",
+      "amount": {
+        "value": -15.0,
+        "currency": "USD",
+        "zero": false
+      },
+      "totalFees": {
+        "value": 0.0,
+        "currency": "USD",
+        "zero": true
+      },
+      "details": {
+        "type": "CARD",
+        "description": "REDACTED",
+        "amount": {
+          "value": 15.0,
+          "currency": "USD",
+          "zero": false
+        },
+        "category": "Computer Software Stores",
+        "merchant": {
+          "name": "REDACTED",
+          "firstLine": null,
+          "postCode": null,
+          "city": "REDACTED",
+          "state": null,
+          "country": "REDACTED",
+          "category": "Computer Software Stores"
+        },
+        "cardLastFourDigits": "REDACTED",
+        "cardHolderFullName": "REDACTED"
+      },
+      "exchangeDetails": null,
+      "runningBalance": {
+        "value": 74.96,
+        "currency": "USD",
+        "zero": false
+      },
+      "referenceNumber": "CARD-REDACTED_NUMERIC",
+      "attachment": null,
+      "activityAssetAttributions": []
+    },
+    {
+      "type": "DEBIT",
+      "date": "2025-08-08T22:06:48.192177Z",
+      "amount": {
+        "value": -22.0,
+        "currency": "USD",
+        "zero": false
+      },
+      "totalFees": {
+        "value": 0.0,
+        "currency": "USD",
+        "zero": true
+      },
+      "details": {
+        "type": "CARD",
+        "description": "REDACTED",
+        "amount": {
+          "value": 22.0,
+          "currency": "USD",
+          "zero": false
+        },
+        "category": "Computer Software Stores",
+        "merchant": {
+          "name": "REDACTED",
+          "firstLine": null,
+          "postCode": null,
+          "city": "REDACTED",
+          "state": null,
+          "country": "REDACTED",
+          "category": "Computer Software Stores"
+        },
+        "cardLastFourDigits": "REDACTED",
+        "cardHolderFullName": "REDACTED"
+      },
+      "exchangeDetails": null,
+      "runningBalance": {
+        "value": 89.96,
+        "currency": "USD",
+        "zero": false
+      },
+      "referenceNumber": "CARD-REDACTED_NUMERIC",
+      "attachment": null,
+      "activityAssetAttributions": []
+    },
+    {
+      "type": "CREDIT",
+      "date": "2025-08-08T21:57:17.553656Z",
+      "amount": {
+        "value": 99.55,
+        "currency": "USD",
+        "zero": false
+      },
+      "totalFees": {
+        "value": 0.0,
+        "currency": "USD",
+        "zero": true
+      },
+      "details": {
+        "type": "MONEY_ADDED",
+        "description": "REDACTED"
+      },
+      "exchangeDetails": {
+        "toAmount": {
+          "value": 99.55,
+          "currency": "USD",
+          "zero": false
+        },
+        "fromAmount": {
+          "value": 152.66,
+          "currency": "AUD",
+          "zero": false
+        },
+        "rate": 0.6521
+      },
+      "runningBalance": {
+        "value": 111.96,
+        "currency": "USD",
+        "zero": false
+      },
+      "referenceNumber": "TRANSFER-REDACTED_NUMERIC",
+      "attachment": null,
+      "activityAssetAttributions": []
+    },
+    {
+      "type": "DEBIT",
+      "date": "2025-07-25T08:00:02.40899Z",
+      "amount": {
+        "value": -13.2,
+        "currency": "USD",
+        "zero": false
+      },
+      "totalFees": {
+        "value": 0.0,
+        "currency": "USD",
+        "zero": true
+      },
+      "details": {
+        "type": "CARD",
+        "description": "REDACTED",
+        "amount": {
+          "value": 13.2,
+          "currency": "USD",
+          "zero": false
+        },
+        "category": "Computer Programming, Data Proce",
+        "merchant": {
+          "name": "REDACTED",
+          "firstLine": null,
+          "postCode": null,
+          "city": "REDACTED",
+          "state": null,
+          "country": "REDACTED",
+          "category": "Computer Programming, Data Proce"
+        },
+        "cardLastFourDigits": "REDACTED",
+        "cardHolderFullName": "REDACTED"
+      },
+      "exchangeDetails": null,
+      "runningBalance": {
+        "value": 12.41,
+        "currency": "USD",
+        "zero": false
+      },
+      "referenceNumber": "CARD-REDACTED_NUMERIC",
+      "attachment": null,
+      "activityAssetAttributions": []
+    },
+    {
+      "type": "DEBIT",
+      "date": "2025-07-24T07:37:39.315026Z",
+      "amount": {
+        "value": -29.0,
+        "currency": "USD",
+        "zero": false
+      },
+      "totalFees": {
+        "value": 0.0,
+        "currency": "USD",
+        "zero": true
+      },
+      "details": {
+        "type": "CARD",
+        "description": "REDACTED",
+        "amount": {
+          "value": 29.0,
+          "currency": "USD",
+          "zero": false
+        },
+        "category": "Computer Software Stores",
+        "merchant": {
+          "name": "REDACTED",
+          "firstLine": null,
+          "postCode": null,
+          "city": "REDACTED",
+          "state": null,
+          "country": "REDACTED",
+          "category": "Computer Software Stores"
+        },
+        "cardLastFourDigits": "REDACTED",
+        "cardHolderFullName": "REDACTED"
+      },
+      "exchangeDetails": null,
+      "runningBalance": {
+        "value": 25.61,
+        "currency": "USD",
+        "zero": false
+      },
+      "referenceNumber": "CARD-REDACTED_NUMERIC",
+      "attachment": null,
+      "activityAssetAttributions": []
+    },
+    {
+      "type": "DEBIT",
+      "date": "2025-07-18T08:57:00.452613Z",
+      "amount": {
+        "value": -20.0,
+        "currency": "USD",
+        "zero": false
+      },
+      "totalFees": {
+        "value": 0.0,
+        "currency": "USD",
+        "zero": true
+      },
+      "details": {
+        "type": "CARD",
+        "description": "REDACTED",
+        "amount": {
+          "value": 20.0,
+          "currency": "USD",
+          "zero": false
+        },
+        "category": "Computer Software Stores",
+        "merchant": {
+          "name": "REDACTED",
+          "firstLine": null,
+          "postCode": null,
+          "city": "REDACTED",
+          "state": null,
+          "country": "REDACTED",
+          "category": "Computer Software Stores"
+        },
+        "cardLastFourDigits": "REDACTED",
+        "cardHolderFullName": "REDACTED"
+      },
+      "exchangeDetails": null,
+      "runningBalance": {
+        "value": 54.61,
+        "currency": "USD",
+        "zero": false
+      },
+      "referenceNumber": "CARD-REDACTED_NUMERIC",
+      "attachment": null,
+      "activityAssetAttributions": []
+    },
+    {
+      "type": "DEBIT",
+      "date": "2025-07-17T00:14:15.96076Z",
+      "amount": {
+        "value": -47.4,
+        "currency": "USD",
+        "zero": false
+      },
+      "totalFees": {
+        "value": 0.0,
+        "currency": "USD",
+        "zero": true
+      },
+      "details": {
+        "type": "CARD",
+        "description": "REDACTED",
+        "amount": {
+          "value": 47.4,
+          "currency": "USD",
+          "zero": false
+        },
+        "category": "Computer Software Stores",
+        "merchant": {
+          "name": "REDACTED",
+          "firstLine": null,
+          "postCode": null,
+          "city": "REDACTED",
+          "state": null,
+          "country": "REDACTED",
+          "category": "Computer Software Stores"
+        },
+        "cardLastFourDigits": "REDACTED",
+        "cardHolderFullName": "REDACTED"
+      },
+      "exchangeDetails": null,
+      "runningBalance": {
+        "value": 74.61,
+        "currency": "USD",
+        "zero": false
+      },
+      "referenceNumber": "CARD-REDACTED_NUMERIC",
+      "attachment": null,
+      "activityAssetAttributions": []
+    },
+    {
+      "type": "DEBIT",
+      "date": "2025-07-16T21:18:57.247201Z",
+      "amount": {
+        "value": -80.18,
+        "currency": "USD",
+        "zero": false
+      },
+      "totalFees": {
+        "value": 0.0,
+        "currency": "USD",
+        "zero": true
+      },
+      "details": {
+        "type": "CARD",
+        "description": "REDACTED",
+        "amount": {
+          "value": 80.18,
+          "currency": "USD",
+          "zero": false
+        },
+        "category": "Computer Software Stores",
+        "merchant": {
+          "name": "REDACTED",
+          "firstLine": null,
+          "postCode": null,
+          "city": "REDACTED",
+          "state": null,
+          "country": "REDACTED",
+          "category": "Computer Software Stores"
+        },
+        "cardLastFourDigits": "REDACTED",
+        "cardHolderFullName": "REDACTED"
+      },
+      "exchangeDetails": null,
+      "runningBalance": {
+        "value": 122.01,
+        "currency": "USD",
+        "zero": false
+      },
+      "referenceNumber": "CARD-REDACTED_NUMERIC",
+      "attachment": null,
+      "activityAssetAttributions": []
+    },
+    {
+      "type": "CREDIT",
+      "date": "2025-07-16T21:16:59.136937Z",
+      "amount": {
+        "value": 200.0,
+        "currency": "USD",
+        "zero": false
+      },
+      "totalFees": {
+        "value": 0.0,
+        "currency": "USD",
+        "zero": true
+      },
+      "details": {
+        "type": "MONEY_ADDED",
+        "description": "REDACTED"
+      },
+      "exchangeDetails": {
+        "toAmount": {
+          "value": 200.0,
+          "currency": "USD",
+          "zero": false
+        },
+        "fromAmount": {
+          "value": 306.3,
+          "currency": "AUD",
+          "zero": false
+        },
+        "rate": 0.65295
+      },
+      "runningBalance": {
+        "value": 202.19,
+        "currency": "USD",
+        "zero": false
+      },
+      "referenceNumber": "TRANSFER-REDACTED_NUMERIC",
+      "attachment": null,
+      "activityAssetAttributions": []
+    },
+    {
+      "type": "DEBIT",
+      "date": "2025-07-12T02:48:13.934484Z",
+      "amount": {
+        "value": -20.0,
+        "currency": "USD",
+        "zero": false
+      },
+      "totalFees": {
+        "value": 0.0,
+        "currency": "USD",
+        "zero": true
+      },
+      "details": {
+        "type": "CARD",
+        "description": "REDACTED",
+        "amount": {
+          "value": 20.0,
+          "currency": "USD",
+          "zero": false
+        },
+        "category": "D-Goods:Media,Books,Movies,Music",
+        "merchant": {
+          "name": "REDACTED",
+          "firstLine": null,
+          "postCode": null,
+          "city": "REDACTED",
+          "state": null,
+          "country": "REDACTED",
+          "category": "D-Goods:Media,Books,Movies,Music"
+        },
+        "cardLastFourDigits": "REDACTED",
+        "cardHolderFullName": "REDACTED"
+      },
+      "exchangeDetails": null,
+      "runningBalance": {
+        "value": 2.19,
+        "currency": "USD",
+        "zero": false
+      },
+      "referenceNumber": "CARD-REDACTED_NUMERIC",
+      "attachment": null,
+      "activityAssetAttributions": []
+    },
+    {
+      "type": "CREDIT",
+      "date": "2025-07-12T02:47:50.665073Z",
+      "amount": {
+        "value": 20.0,
+        "currency": "USD",
+        "zero": false
+      },
+      "totalFees": {
+        "value": 0.0,
+        "currency": "USD",
+        "zero": true
+      },
+      "details": {
+        "type": "MONEY_ADDED",
+        "description": "REDACTED"
+      },
+      "exchangeDetails": {
+        "toAmount": {
+          "value": 20.0,
+          "currency": "USD",
+          "zero": false
+        },
+        "fromAmount": {
+          "value": 30.41,
+          "currency": "AUD",
+          "zero": false
+        },
+        "rate": 0.65765
+      },
+      "runningBalance": {
+        "value": 22.19,
+        "currency": "USD",
+        "zero": false
+      },
+      "referenceNumber": "TRANSFER-REDACTED_NUMERIC",
+      "attachment": null,
+      "activityAssetAttributions": []
+    },
+    {
+      "type": "DEBIT",
+      "date": "2025-07-05T00:45:35.004207Z",
+      "amount": {
+        "value": -22.0,
+        "currency": "USD",
+        "zero": false
+      },
+      "totalFees": {
+        "value": 0.0,
+        "currency": "USD",
+        "zero": true
+      },
+      "details": {
+        "type": "CARD",
+        "description": "REDACTED",
+        "amount": {
+          "value": 22.0,
+          "currency": "USD",
+          "zero": false
+        },
+        "category": "Computer Software Stores",
+        "merchant": {
+          "name": "REDACTED",
+          "firstLine": null,
+          "postCode": null,
+          "city": "REDACTED",
+          "state": null,
+          "country": "REDACTED",
+          "category": "Computer Software Stores"
+        },
+        "cardLastFourDigits": "REDACTED",
+        "cardHolderFullName": "REDACTED"
+      },
+      "exchangeDetails": null,
+      "runningBalance": {
+        "value": 2.19,
+        "currency": "USD",
+        "zero": false
+      },
+      "referenceNumber": "CARD-REDACTED_NUMERIC",
+      "attachment": null,
+      "activityAssetAttributions": []
+    },
+    {
+      "type": "DEBIT",
+      "date": "2025-07-02T05:26:55.68953Z",
+      "amount": {
+        "value": -15.0,
+        "currency": "USD",
+        "zero": false
+      },
+      "totalFees": {
+        "value": 0.0,
+        "currency": "USD",
+        "zero": true
+      },
+      "details": {
+        "type": "CARD",
+        "description": "REDACTED",
+        "amount": {
+          "value": 15.0,
+          "currency": "USD",
+          "zero": false
+        },
+        "category": "Computer Software Stores",
+        "merchant": {
+          "name": "REDACTED",
+          "firstLine": null,
+          "postCode": null,
+          "city": "REDACTED",
+          "state": null,
+          "country": "REDACTED",
+          "category": "Computer Software Stores"
+        },
+        "cardLastFourDigits": "REDACTED",
+        "cardHolderFullName": "REDACTED"
+      },
+      "exchangeDetails": null,
+      "runningBalance": {
+        "value": 24.19,
+        "currency": "USD",
+        "zero": false
+      },
+      "referenceNumber": "CARD-REDACTED_NUMERIC",
+      "attachment": null,
+      "activityAssetAttributions": []
+    },
+    {
+      "type": "DEBIT",
+      "date": "2025-06-25T08:02:09.147526Z",
+      "amount": {
+        "value": -13.2,
+        "currency": "USD",
+        "zero": false
+      },
+      "totalFees": {
+        "value": 0.0,
+        "currency": "USD",
+        "zero": true
+      },
+      "details": {
+        "type": "CARD",
+        "description": "REDACTED",
+        "amount": {
+          "value": 13.2,
+          "currency": "USD",
+          "zero": false
+        },
+        "category": "Computer Programming, Data Proce",
+        "merchant": {
+          "name": "REDACTED",
+          "firstLine": null,
+          "postCode": null,
+          "city": "REDACTED",
+          "state": null,
+          "country": "REDACTED",
+          "category": "Computer Programming, Data Proce"
+        },
+        "cardLastFourDigits": "REDACTED",
+        "cardHolderFullName": "REDACTED"
+      },
+      "exchangeDetails": null,
+      "runningBalance": {
+        "value": 39.19,
+        "currency": "USD",
+        "zero": false
+      },
+      "referenceNumber": "CARD-REDACTED_NUMERIC",
+      "attachment": null,
+      "activityAssetAttributions": []
+    },
+    {
+      "type": "DEBIT",
+      "date": "2025-06-24T07:36:29.634905Z",
+      "amount": {
+        "value": -29.0,
+        "currency": "USD",
+        "zero": false
+      },
+      "totalFees": {
+        "value": 0.0,
+        "currency": "USD",
+        "zero": true
+      },
+      "details": {
+        "type": "CARD",
+        "description": "REDACTED",
+        "amount": {
+          "value": 29.0,
+          "currency": "USD",
+          "zero": false
+        },
+        "category": "Computer Software Stores",
+        "merchant": {
+          "name": "REDACTED",
+          "firstLine": null,
+          "postCode": null,
+          "city": "REDACTED",
+          "state": null,
+          "country": "REDACTED",
+          "category": "Computer Software Stores"
+        },
+        "cardLastFourDigits": "REDACTED",
+        "cardHolderFullName": "REDACTED"
+      },
+      "exchangeDetails": null,
+      "runningBalance": {
+        "value": 52.39,
+        "currency": "USD",
+        "zero": false
+      },
+      "referenceNumber": "CARD-REDACTED_NUMERIC",
+      "attachment": null,
+      "activityAssetAttributions": []
+    },
+    {
+      "type": "DEBIT",
+      "date": "2025-06-15T10:57:27.67467Z",
+      "amount": {
+        "value": -20.0,
+        "currency": "USD",
+        "zero": false
+      },
+      "totalFees": {
+        "value": 0.0,
+        "currency": "USD",
+        "zero": true
+      },
+      "details": {
+        "type": "CARD",
+        "description": "REDACTED",
+        "amount": {
+          "value": 20.0,
+          "currency": "USD",
+          "zero": false
+        },
+        "category": "Computer Software Stores",
+        "merchant": {
+          "name": "REDACTED",
+          "firstLine": null,
+          "postCode": null,
+          "city": "REDACTED",
+          "state": null,
+          "country": "REDACTED",
+          "category": "Computer Software Stores"
+        },
+        "cardLastFourDigits": "REDACTED",
+        "cardHolderFullName": "REDACTED"
+      },
+      "exchangeDetails": null,
+      "runningBalance": {
+        "value": 81.39,
+        "currency": "USD",
+        "zero": false
+      },
+      "referenceNumber": "CARD-REDACTED_NUMERIC",
+      "attachment": null,
+      "activityAssetAttributions": []
+    },
+    {
+      "type": "DEBIT",
+      "date": "2025-06-13T22:29:13.138111Z",
+      "amount": {
+        "value": -100.37,
+        "currency": "USD",
+        "zero": false
+      },
+      "totalFees": {
+        "value": 0.0,
+        "currency": "USD",
+        "zero": true
+      },
+      "details": {
+        "type": "CARD",
+        "description": "REDACTED",
+        "amount": {
+          "value": 100.37,
+          "currency": "USD",
+          "zero": false
+        },
+        "category": "Computer Software Stores",
+        "merchant": {
+          "name": "REDACTED",
+          "firstLine": null,
+          "postCode": null,
+          "city": "REDACTED",
+          "state": null,
+          "country": "REDACTED",
+          "category": "Computer Software Stores"
+        },
+        "cardLastFourDigits": "REDACTED",
+        "cardHolderFullName": "REDACTED"
+      },
+      "exchangeDetails": null,
+      "runningBalance": {
+        "value": 101.39,
+        "currency": "USD",
+        "zero": false
+      },
+      "referenceNumber": "CARD-REDACTED_NUMERIC",
+      "attachment": null,
+      "activityAssetAttributions": []
+    },
+    {
+      "type": "CREDIT",
+      "date": "2025-06-13T22:06:36.32604Z",
+      "amount": {
+        "value": 200.0,
+        "currency": "USD",
+        "zero": false
+      },
+      "totalFees": {
+        "value": 0.0,
+        "currency": "USD",
+        "zero": true
+      },
+      "details": {
+        "type": "MONEY_ADDED",
+        "description": "REDACTED"
+      },
+      "exchangeDetails": {
+        "toAmount": {
+          "value": 200.0,
+          "currency": "USD",
+          "zero": false
+        },
+        "fromAmount": {
+          "value": 308.26,
+          "currency": "AUD",
+          "zero": false
+        },
+        "rate": 0.6488
+      },
+      "runningBalance": {
+        "value": 201.76,
+        "currency": "USD",
+        "zero": false
+      },
+      "referenceNumber": "TRANSFER-REDACTED_NUMERIC",
+      "attachment": null,
+      "activityAssetAttributions": []
+    },
+    {
+      "type": "DEBIT",
+      "date": "2025-06-05T00:44:43.362062Z",
+      "amount": {
+        "value": -22.0,
+        "currency": "USD",
+        "zero": false
+      },
+      "totalFees": {
+        "value": 0.0,
+        "currency": "USD",
+        "zero": true
+      },
+      "details": {
+        "type": "CARD",
+        "description": "REDACTED",
+        "amount": {
+          "value": 22.0,
+          "currency": "USD",
+          "zero": false
+        },
+        "category": "Computer Software Stores",
+        "merchant": {
+          "name": "REDACTED",
+          "firstLine": null,
+          "postCode": null,
+          "city": "REDACTED",
+          "state": null,
+          "country": "REDACTED",
+          "category": "Computer Software Stores"
+        },
+        "cardLastFourDigits": "REDACTED",
+        "cardHolderFullName": "REDACTED"
+      },
+      "exchangeDetails": null,
+      "runningBalance": {
+        "value": 1.76,
+        "currency": "USD",
+        "zero": false
+      },
+      "referenceNumber": "CARD-REDACTED_NUMERIC",
+      "attachment": null,
+      "activityAssetAttributions": []
+    },
+    {
+      "type": "DEBIT",
+      "date": "2025-06-02T05:27:53.272189Z",
+      "amount": {
+        "value": -15.0,
+        "currency": "USD",
+        "zero": false
+      },
+      "totalFees": {
+        "value": 0.0,
+        "currency": "USD",
+        "zero": true
+      },
+      "details": {
+        "type": "CARD",
+        "description": "REDACTED",
+        "amount": {
+          "value": 15.0,
+          "currency": "USD",
+          "zero": false
+        },
+        "category": "Computer Software Stores",
+        "merchant": {
+          "name": "REDACTED",
+          "firstLine": null,
+          "postCode": null,
+          "city": "REDACTED",
+          "state": null,
+          "country": "REDACTED",
+          "category": "Computer Software Stores"
+        },
+        "cardLastFourDigits": "REDACTED",
+        "cardHolderFullName": "REDACTED"
+      },
+      "exchangeDetails": null,
+      "runningBalance": {
+        "value": 23.76,
+        "currency": "USD",
+        "zero": false
+      },
+      "referenceNumber": "CARD-REDACTED_NUMERIC",
+      "attachment": null,
+      "activityAssetAttributions": []
+    },
+    {
+      "type": "DEBIT",
+      "date": "2025-05-25T08:00:13.25166Z",
+      "amount": {
+        "value": -13.2,
+        "currency": "USD",
+        "zero": false
+      },
+      "totalFees": {
+        "value": 0.0,
+        "currency": "USD",
+        "zero": true
+      },
+      "details": {
+        "type": "CARD",
+        "description": "REDACTED",
+        "amount": {
+          "value": 13.2,
+          "currency": "USD",
+          "zero": false
+        },
+        "category": "Computer Programming, Data Proce",
+        "merchant": {
+          "name": "REDACTED",
+          "firstLine": null,
+          "postCode": null,
+          "city": "REDACTED",
+          "state": null,
+          "country": "REDACTED",
+          "category": "Computer Programming, Data Proce"
+        },
+        "cardLastFourDigits": "REDACTED",
+        "cardHolderFullName": "REDACTED"
+      },
+      "exchangeDetails": null,
+      "runningBalance": {
+        "value": 38.76,
+        "currency": "USD",
+        "zero": false
+      },
+      "referenceNumber": "CARD-REDACTED_NUMERIC",
+      "attachment": null,
+      "activityAssetAttributions": []
+    },
+    {
+      "type": "DEBIT",
+      "date": "2025-05-24T06:36:22.963074Z",
+      "amount": {
+        "value": -29.0,
+        "currency": "USD",
+        "zero": false
+      },
+      "totalFees": {
+        "value": 0.0,
+        "currency": "USD",
+        "zero": true
+      },
+      "details": {
+        "type": "CARD",
+        "description": "REDACTED",
+        "amount": {
+          "value": 29.0,
+          "currency": "USD",
+          "zero": false
+        },
+        "category": "Computer Software Stores",
+        "merchant": {
+          "name": "REDACTED",
+          "firstLine": null,
+          "postCode": null,
+          "city": "REDACTED",
+          "state": null,
+          "country": "REDACTED",
+          "category": "Computer Software Stores"
+        },
+        "cardLastFourDigits": "REDACTED",
+        "cardHolderFullName": "REDACTED"
+      },
+      "exchangeDetails": null,
+      "runningBalance": {
+        "value": 51.96,
+        "currency": "USD",
+        "zero": false
+      },
+      "referenceNumber": "CARD-REDACTED_NUMERIC",
+      "attachment": null,
+      "activityAssetAttributions": []
+    },
+    {
+      "type": "DEBIT",
+      "date": "2025-05-21T03:30:45.725501Z",
+      "amount": {
+        "value": -100.0,
+        "currency": "USD",
+        "zero": false
+      },
+      "totalFees": {
+        "value": 0.0,
+        "currency": "USD",
+        "zero": true
+      },
+      "details": {
+        "type": "CARD",
+        "description": "REDACTED",
+        "amount": {
+          "value": 100.0,
+          "currency": "USD",
+          "zero": false
+        },
+        "category": "Computer Software Stores",
+        "merchant": {
+          "name": "REDACTED",
+          "firstLine": null,
+          "postCode": null,
+          "city": "REDACTED",
+          "state": null,
+          "country": "REDACTED",
+          "category": "Computer Software Stores"
+        },
+        "cardLastFourDigits": "REDACTED",
+        "cardHolderFullName": "REDACTED"
+      },
+      "exchangeDetails": null,
+      "runningBalance": {
+        "value": 80.96,
+        "currency": "USD",
+        "zero": false
+      },
+      "referenceNumber": "CARD-REDACTED_NUMERIC",
+      "attachment": null,
+      "activityAssetAttributions": []
+    },
+    {
+      "type": "DEBIT",
+      "date": "2025-05-15T09:56:11.286099Z",
+      "amount": {
+        "value": -20.0,
+        "currency": "USD",
+        "zero": false
+      },
+      "totalFees": {
+        "value": 0.0,
+        "currency": "USD",
+        "zero": true
+      },
+      "details": {
+        "type": "CARD",
+        "description": "REDACTED",
+        "amount": {
+          "value": 20.0,
+          "currency": "USD",
+          "zero": false
+        },
+        "category": "Computer Software Stores",
+        "merchant": {
+          "name": "REDACTED",
+          "firstLine": null,
+          "postCode": null,
+          "city": "REDACTED",
+          "state": null,
+          "country": "REDACTED",
+          "category": "Computer Software Stores"
+        },
+        "cardLastFourDigits": "REDACTED",
+        "cardHolderFullName": "REDACTED"
+      },
+      "exchangeDetails": null,
+      "runningBalance": {
+        "value": 180.96,
+        "currency": "USD",
+        "zero": false
+      },
+      "referenceNumber": "CARD-REDACTED_NUMERIC",
+      "attachment": null,
+      "activityAssetAttributions": []
+    },
+    {
+      "type": "CREDIT",
+      "date": "2025-05-15T09:54:59.20274Z",
+      "amount": {
+        "value": 117.0,
+        "currency": "USD",
+        "zero": false
+      },
+      "totalFees": {
+        "value": 0.0,
+        "currency": "USD",
+        "zero": true
+      },
+      "details": {
+        "type": "MONEY_ADDED",
+        "description": "REDACTED"
+      },
+      "exchangeDetails": {
+        "toAmount": {
+          "value": 117.0,
+          "currency": "USD",
+          "zero": false
+        },
+        "fromAmount": {
+          "value": 182.31,
+          "currency": "AUD",
+          "zero": false
+        },
+        "rate": 0.64175
+      },
+      "runningBalance": {
+        "value": 200.96,
+        "currency": "USD",
+        "zero": false
+      },
+      "referenceNumber": "TRANSFER-REDACTED_NUMERIC",
+      "attachment": null,
+      "activityAssetAttributions": []
+    },
+    {
+      "type": "DEBIT",
+      "date": "2025-05-06T16:56:21.814471Z",
+      "amount": {
+        "value": -15.0,
+        "currency": "USD",
+        "zero": false
+      },
+      "totalFees": {
+        "value": 0.0,
+        "currency": "USD",
+        "zero": true
+      },
+      "details": {
+        "type": "CARD",
+        "description": "REDACTED",
+        "amount": {
+          "value": 15.0,
+          "currency": "USD",
+          "zero": false
+        },
+        "category": "Computer Software Stores",
+        "merchant": {
+          "name": "REDACTED",
+          "firstLine": null,
+          "postCode": null,
+          "city": "REDACTED",
+          "state": null,
+          "country": "REDACTED",
+          "category": "Computer Software Stores"
+        },
+        "cardLastFourDigits": "REDACTED",
+        "cardHolderFullName": "REDACTED"
+      },
+      "exchangeDetails": null,
+      "runningBalance": {
+        "value": 83.96,
+        "currency": "USD",
+        "zero": false
+      },
+      "referenceNumber": "CARD-REDACTED_NUMERIC",
+      "attachment": null,
+      "activityAssetAttributions": []
+    },
+    {
+      "type": "DEBIT",
+      "date": "2025-05-06T11:10:26.943589Z",
+      "amount": {
+        "value": -13.2,
+        "currency": "USD",
+        "zero": false
+      },
+      "totalFees": {
+        "value": 0.0,
+        "currency": "USD",
+        "zero": true
+      },
+      "details": {
+        "type": "CARD",
+        "description": "REDACTED",
+        "amount": {
+          "value": 13.2,
+          "currency": "USD",
+          "zero": false
+        },
+        "category": "Computer Programming, Data Proce",
+        "merchant": {
+          "name": "REDACTED",
+          "firstLine": null,
+          "postCode": null,
+          "city": "REDACTED",
+          "state": null,
+          "country": "REDACTED",
+          "category": "Computer Programming, Data Proce"
+        },
+        "cardLastFourDigits": "REDACTED",
+        "cardHolderFullName": "REDACTED"
+      },
+      "exchangeDetails": null,
+      "runningBalance": {
+        "value": 98.96,
+        "currency": "USD",
+        "zero": false
+      },
+      "referenceNumber": "CARD-REDACTED_NUMERIC",
+      "attachment": null,
+      "activityAssetAttributions": []
+    },
+    {
+      "type": "DEBIT",
+      "date": "2025-05-05T23:10:46.161529Z",
+      "amount": {
+        "value": -71.95,
+        "currency": "USD",
+        "zero": false
+      },
+      "totalFees": {
+        "value": 0.0,
+        "currency": "USD",
+        "zero": true
+      },
+      "details": {
+        "type": "CARD",
+        "description": "REDACTED",
+        "amount": {
+          "value": 71.95,
+          "currency": "USD",
+          "zero": false
+        },
+        "category": "Computer Software Stores",
+        "merchant": {
+          "name": "REDACTED",
+          "firstLine": null,
+          "postCode": null,
+          "city": "REDACTED",
+          "state": null,
+          "country": "REDACTED",
+          "category": "Computer Software Stores"
+        },
+        "cardLastFourDigits": "REDACTED",
+        "cardHolderFullName": "REDACTED"
+      },
+      "exchangeDetails": null,
+      "runningBalance": {
+        "value": 112.16,
+        "currency": "USD",
+        "zero": false
+      },
+      "referenceNumber": "CARD-REDACTED_NUMERIC",
+      "attachment": null,
+      "activityAssetAttributions": []
+    },
+    {
+      "type": "DEBIT",
+      "date": "2025-05-05T23:09:16.157013Z",
+      "amount": {
+        "value": -22.0,
+        "currency": "USD",
+        "zero": false
+      },
+      "totalFees": {
+        "value": 0.0,
+        "currency": "USD",
+        "zero": true
+      },
+      "details": {
+        "type": "CARD",
+        "description": "REDACTED",
+        "amount": {
+          "value": 22.0,
+          "currency": "USD",
+          "zero": false
+        },
+        "category": "Computer Software Stores",
+        "merchant": {
+          "name": "REDACTED",
+          "firstLine": null,
+          "postCode": null,
+          "city": "REDACTED",
+          "state": null,
+          "country": "REDACTED",
+          "category": "Computer Software Stores"
+        },
+        "cardLastFourDigits": "REDACTED",
+        "cardHolderFullName": "REDACTED"
+      },
+      "exchangeDetails": null,
+      "runningBalance": {
+        "value": 184.11,
+        "currency": "USD",
+        "zero": false
+      },
+      "referenceNumber": "CARD-REDACTED_NUMERIC",
+      "attachment": null,
+      "activityAssetAttributions": []
+    },
+    {
+      "type": "CREDIT",
+      "date": "2025-05-05T23:07:59.966839Z",
+      "amount": {
+        "value": 200.0,
+        "currency": "USD",
+        "zero": false
+      },
+      "totalFees": {
+        "value": 0.0,
+        "currency": "USD",
+        "zero": true
+      },
+      "details": {
+        "type": "MONEY_ADDED",
+        "description": "REDACTED"
+      },
+      "exchangeDetails": {
+        "toAmount": {
+          "value": 200.0,
+          "currency": "USD",
+          "zero": false
+        },
+        "fromAmount": {
+          "value": 309.38,
+          "currency": "AUD",
+          "zero": false
+        },
+        "rate": 0.64645
+      },
+      "runningBalance": {
+        "value": 206.11,
+        "currency": "USD",
+        "zero": false
+      },
+      "referenceNumber": "TRANSFER-REDACTED_NUMERIC",
+      "attachment": null,
+      "activityAssetAttributions": []
+    },
+    {
+      "type": "DEBIT",
+      "date": "2025-04-05T00:44:45.816085Z",
+      "amount": {
+        "value": -22.0,
+        "currency": "USD",
+        "zero": false
+      },
+      "totalFees": {
+        "value": 0.0,
+        "currency": "USD",
+        "zero": true
+      },
+      "details": {
+        "type": "CARD",
+        "description": "REDACTED",
+        "amount": {
+          "value": 22.0,
+          "currency": "USD",
+          "zero": false
+        },
+        "category": "Computer Software Stores",
+        "merchant": {
+          "name": "REDACTED",
+          "firstLine": null,
+          "postCode": null,
+          "city": "REDACTED",
+          "state": null,
+          "country": "REDACTED",
+          "category": "Computer Software Stores"
+        },
+        "cardLastFourDigits": "REDACTED",
+        "cardHolderFullName": "REDACTED"
+      },
+      "exchangeDetails": null,
+      "runningBalance": {
+        "value": 6.11,
+        "currency": "USD",
+        "zero": false
+      },
+      "referenceNumber": "CARD-REDACTED_NUMERIC",
+      "attachment": null,
+      "activityAssetAttributions": []
+    },
+    {
+      "type": "DEBIT",
+      "date": "2025-04-02T05:26:52.890649Z",
+      "amount": {
+        "value": -15.0,
+        "currency": "USD",
+        "zero": false
+      },
+      "totalFees": {
+        "value": 0.0,
+        "currency": "USD",
+        "zero": true
+      },
+      "details": {
+        "type": "CARD",
+        "description": "REDACTED",
+        "amount": {
+          "value": 15.0,
+          "currency": "USD",
+          "zero": false
+        },
+        "category": "Computer Software Stores",
+        "merchant": {
+          "name": "REDACTED",
+          "firstLine": null,
+          "postCode": null,
+          "city": "REDACTED",
+          "state": null,
+          "country": "REDACTED",
+          "category": "Computer Software Stores"
+        },
+        "cardLastFourDigits": "REDACTED",
+        "cardHolderFullName": "REDACTED"
+      },
+      "exchangeDetails": null,
+      "runningBalance": {
+        "value": 28.11,
+        "currency": "USD",
+        "zero": false
+      },
+      "referenceNumber": "CARD-REDACTED_NUMERIC",
+      "attachment": null,
+      "activityAssetAttributions": []
+    },
+    {
+      "type": "DEBIT",
+      "date": "2025-04-01T19:39:10.372148Z",
+      "amount": {
+        "value": -100.37,
+        "currency": "USD",
+        "zero": false
+      },
+      "totalFees": {
+        "value": 0.0,
+        "currency": "USD",
+        "zero": true
+      },
+      "details": {
+        "type": "CARD",
+        "description": "REDACTED",
+        "amount": {
+          "value": 100.37,
+          "currency": "USD",
+          "zero": false
+        },
+        "category": "Computer Software Stores",
+        "merchant": {
+          "name": "REDACTED",
+          "firstLine": null,
+          "postCode": null,
+          "city": "REDACTED",
+          "state": null,
+          "country": "REDACTED",
+          "category": "Computer Software Stores"
+        },
+        "cardLastFourDigits": "REDACTED",
+        "cardHolderFullName": "REDACTED"
+      },
+      "exchangeDetails": null,
+      "runningBalance": {
+        "value": 43.11,
+        "currency": "USD",
+        "zero": false
+      },
+      "referenceNumber": "CARD-REDACTED_NUMERIC",
+      "attachment": null,
+      "activityAssetAttributions": []
+    },
+    {
+      "type": "DEBIT",
+      "date": "2025-03-25T08:01:19.383934Z",
+      "amount": {
+        "value": -13.2,
+        "currency": "USD",
+        "zero": false
+      },
+      "totalFees": {
+        "value": 0.0,
+        "currency": "USD",
+        "zero": true
+      },
+      "details": {
+        "type": "CARD",
+        "description": "REDACTED",
+        "amount": {
+          "value": 13.2,
+          "currency": "USD",
+          "zero": false
+        },
+        "category": "Computer Programming, Data Proce",
+        "merchant": {
+          "name": "REDACTED",
+          "firstLine": null,
+          "postCode": null,
+          "city": "REDACTED",
+          "state": null,
+          "country": "REDACTED",
+          "category": "Computer Programming, Data Proce"
+        },
+        "cardLastFourDigits": "REDACTED",
+        "cardHolderFullName": "REDACTED"
+      },
+      "exchangeDetails": null,
+      "runningBalance": {
+        "value": 143.48,
+        "currency": "USD",
+        "zero": false
+      },
+      "referenceNumber": "CARD-REDACTED_NUMERIC",
+      "attachment": null,
+      "activityAssetAttributions": []
+    },
+    {
+      "type": "DEBIT",
+      "date": "2025-03-20T04:44:28.819281Z",
+      "amount": {
+        "value": -20.0,
+        "currency": "USD",
+        "zero": false
+      },
+      "totalFees": {
+        "value": 0.0,
+        "currency": "USD",
+        "zero": true
+      },
+      "details": {
+        "type": "CARD",
+        "description": "REDACTED",
+        "amount": {
+          "value": 20.0,
+          "currency": "USD",
+          "zero": false
+        },
+        "category": "Computer Software Stores",
+        "merchant": {
+          "name": "REDACTED",
+          "firstLine": null,
+          "postCode": null,
+          "city": "REDACTED",
+          "state": null,
+          "country": "REDACTED",
+          "category": "Computer Software Stores"
+        },
+        "cardLastFourDigits": "REDACTED",
+        "cardHolderFullName": "REDACTED"
+      },
+      "exchangeDetails": null,
+      "runningBalance": {
+        "value": 156.68,
+        "currency": "USD",
+        "zero": false
+      },
+      "referenceNumber": "CARD-REDACTED_NUMERIC",
+      "attachment": null,
+      "activityAssetAttributions": []
+    },
+    {
+      "type": "DEBIT",
+      "date": "2025-03-16T21:51:28.929183Z",
+      "amount": {
+        "value": -105.64,
+        "currency": "USD",
+        "zero": false
+      },
+      "totalFees": {
+        "value": 0.0,
+        "currency": "USD",
+        "zero": true
+      },
+      "details": {
+        "type": "CARD",
+        "description": "REDACTED",
+        "amount": {
+          "value": 105.64,
+          "currency": "USD",
+          "zero": false
+        },
+        "category": "Computer Software Stores",
+        "merchant": {
+          "name": "REDACTED",
+          "firstLine": null,
+          "postCode": null,
+          "city": "REDACTED",
+          "state": null,
+          "country": "REDACTED",
+          "category": "Computer Software Stores"
+        },
+        "cardLastFourDigits": "REDACTED",
+        "cardHolderFullName": "REDACTED"
+      },
+      "exchangeDetails": null,
+      "runningBalance": {
+        "value": 176.68,
+        "currency": "USD",
+        "zero": false
+      },
+      "referenceNumber": "CARD-REDACTED_NUMERIC",
+      "attachment": null,
+      "activityAssetAttributions": []
+    },
+    {
+      "type": "DEBIT",
+      "date": "2025-03-14T04:49:12.914564Z",
+      "amount": {
+        "value": -22.0,
+        "currency": "USD",
+        "zero": false
+      },
+      "totalFees": {
+        "value": 0.0,
+        "currency": "USD",
+        "zero": true
+      },
+      "details": {
+        "type": "CARD",
+        "description": "REDACTED",
+        "amount": {
+          "value": 22.0,
+          "currency": "USD",
+          "zero": false
+        },
+        "category": "Computer Software Stores",
+        "merchant": {
+          "name": "REDACTED",
+          "firstLine": null,
+          "postCode": null,
+          "city": "REDACTED",
+          "state": null,
+          "country": "REDACTED",
+          "category": "Computer Software Stores"
+        },
+        "cardLastFourDigits": "REDACTED",
+        "cardHolderFullName": "REDACTED"
+      },
+      "exchangeDetails": null,
+      "runningBalance": {
+        "value": 282.32,
+        "currency": "USD",
+        "zero": false
+      },
+      "referenceNumber": "CARD-REDACTED_NUMERIC",
+      "attachment": null,
+      "activityAssetAttributions": []
+    },
+    {
+      "type": "CREDIT",
+      "date": "2025-03-14T04:46:44.177694Z",
+      "amount": {
+        "value": 300.0,
+        "currency": "USD",
+        "zero": false
+      },
+      "totalFees": {
+        "value": 0.0,
+        "currency": "USD",
+        "zero": true
+      },
+      "details": {
+        "type": "MONEY_ADDED",
+        "description": "REDACTED"
+      },
+      "exchangeDetails": {
+        "toAmount": {
+          "value": 300.0,
+          "currency": "USD",
+          "zero": false
+        },
+        "fromAmount": {
+          "value": 476.91,
+          "currency": "AUD",
+          "zero": false
+        },
+        "rate": 0.62905
+      },
+      "runningBalance": {
+        "value": 304.32,
+        "currency": "USD",
+        "zero": false
+      },
+      "referenceNumber": "TRANSFER-REDACTED_NUMERIC",
+      "attachment": null,
+      "activityAssetAttributions": []
+    },
+    {
+      "type": "DEBIT",
+      "date": "2025-03-04T08:47:16.772147Z",
+      "amount": {
+        "value": -11.5,
+        "currency": "USD",
+        "zero": false
+      },
+      "totalFees": {
+        "value": 0.0,
+        "currency": "USD",
+        "zero": true
+      },
+      "details": {
+        "type": "CARD",
+        "description": "REDACTED",
+        "amount": {
+          "value": 11.5,
+          "currency": "USD",
+          "zero": false
+        },
+        "category": "Computer Programming, Data Proce",
+        "merchant": {
+          "name": "REDACTED",
+          "firstLine": null,
+          "postCode": null,
+          "city": "REDACTED",
+          "state": null,
+          "country": "REDACTED",
+          "category": "Computer Programming, Data Proce"
+        },
+        "cardLastFourDigits": "REDACTED",
+        "cardHolderFullName": "REDACTED"
+      },
+      "exchangeDetails": null,
+      "runningBalance": {
+        "value": 4.32,
+        "currency": "USD",
+        "zero": false
+      },
+      "referenceNumber": "CARD-REDACTED_NUMERIC",
+      "attachment": null,
+      "activityAssetAttributions": []
+    },
+    {
+      "type": "CREDIT",
+      "date": "2025-03-04T08:35:07.544284Z",
+      "amount": {
+        "value": 15.0,
+        "currency": "USD",
+        "zero": false
+      },
+      "totalFees": {
+        "value": 0.0,
+        "currency": "USD",
+        "zero": true
+      },
+      "details": {
+        "type": "MONEY_ADDED",
+        "description": "REDACTED"
+      },
+      "exchangeDetails": {
+        "toAmount": {
+          "value": 15.0,
+          "currency": "USD",
+          "zero": false
+        },
+        "fromAmount": {
+          "value": 24.16,
+          "currency": "AUD",
+          "zero": false
+        },
+        "rate": 0.62095
+      },
+      "runningBalance": {
+        "value": 15.82,
+        "currency": "USD",
+        "zero": false
+      },
+      "referenceNumber": "TRANSFER-REDACTED_NUMERIC",
+      "attachment": null,
+      "activityAssetAttributions": []
+    },
+    {
+      "type": "DEBIT",
+      "date": "2025-03-02T04:25:46.831887Z",
+      "amount": {
+        "value": -15.0,
+        "currency": "USD",
+        "zero": false
+      },
+      "totalFees": {
+        "value": 0.0,
+        "currency": "USD",
+        "zero": true
+      },
+      "details": {
+        "type": "CARD",
+        "description": "REDACTED",
+        "amount": {
+          "value": 15.0,
+          "currency": "USD",
+          "zero": false
+        },
+        "category": "Computer Software Stores",
+        "merchant": {
+          "name": "REDACTED",
+          "firstLine": null,
+          "postCode": null,
+          "city": "REDACTED",
+          "state": null,
+          "country": "REDACTED",
+          "category": "Computer Software Stores"
+        },
+        "cardLastFourDigits": "REDACTED",
+        "cardHolderFullName": "REDACTED"
+      },
+      "exchangeDetails": null,
+      "runningBalance": {
+        "value": 0.82,
+        "currency": "USD",
+        "zero": false
+      },
+      "referenceNumber": "CARD-REDACTED_NUMERIC",
+      "attachment": null,
+      "activityAssetAttributions": []
+    },
+    {
+      "type": "CREDIT",
+      "date": "2025-03-02T04:22:27.417296Z",
+      "amount": {
+        "value": 15.0,
+        "currency": "USD",
+        "zero": false
+      },
+      "totalFees": {
+        "value": 0.0,
+        "currency": "USD",
+        "zero": true
+      },
+      "details": {
+        "type": "MONEY_ADDED",
+        "description": "REDACTED"
+      },
+      "exchangeDetails": {
+        "toAmount": {
+          "value": 15.0,
+          "currency": "USD",
+          "zero": false
+        },
+        "fromAmount": {
+          "value": 24.16,
+          "currency": "AUD",
+          "zero": false
+        },
+        "rate": 0.6208
+      },
+      "runningBalance": {
+        "value": 15.82,
+        "currency": "USD",
+        "zero": false
+      },
+      "referenceNumber": "TRANSFER-REDACTED_NUMERIC",
+      "attachment": null,
+      "activityAssetAttributions": []
+    },
+    {
+      "type": "DEBIT",
+      "date": "2025-02-15T03:19:33.366205Z",
+      "amount": {
+        "value": -100.0,
+        "currency": "USD",
+        "zero": false
+      },
+      "totalFees": {
+        "value": 0.0,
+        "currency": "USD",
+        "zero": true
+      },
+      "details": {
+        "type": "CARD",
+        "description": "REDACTED",
+        "amount": {
+          "value": 100.0,
+          "currency": "USD",
+          "zero": false
+        },
+        "category": "Computer Software Stores",
+        "merchant": {
+          "name": "REDACTED",
+          "firstLine": null,
+          "postCode": null,
+          "city": "REDACTED",
+          "state": null,
+          "country": "REDACTED",
+          "category": "Computer Software Stores"
+        },
+        "cardLastFourDigits": "REDACTED",
+        "cardHolderFullName": "REDACTED"
+      },
+      "exchangeDetails": null,
+      "runningBalance": {
+        "value": 0.82,
+        "currency": "USD",
+        "zero": false
+      },
+      "referenceNumber": "CARD-REDACTED_NUMERIC",
+      "attachment": null,
+      "activityAssetAttributions": []
+    },
+    {
+      "type": "CREDIT",
+      "date": "2025-02-15T03:16:29.925295Z",
+      "amount": {
+        "value": 100.0,
+        "currency": "USD",
+        "zero": false
+      },
+      "totalFees": {
+        "value": 0.0,
+        "currency": "USD",
+        "zero": true
+      },
+      "details": {
+        "type": "MONEY_ADDED",
+        "description": "REDACTED"
+      },
+      "exchangeDetails": {
+        "toAmount": {
+          "value": 100.0,
+          "currency": "USD",
+          "zero": false
+        },
+        "fromAmount": {
+          "value": 157.41,
+          "currency": "AUD",
+          "zero": false
+        },
+        "rate": 0.6353
+      },
+      "runningBalance": {
+        "value": 100.82,
+        "currency": "USD",
+        "zero": false
+      },
+      "referenceNumber": "TRANSFER-REDACTED_NUMERIC",
+      "attachment": null,
+      "activityAssetAttributions": []
+    },
+    {
+      "type": "DEBIT",
+      "date": "2025-02-11T00:10:15.506508Z",
+      "amount": {
+        "value": -20.0,
+        "currency": "USD",
+        "zero": false
+      },
+      "totalFees": {
+        "value": 0.0,
+        "currency": "USD",
+        "zero": true
+      },
+      "details": {
+        "type": "CARD",
+        "description": "REDACTED",
+        "amount": {
+          "value": 20.0,
+          "currency": "USD",
+          "zero": false
+        },
+        "category": "D-Goods:Media,Books,Movies,Music",
+        "merchant": {
+          "name": "REDACTED",
+          "firstLine": null,
+          "postCode": null,
+          "city": "REDACTED",
+          "state": null,
+          "country": "REDACTED",
+          "category": "D-Goods:Media,Books,Movies,Music"
+        },
+        "cardLastFourDigits": "REDACTED",
+        "cardHolderFullName": "REDACTED"
+      },
+      "exchangeDetails": null,
+      "runningBalance": {
+        "value": 0.82,
+        "currency": "USD",
+        "zero": false
+      },
+      "referenceNumber": "CARD-REDACTED_NUMERIC",
+      "attachment": null,
+      "activityAssetAttributions": []
+    },
+    {
+      "type": "DEBIT",
+      "date": "2025-02-05T00:45:29.332243Z",
+      "amount": {
+        "value": -22.0,
+        "currency": "USD",
+        "zero": false
+      },
+      "totalFees": {
+        "value": 0.0,
+        "currency": "USD",
+        "zero": true
+      },
+      "details": {
+        "type": "CARD",
+        "description": "REDACTED",
+        "amount": {
+          "value": 22.0,
+          "currency": "USD",
+          "zero": false
+        },
+        "category": "Computer Software Stores",
+        "merchant": {
+          "name": "REDACTED",
+          "firstLine": null,
+          "postCode": null,
+          "city": "REDACTED",
+          "state": null,
+          "country": "REDACTED",
+          "category": "Computer Software Stores"
+        },
+        "cardLastFourDigits": "REDACTED",
+        "cardHolderFullName": "REDACTED"
+      },
+      "exchangeDetails": null,
+      "runningBalance": {
+        "value": 20.82,
+        "currency": "USD",
+        "zero": false
+      },
+      "referenceNumber": "CARD-REDACTED_NUMERIC",
+      "attachment": null,
+      "activityAssetAttributions": []
+    },
+    {
+      "type": "CREDIT",
+      "date": "2025-02-03T02:58:43.533911Z",
+      "amount": {
+        "value": 38.0,
+        "currency": "USD",
+        "zero": false
+      },
+      "totalFees": {
+        "value": 0.0,
+        "currency": "USD",
+        "zero": true
+      },
+      "details": {
+        "type": "CONVERSION",
+        "description": "REDACTED",
+        "sourceAmount": {
+          "value": 62.57,
+          "currency": "AUD",
+          "zero": false
+        },
+        "targetAmount": {
+          "value": 38.0,
+          "currency": "USD",
+          "zero": false
+        },
+        "rate": 0.6096
+      },
+      "exchangeDetails": {
+        "toAmount": {
+          "value": 38.0,
+          "currency": "USD",
+          "zero": false
+        },
+        "fromAmount": {
+          "value": 62.57,
+          "currency": "AUD",
+          "zero": false
+        },
+        "rate": 0.6096
+      },
+      "runningBalance": {
+        "value": 42.82,
+        "currency": "USD",
+        "zero": false
+      },
+      "referenceNumber": "BALANCE-REDACTED_NUMERIC",
+      "attachment": null,
+      "activityAssetAttributions": []
+    },
+    {
+      "type": "DEBIT",
+      "date": "2025-01-16T21:40:45.273983Z",
+      "amount": {
+        "value": -100.37,
+        "currency": "USD",
+        "zero": false
+      },
+      "totalFees": {
+        "value": 0.0,
+        "currency": "USD",
+        "zero": true
+      },
+      "details": {
+        "type": "CARD",
+        "description": "REDACTED",
+        "amount": {
+          "value": 100.37,
+          "currency": "USD",
+          "zero": false
+        },
+        "category": "Computer Software Stores",
+        "merchant": {
+          "name": "REDACTED",
+          "firstLine": null,
+          "postCode": null,
+          "city": "REDACTED",
+          "state": null,
+          "country": "REDACTED",
+          "category": "Computer Software Stores"
+        },
+        "cardLastFourDigits": "REDACTED",
+        "cardHolderFullName": "REDACTED"
+      },
+      "exchangeDetails": null,
+      "runningBalance": {
+        "value": 4.82,
+        "currency": "USD",
+        "zero": false
+      },
+      "referenceNumber": "CARD-REDACTED_NUMERIC",
+      "attachment": null,
+      "activityAssetAttributions": []
+    },
+    {
+      "type": "CREDIT",
+      "date": "2025-01-16T21:38:20.822042Z",
+      "amount": {
+        "value": 105.19,
+        "currency": "USD",
+        "zero": false
+      },
+      "totalFees": {
+        "value": 0.0,
+        "currency": "USD",
+        "zero": true
+      },
+      "details": {
+        "type": "CONVERSION",
+        "description": "REDACTED",
+        "sourceAmount": {
+          "value": 170.0,
+          "currency": "AUD",
+          "zero": false
+        },
+        "targetAmount": {
+          "value": 105.19,
+          "currency": "USD",
+          "zero": false
+        },
+        "rate": 0.62105
+      },
+      "exchangeDetails": {
+        "toAmount": {
+          "value": 105.19,
+          "currency": "USD",
+          "zero": false
+        },
+        "fromAmount": {
+          "value": 170.0,
+          "currency": "AUD",
+          "zero": false
+        },
+        "rate": 0.62105
+      },
+      "runningBalance": {
+        "value": 105.19,
+        "currency": "USD",
+        "zero": false
+      },
+      "referenceNumber": "BALANCE-REDACTED_NUMERIC",
+      "attachment": null,
+      "activityAssetAttributions": []
+    },
+    {
+      "type": "DEBIT",
+      "date": "2025-01-11T05:24:04.152644Z",
+      "amount": {
+        "value": -20.0,
+        "currency": "USD",
+        "zero": false
+      },
+      "totalFees": {
+        "value": 0.0,
+        "currency": "USD",
+        "zero": true
+      },
+      "details": {
+        "type": "CARD",
+        "description": "REDACTED",
+        "amount": {
+          "value": 20.0,
+          "currency": "USD",
+          "zero": false
+        },
+        "category": "D-Goods:Media,Books,Movies,Music",
+        "merchant": {
+          "name": "REDACTED",
+          "firstLine": null,
+          "postCode": null,
+          "city": "REDACTED",
+          "state": null,
+          "country": "REDACTED",
+          "category": "D-Goods:Media,Books,Movies,Music"
+        },
+        "cardLastFourDigits": "REDACTED",
+        "cardHolderFullName": "REDACTED"
+      },
+      "exchangeDetails": null,
+      "runningBalance": {
+        "value": 0.0,
+        "currency": "USD",
+        "zero": true
+      },
+      "referenceNumber": "CARD-REDACTED_NUMERIC",
+      "attachment": null,
+      "activityAssetAttributions": []
+    },
+    {
+      "type": "CREDIT",
+      "date": "2025-01-11T05:19:09.314345Z",
+      "amount": {
+        "value": 20.0,
+        "currency": "USD",
+        "zero": false
+      },
+      "totalFees": {
+        "value": 0.0,
+        "currency": "USD",
+        "zero": true
+      },
+      "details": {
+        "type": "MONEY_ADDED",
+        "description": "REDACTED"
+      },
+      "exchangeDetails": {
+        "toAmount": {
+          "value": 20.0,
+          "currency": "USD",
+          "zero": false
+        },
+        "fromAmount": {
+          "value": 32.54,
+          "currency": "AUD",
+          "zero": false
+        },
+        "rate": 0.61465
+      },
+      "runningBalance": {
+        "value": 20.0,
+        "currency": "USD",
+        "zero": false
+      },
+      "referenceNumber": "TRANSFER-REDACTED_NUMERIC",
+      "attachment": null,
+      "activityAssetAttributions": []
+    }
+  ],
+  "startOfStatementBalance": {
+    "value": 0.0,
+    "currency": "USD",
+    "zero": true
+  },
+  "endOfStatementBalance": {
+    "value": 162.36,
+    "currency": "USD",
+    "zero": false
+  },
+  "endOfStatementUnrealisedGainLoss": null,
+  "balanceAssetConfiguration": null,
+  "query": {
+    "intervalStart": "2024-11-01T00:00:00Z",
+    "intervalEnd": "2026-05-25T23:59:59.999Z",
+    "type": "FLAT",
+    "splitRefundFees": false,
+    "addStamp": false,
+    "currency": "USD",
+    "profileId": 61997996,
+    "timezone": "Z"
+  },
+  "request": {
+    "id": "797cdd27-b143-49d3-d983-ce1ede849177",
+    "creationTime": "2026-05-25T12:58:39.468461224Z",
+    "profileId": 61997996,
+    "currency": "USD",
+    "balanceId": 105798961,
+    "balanceName": null,
+    "intervalStart": "2024-11-01T00:00:00Z",
+    "intervalEnd": "2026-05-25T23:59:59.999Z",
+    "formatSpecificConfiguration": null
+  },
+  "feeSummary": {
+    "summaryTitle": "Fees Summary",
+    "fromTitle": "From",
+    "toTitle": "To",
+    "feesTitle": "Fees",
+    "feeSummaryItems": []
+  },
+  "locale": {
+    "code": "en-GB"
+  }
+}
