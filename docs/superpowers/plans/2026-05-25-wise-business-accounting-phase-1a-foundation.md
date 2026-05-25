@@ -292,6 +292,14 @@ CREATE UNIQUE INDEX business_transactions_user_fingerprint_unique
 -- ============================================================================
 -- 4. FOREIGN KEYS
 -- ============================================================================
+--
+-- FK target: public.profiles(id), NOT auth.users(id).
+-- profiles is the app-level extension of auth.users (one row per user, created
+-- by the handle_new_user trigger). All existing PiggyBack tables (accounts,
+-- transactions, up_api_configs, etc.) FK to public.profiles(id) and we follow
+-- that convention here. Mixing auth.users and profiles FK targets would cause
+-- RLS headaches because policies key off profiles ids.
+-- ============================================================================
 
 ALTER TABLE public.business_wise_configs
   ADD CONSTRAINT business_wise_configs_user_id_fkey
@@ -415,17 +423,17 @@ BEGIN
     EXECUTE format($f$
       CREATE POLICY "Users can select own %1$s" ON public.%1$s
         FOR SELECT TO authenticated
-        USING (user_id = (SELECT auth.uid()));
+        USING (user_id = auth.uid());
       CREATE POLICY "Users can insert own %1$s" ON public.%1$s
         FOR INSERT TO authenticated
-        WITH CHECK (user_id = (SELECT auth.uid()));
+        WITH CHECK (user_id = auth.uid());
       CREATE POLICY "Users can update own %1$s" ON public.%1$s
         FOR UPDATE TO authenticated
-        USING (user_id = (SELECT auth.uid()))
-        WITH CHECK (user_id = (SELECT auth.uid()));
+        USING (user_id = auth.uid())
+        WITH CHECK (user_id = auth.uid());
       CREATE POLICY "Users can delete own %1$s" ON public.%1$s
         FOR DELETE TO authenticated
-        USING (user_id = (SELECT auth.uid()));
+        USING (user_id = auth.uid());
     $f$, t);
   END LOOP;
 END $$;
@@ -435,7 +443,7 @@ END $$;
 -- are not visible to any end user.
 CREATE POLICY "Users can select own webhook events" ON public.business_webhook_events
   FOR SELECT TO authenticated
-  USING (user_id IS NOT NULL AND user_id = (SELECT auth.uid()));
+  USING (user_id IS NOT NULL AND user_id = auth.uid());
 
 -- ============================================================================
 -- 7. UPDATED_AT TRIGGERS
@@ -758,6 +766,12 @@ Create `src/lib/wise-fx.ts`:
 ```ts
 const FRANKFURTER_BASE = 'https://api.frankfurter.app';
 
+// In-process cache of (currency, date) → AUD rate. Scoped to a single Node
+// process — in serverless/edge runtimes (Vercel Functions) this does NOT
+// persist across invocations. It's purely a within-request optimisation so
+// that processing many transactions in one sync run doesn't refetch the same
+// (USD, 2026-05-23) rate fifty times. Don't rely on it for cross-request
+// caching; use a real cache (Vercel Runtime Cache, Redis) if that's needed.
 const cache = new Map<string, number>();
 
 /** Test-only: clear the in-process rate cache. */
@@ -856,6 +870,7 @@ const rule = (over: Partial<CategorisationRule>): CategorisationRule => ({
   match_type: 'contains',
   match_value: 'AWS',
   coa_id: 'coa-aws',
+  coa_default_gst_code: 'G11',
   gst_code_override: null,
   priority: 100,
   is_active: true,
@@ -934,6 +949,13 @@ export interface CategorisationRule {
   match_type: MatchType;
   match_value: string;
   coa_id: string;
+  /**
+   * The matched COA's `default_gst_code`, pre-joined at fetch time.
+   * Keeps `processWiseTransaction` free of DB lookups inside the
+   * ingestion hot path — callers join chart_of_accounts once when
+   * loading the rule set.
+   */
+  coa_default_gst_code: GstCode;
   gst_code_override: GstCode | null;
   priority: number;
   is_active: boolean;
@@ -998,6 +1020,8 @@ the first matching rule by priority ASC. Used by the ingestion pipeline."
 
 This is a research task. The spec's open question #20 calls out that LLM training data on Wise's API is unreliable — verify endpoints before writing the client.
 
+> **HARD GATE.** Do not start Task 6 until this task is complete and committed. Task 6's test assertions and client code use the paths recorded in `documentation/wise-api/endpoints.md`. A test that asserts a wrong path but passes is worse than no test.
+
 - [ ] **Step 5.1: Fetch the live Wise API reference**
 
 Use the WebFetch tool (or visit in browser) and capture the current canonical paths and parameter shapes for these endpoints. Save findings to `documentation/wise-api/endpoints.md` (a new file you create as part of this step).
@@ -1043,9 +1067,9 @@ used by wise-api.ts and the sync worker."
 - Create: `src/lib/wise-api.ts`
 - Create: `src/lib/__tests__/wise-api.test.ts`
 
-**Phase 1A subset only.** Methods needed now: `ping`, `getProfiles`, `getBalances`, plus the one chosen in Task 5.2 (`getStatement` OR `getActivity`). `registerWebhook` / `deleteWebhook` ship in Phase 1B.
+**Phase 1A subset only.** Methods needed now: `ping`, `getProfiles`, `getBalances`, plus the statement-or-activity endpoint chosen in Task 5.2. `registerWebhook` / `deleteWebhook` ship in Phase 1B.
 
-The pseudocode below uses `getActivity` placeholder names. **Adjust to match the verified endpoint paths/shapes from Task 5.1** before writing.
+> **Before writing this task: open `documentation/wise-api/endpoints.md` from Task 5 and have it side-by-side.** Every path string, query parameter, and pagination field below MUST be replaced with the verified shape before the code or test is committed. The skeletons below are illustrative — the verified reference is the source of truth.
 
 - [ ] **Step 6.1: Write the failing test**
 
@@ -1122,8 +1146,10 @@ describe('createWiseApiClient', () => {
     const client = createWiseApiClient('tok', 'live');
     await client.getBalances(42);
     const [url] = fetchSpy.mock.calls[0];
-    // Path verified in Task 5.1 — update this assertion to the real path.
-    expect(url).toContain('/v4/profiles/42/balances');
+    // The asserted substring MUST match the verified path from
+    // documentation/wise-api/endpoints.md (Task 5). Replace the line
+    // below with the verified path containing the profileId segment.
+    expect(url).toContain('/profiles/42/balances'); // <-- VERIFY before commit
   });
 });
 ```
@@ -1133,9 +1159,9 @@ describe('createWiseApiClient', () => {
 Run: `npx vitest run src/lib/__tests__/wise-api.test.ts`
 Expected: FAIL — `Cannot find module '@/lib/wise-api'`.
 
-- [ ] **Step 6.3: Write the minimal implementation**
+- [ ] **Step 6.3: Write the implementation using verified endpoint paths**
 
-Create `src/lib/wise-api.ts`. **Replace endpoint paths with the verified ones from Task 5.1 before running.**
+Create `src/lib/wise-api.ts`. The skeleton below shows structure — every `// VERIFY` marker is a path or pagination field you MUST replace with the value recorded in `documentation/wise-api/endpoints.md` from Task 5 before saving the file.
 
 ```ts
 /**
@@ -1244,11 +1270,12 @@ export function createWiseApiClient(token: string, env: WiseEnvironment): WiseAp
       return call<WiseProfile[]>('/v2/profiles');
     },
     getBalances(profileId: number) {
-      // Path placeholder — replace with verified path from Task 5.1.
-      return call<WiseBalance[]>(`/v4/profiles/${profileId}/balances?types=STANDARD`);
+      // VERIFY: replace with the verified path from Task 5 endpoints.md
+      return call<WiseBalance[]>(`/profiles/${profileId}/balances?types=STANDARD`);
     },
     async getStatementPage({ profileId, balanceId, intervalStart, intervalEnd, nextCursor }) {
-      // Path + pagination placeholder — replace with verified shape from Task 5.1.
+      // VERIFY: replace path, query-param names, and response field names
+      // (transactions, nextCursor) with the verified shape from Task 5.
       const params = new URLSearchParams({
         intervalStart,
         intervalEnd,
@@ -1258,7 +1285,7 @@ export function createWiseApiClient(token: string, env: WiseEnvironment): WiseAp
       const body = await call<{
         transactions?: WiseStatementEntry[];
         nextCursor?: string | null;
-      }>(`/v1/profiles/${profileId}/borderless-accounts/${balanceId}/statement.json?${params.toString()}`);
+      }>(`/profiles/${profileId}/borderless-accounts/${balanceId}/statement.json?${params.toString()}`);
       return {
         entries: body.transactions ?? [],
         nextCursor: body.nextCursor ?? null,
@@ -1268,16 +1295,17 @@ export function createWiseApiClient(token: string, env: WiseEnvironment): WiseAp
 }
 ```
 
-- [ ] **Step 6.4: Adjust endpoint paths and assertions if Task 5.1 found different shapes**
+- [ ] **Step 6.4: Confirm every `VERIFY` marker has been resolved**
 
-If the verified reference shows different paths or pagination shapes, edit both `wise-api.ts` and the test assertions in `__tests__/wise-api.test.ts` to match. Note: the test's path assertion (`/v4/profiles/42/balances`) is an example only.
+Run: `grep -n VERIFY src/lib/wise-api.ts src/lib/__tests__/wise-api.test.ts || echo "all VERIFY markers resolved"`
+Expected: `all VERIFY markers resolved`. If any markers remain, replace them with the verified values from `documentation/wise-api/endpoints.md` before continuing.
 
 - [ ] **Step 6.5: Run the test to verify it passes**
 
 Run: `npx vitest run src/lib/__tests__/wise-api.test.ts`
 Expected: PASS, 6 tests.
 
-- [ ] **Step 6.6: Commit**
+- [ ] **Step 6.6: Commit (with verified paths in both code and tests)**
 
 ```bash
 git add src/lib/wise-api.ts src/lib/__tests__/wise-api.test.ts
@@ -1296,7 +1324,7 @@ against documentation/wise-api/endpoints.md."
 - Create: `src/lib/business-ingest.ts`
 - Create: `src/lib/__tests__/business-ingest.test.ts`
 
-This is the single ingestion function called by both the future webhook handler (Phase 1B) and the manual-sync worker (Plan 1A.2). It is deliberately I/O-injectable: callers pass a Supabase client and a Wise client, the function does no fetching by itself beyond `wise-fx` for FX. This makes it unit-testable without spinning up Supabase.
+This is the single ingestion function called by both the future webhook handler (Phase 1B) and the manual-sync worker (Plan 1A.2). It is deliberately I/O-light: callers pass a Supabase client, a fully-resolved rule set (with `coa_default_gst_code` pre-joined at fetch time), and a normalised entry. The function performs **no DB reads** — only the final `.upsert()` — plus an outbound HTTP call to Frankfurter when FX is needed. This makes it unit-testable without deep mock chains.
 
 - [ ] **Step 7.1: Write the failing test**
 
@@ -1314,7 +1342,7 @@ interface UpsertCall {
   onConflict?: string;
 }
 
-function makeSupabaseStub(opts?: { coa?: { id: string; default_gst_code: string } | null }) {
+function makeSupabaseStub() {
   const upsertCalls: UpsertCall[] = [];
   const client = {
     from(table: string) {
@@ -1323,13 +1351,6 @@ function makeSupabaseStub(opts?: { coa?: { id: string; default_gst_code: string 
           upsertCalls.push({ table, row, onConflict: options?.onConflict });
           return { data: { ...row, id: 'inserted-id' }, error: null };
         },
-        select: () => ({
-          eq: () => ({
-            eq: () => ({
-              maybeSingle: async () => ({ data: opts?.coa ?? null, error: null }),
-            }),
-          }),
-        }),
       };
     },
   };
@@ -1381,26 +1402,61 @@ describe('processWiseTransaction', () => {
     expect(upsertCalls[0].onConflict).toBe('user_id,wise_transaction_id');
   });
 
-  it('applies a matching rule and sets coa_id + gst_code + gst_amount', async () => {
+  it('applies a matching rule and sets coa_id + gst_code + gst_amount from pre-resolved default', async () => {
     const rule: CategorisationRule = {
       id: 'r1',
       match_field: 'description',
       match_type: 'contains',
       match_value: 'aws',
       coa_id: 'coa-software',
+      coa_default_gst_code: 'G11',
       gst_code_override: null,
       priority: 100,
       is_active: true,
     };
-    const { client, upsertCalls } = makeSupabaseStub({
-      coa: { id: 'coa-software', default_gst_code: 'G11' },
-    });
+    const { client, upsertCalls } = makeSupabaseStub();
     await processWiseTransaction(client as never, baseInput({ rules: [rule] }));
     expect(upsertCalls[0].row).toMatchObject({
       coa_id: 'coa-software',
       gst_code: 'G11',
       gst_amount_aud_cents: -1_000, // -11000 / 11
     });
+  });
+
+  it('uses gst_code_override when set on the rule', async () => {
+    const rule: CategorisationRule = {
+      id: 'r1',
+      match_field: 'description',
+      match_type: 'contains',
+      match_value: 'aws',
+      coa_id: 'coa-software',
+      coa_default_gst_code: 'G11',
+      gst_code_override: 'N-T',
+      priority: 100,
+      is_active: true,
+    };
+    const { client, upsertCalls } = makeSupabaseStub();
+    await processWiseTransaction(client as never, baseInput({ rules: [rule] }));
+    expect(upsertCalls[0].row).toMatchObject({
+      coa_id: 'coa-software',
+      gst_code: 'N-T',
+      gst_amount_aud_cents: 0,
+    });
+  });
+
+  it('derives reporting_date in the configured timezone (UTC→next-day in Sydney)', async () => {
+    const { client, upsertCalls } = makeSupabaseStub();
+    await processWiseTransaction(
+      client as never,
+      baseInput({
+        entry: {
+          ...baseInput().entry,
+          // 15:00 UTC May 23 = 01:00 Sydney May 24 (AEST or AEDT both push forward)
+          occurred_at: new Date('2026-05-23T15:00:00Z'),
+        },
+      }),
+    );
+    expect(upsertCalls[0].row.reporting_date).toBe('2026-05-24');
   });
 
   it('uses Wise-supplied rate when present', async () => {
@@ -1541,14 +1597,15 @@ export interface ProcessInput {
   entry: IngestEntry;
 }
 
-interface CoaLookup {
-  id: string;
-  default_gst_code: GstCode;
-}
-
 /**
  * Single shared ingestion function for Wise statements and CSV imports.
  * Both the future webhook handler and the manual-sync worker call this.
+ *
+ * The function performs **no DB reads** — categorisation rules are passed
+ * in fully resolved (with `coa_default_gst_code` pre-joined). The only
+ * Supabase call is the final upsert. This keeps the hot path testable
+ * without deep mock chains.
+ *
  * Caller passes a Supabase client (anon, server, or service-role); this
  * function does not assume which.
  */
@@ -1600,17 +1657,7 @@ export async function processWiseTransaction(
 
   if (matchedRule) {
     coa_id = matchedRule.coa_id;
-    if (matchedRule.gst_code_override) {
-      gst_code = matchedRule.gst_code_override;
-    } else {
-      const { data: coa } = await supabase
-        .from('chart_of_accounts')
-        .select('id, default_gst_code')
-        .eq('id', matchedRule.coa_id)
-        .eq('user_id', userId)
-        .maybeSingle() as { data: CoaLookup | null };
-      gst_code = (coa?.default_gst_code ?? null) as GstCode | null;
-    }
+    gst_code = matchedRule.gst_code_override ?? matchedRule.coa_default_gst_code;
   }
 
   // ---- 5. GST amount ----
@@ -1674,7 +1721,7 @@ function formatInTimeZone(at: Date, timeZone: string): string {
 - [ ] **Step 7.4: Run the test to verify it passes**
 
 Run: `npx vitest run src/lib/__tests__/business-ingest.test.ts`
-Expected: PASS, 6 tests.
+Expected: PASS, 8 tests.
 
 - [ ] **Step 7.5: Commit**
 
@@ -1683,10 +1730,12 @@ git add src/lib/business-ingest.ts src/lib/__tests__/business-ingest.test.ts
 git commit -m "feat(business): add shared ingestion entry point
 
 processWiseTransaction(): single function used by both manual sync
-(Plan 1A.2) and the Wise webhook handler (Plan 1B). I/O-injectable —
-caller passes a Supabase client. Handles direction, FX (Wise rate →
+(Plan 1A.2) and the Wise webhook handler (Plan 1B). Performs no DB
+reads — callers pass fully-resolved rules with coa_default_gst_code
+pre-joined. Only the final .upsert() and Frankfurter FX fetch hit
+the network. Handles direction, FX resolution (Wise rate →
 Frankfurter fallback → fx_status='missing'), categorisation, GST
-amount, and source-driven upsert conflict target."
+amount computation, and source-driven upsert conflict target."
 ```
 
 ---
@@ -1824,9 +1873,17 @@ After all tasks pass, run the full test suite to confirm nothing else regressed.
 - [ ] **Final step: Run the entire vitest suite**
 
 Run: `npx vitest run`
-Expected: all previously-passing tests still pass; the 33 new tests added in this plan also pass (9 GST + 5 FX + 7 categorise + 6 API + 6 ingest = 33).
+Expected: all previously-passing tests still pass; the **35 new tests** added in this plan also pass.
 
-If any pre-existing test fails, investigate before declaring Phase 1A foundation done. The new modules are pure-logic-with-injection — they should not affect existing behaviour.
+Pinned breakdown — a regression in any module surfaces immediately if the count drifts:
+- `business-gst.test.ts`: **9 tests**
+- `wise-fx.test.ts`: **5 tests**
+- `business-categorise.test.ts`: **7 tests**
+- `wise-api.test.ts`: **6 tests**
+- `business-ingest.test.ts`: **8 tests**
+- Total: **35 tests**
+
+If any pre-existing test fails, investigate before declaring Phase 1A foundation done. The new modules are pure-logic-with-injection (the only Supabase call in the entire foundation is a single `.upsert(...)` in `processWiseTransaction`) — they should not affect existing behaviour.
 
 ---
 
