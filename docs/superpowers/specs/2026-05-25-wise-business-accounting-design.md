@@ -235,6 +235,8 @@ Audit log for incoming Wise webhook deliveries. Helps with idempotency reasoning
 
 Unique `(wise_subscription_id, wise_event_id)` — gives free idempotency on Wise's duplicate deliveries.
 
+**RLS interaction with service-role writes:** the webhook handler runs without a user session and inserts the event row before `user_id` is resolved (step 2 of §6.3). The initial INSERT uses the service-role client (bypasses RLS). The subsequent UPDATE that populates `user_id` also uses the service-role client. End-user reads of this table go through the standard RLS policy `user_id = auth.uid()`, which correctly hides rows still in `user_id IS NULL` state from any end user — those rows are only visible via service-role/admin paths, which is the desired shape.
+
 ## 6. Wise integration
 
 ### 6.1 Authentication
@@ -259,7 +261,7 @@ Exact endpoint paths and param shapes verified during implementation against the
 
 1. Read raw body and headers.
 2. **Persist immediately** into `business_webhook_events` with `outcome = 'pending'`, `signature_valid = false` initially. This guarantees we have a record even if downstream processing crashes.
-3. **Verify RSA signature** — `X-Signature-SHA256` is base64 RSA signature over the raw body. Verify against Wise's published public key (live or sandbox depending on the matched config). Update `signature_valid` accordingly. Reject (200 to avoid retries on garbage; log) if invalid.
+3. **Verify RSA signature** — `X-Signature-SHA256` is base64 RSA signature over the raw body. Verify against Wise's published public key (live or sandbox depending on the matched config). On success: update `signature_valid = true`, leave `outcome = 'pending'`, continue. On failure: update `signature_valid = false`, **set `outcome = 'invalid_signature'`**, return 200 (avoid Wise retrying garbage) and exit. The `outcome` column must never remain `'pending'` after the handler returns — that ambiguity defeats the audit table.
 4. **Idempotency** — if `(wise_subscription_id, wise_event_id)` already exists with `outcome = 'processed'`, mark this delivery `'duplicate'` and return 200.
 5. **Resolve user** — look up `business_wise_configs` by `webhook_id`. Update the event row with `user_id`.
 6. **Refetch canonical state** — decrypt token, instantiate `WiseApiClient`, fetch the affected statement/balance window. Never trust amounts or IDs from the webhook payload as the source of truth.
@@ -290,6 +292,10 @@ Exact endpoint paths and param shapes verified during implementation against the
 - **Manual sync button** — creates a `business_sync_jobs` row with `kind = 'manual'`; same processing pipeline.
 - **CSV import** at `/business/settings/import-csv` — accepts Wise's exported CSV. Map columns → `business_transactions` (`source = 'csv_import'`).
 
+**Source/kind correctness:** the processing pipeline propagates `source` from the job context. A job with `kind = 'csv_import'` writes rows with `source = 'csv_import'`; jobs with `kind ∈ ('initial', 'manual', 'webhook_replay')` write `source = 'wise_api'`. The pipeline takes `source` as an explicit input parameter rather than inferring it — caller responsibility, enforced by tests.
+
+**Shared processing function.** `processWiseTransaction(client, txn, { source, businessAccountId, configId })` is the single ingestion entry point. Both the manual-sync worker (Phase 1A) and the webhook handler (Phase 1B) call it. Balance refresh (step 8 of §6.3) lives in this function and runs for the manual-sync path too — not just webhooks. No code duplication between paths.
+
 **CSV idempotency via `import_fingerprint`** — computed at import time as a normalised composite:
 
 ```
@@ -312,8 +318,8 @@ All BAS/P&L/GST math lives in dedicated library files. Page components and route
 **Files:**
 
 - `src/lib/business-gst.ts` — `computeGstAmountCents(amountAudCents, gstCode)`; `isGstApplicable(gstCode)`; rounding helpers; unit-tested.
-- `src/lib/business-pl.ts` — `buildPlReport(userId, { startDate, endDate, timezone })`: returns a typed object with revenue / COGS / gross profit / operating expenses / net profit, each broken down by COA and by **source** (`'wise'` | `'claim'` | `'csv'`).
-- `src/lib/business-bas.ts` — `buildBasReport(userId, { startDate, endDate, timezone })`: returns `{ line1A, line1B, netGstPayable, contributingTransactions: [{ source, ... }] }`. Source-tagged so the UI can show which line came from Wise vs personal claim.
+- `src/lib/business-pl.ts` — `buildPlReport(userId, { startDate, endDate, timezone })`: returns a typed object with revenue / COGS / gross profit / operating expenses / net profit, each broken down by COA and by **source** (`'wise'` | `'claim'` | `'csv'`). Includes a top-level `missingFxCount: number` field for rows excluded due to `fx_status = 'missing'`. Page components never compute this themselves.
+- `src/lib/business-bas.ts` — `buildBasReport(userId, { startDate, endDate, timezone })`: returns `{ line1A, line1B, netGstPayable, contributingTransactions: [{ source, ... }], missingFxCount: number, hasSpotFeedRates: boolean }`. Source-tagged so the UI can show which line came from Wise vs personal claim. `hasSpotFeedRates` lets the page render the spot-feed provenance banner without re-querying.
 
 **Reporting contract** — every aggregate exposes a `bySource` breakdown alongside the unified total. The default UI shows totals, but the user can split by source on demand. Wise transactions vs owner-funded claims must never be silently combined without an opt-in.
 
@@ -327,7 +333,7 @@ All BAS/P&L/GST math lives in dedicated library files. Page components and route
 - `enqueueInitialSync()` — inserts a `business_sync_jobs` row, kicks off the worker.
 - `runManualSync()` — same shape, `kind = 'manual'`.
 - `importWiseCsv(file)` — `kind = 'csv_import'`.
-- `claimUpTransactionAsBusinessExpense(upTransactionId, coaId, gstCode, reimbursementStatus, notes?)` — server-side ownership check (`transactions.id → accounts.user_id = auth.uid()`), reads the live values from `transactions` to populate snapshot fields, inserts the claim. Rejects if a claim already exists for this `up_transaction_uuid`.
+- `claimUpTransactionAsBusinessExpense(upTransactionId, coaId, gstCode, reimbursementStatus, notes?)` — server-side ownership check (`transactions.id → accounts.user_id = auth.uid()`), reads the live values from `transactions` to populate snapshot fields, inserts the claim. Rejects if a claim already exists for this `up_transaction_uuid`. Both `coaId` and `gstCode` are required arguments — the modal UI must enforce selection before submit (no DB DEFAULTs on these columns; the CHECK constraint is a backstop, not the UX guard).
 - `updateBusinessTransaction(id, patch)`, `bulkUpdateBusinessTransactions(ids, patch)`.
 - `setBusinessTransactionFxManual(id, rateAudPerUnit)` — sets `exchange_rate`, recomputes `amount_aud_cents`, sets `exchange_rate_source = 'manual'`, `fx_status = 'manual'`.
 - `createCategorisationRule`, `updateCategorisationRule`, `deleteCategorisationRule`, `reorderCategorisationRules`.
@@ -379,7 +385,7 @@ Secondary entry point for claims, grouped by `reimbursement_status`.
 - Quarter selector aligned to Australian BAS quarters (Q1 Jul–Sep, Q2 Oct–Dec, Q3 Jan–Mar, Q4 Apr–Jun).
 - Renders `buildBasReport` output: 1A, 1B, net GST payable.
 - Per-row breakdown showing the **source** (Wise / Claim / CSV) of each contributing transaction.
-- **Spot-feed provenance warning** — if any contributing transaction has `exchange_rate_source = 'spot_feed'`, surface a clear banner noting that BAS values incorporate non-authoritative FX rates that may differ from the rate used by your tax agent. Recommend manual FX entry for material transactions.
+- **Spot-feed provenance warning** — if `report.hasSpotFeedRates`, surface a clear banner noting that BAS values incorporate non-authoritative FX rates that may differ from the rate used by your tax agent. Recommend manual FX entry for material transactions. **The warning does not block "Copy to clipboard"** — it accompanies it. Blocking creates friction without preventing the underlying problem; the user decides.
 - "Copy to clipboard" formatted for manual BAS entry.
 - "Save as period" — persists current range to `business_periods` with `is_bas_period = true`.
 
@@ -556,10 +562,12 @@ Phase 1A delivers a useful module without webhooks (manual sync covers the gap).
 
 ## 20. Open questions deferred to implementation
 
-- Confirm exact Wise endpoint paths and cursor-pagination shape against the live API reference.
+- **Verify Wise endpoint paths and cursor-pagination shape against the live API reference** before writing `wise-api.ts`. Wise's statement/activity endpoints have changed over time and LLM training data is unreliable here. The plan must include a "fetch live Wise API reference" step before any client code.
 - Confirm Wise webhook event names — `balances#credit` vs newer naming.
 - Confirm Wise's published public-key delivery format (env vars vs pinned constants).
-- Decide whether the spot-feed warning in §9.5 should also block "Copy to clipboard" or just badge it.
+
+**Resolved during spec review:**
+- Spot-feed warning on `/business/bas` is informational, **does not** block "Copy to clipboard" (see §9.5).
 
 ## 21. Phase 2 (explicitly out of scope here)
 
