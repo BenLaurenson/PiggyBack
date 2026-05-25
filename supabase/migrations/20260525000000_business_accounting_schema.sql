@@ -63,6 +63,7 @@ CREATE TABLE public.business_transactions (
   user_id uuid NOT NULL,
   business_account_id uuid NOT NULL,
   wise_transaction_id text,
+  reference_number text,
   import_fingerprint text,
   occurred_at timestamp with time zone NOT NULL,
   reporting_date date NOT NULL,
@@ -330,6 +331,9 @@ CREATE INDEX business_transactions_user_fx_pending_idx
 CREATE INDEX business_transactions_user_uncategorised_idx
   ON public.business_transactions (user_id, coa_id)
   WHERE coa_id IS NULL;
+CREATE INDEX business_transactions_user_reference_idx
+  ON public.business_transactions (user_id, reference_number)
+  WHERE reference_number IS NOT NULL;
 
 CREATE INDEX business_expense_claims_user_date_idx
   ON public.business_expense_claims (user_id, reporting_date_snapshot DESC);
