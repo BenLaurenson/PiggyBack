@@ -89,7 +89,8 @@ Unique: `(user_id, wise_balance_id)`.
 | `id` | uuid PK | |
 | `user_id` | uuid | |
 | `business_account_id` | uuid FK → `business_accounts(id) ON DELETE CASCADE` | |
-| `wise_transaction_id` | text | nullable (null for CSV without one); idempotency key when present |
+| `wise_transaction_id` | text | nullable (null for CSV without one); per-leg idempotency key, composed as `${reference_number}\|${direction}` by `processWiseTransaction` (see §6.4) |
+| `reference_number` | text | nullable; raw Wise `referenceNumber` for audit/display. Not unique on its own (refund pairs and FX legs share it). |
 | `import_fingerprint` | text | computed dedupe key for CSV rows (see §6.5); null for API rows |
 | `occurred_at` | timestamptz | **canonical** transaction timestamp from Wise |
 | `reporting_date` | date | derived from `occurred_at` at the user's `reporting_timezone`; the column reports run on |
@@ -116,7 +117,14 @@ Unique: `(user_id, wise_balance_id)`.
 - Unique `(user_id, wise_transaction_id)` WHERE `wise_transaction_id IS NOT NULL` — Wise API idempotency.
 - Unique `(user_id, import_fingerprint)` WHERE `import_fingerprint IS NOT NULL` — CSV idempotency.
 
-**Indexes:** see §16.
+**Why `wise_transaction_id` is composite:** Wise's raw `referenceNumber` is NOT globally unique — verified empirically against the live API. Two real patterns produce repeats:
+
+1. **Refund pairs** — a charge (DEBIT) and its refund (CREDIT) on the same balance share the `referenceNumber`.
+2. **FX legs** — a single CONVERSION emits two ledger rows (debit on the source-currency balance + credit on the target-currency balance), both carrying the same `referenceNumber`.
+
+The ingestion layer composes `wise_transaction_id = ${reference_number}|${direction}` so the unique index `(user_id, wise_transaction_id)` survives both patterns. The raw value lives in `reference_number` for UI display, audit queries, and traceability back to the Wise dashboard.
+
+**Indexes:** see §16. The composite-key model adds `business_transactions (user_id, reference_number)` for "show all legs of this reference" queries.
 
 ### 5.4 `business_expense_claims`
 
@@ -248,7 +256,11 @@ Personal API token. Stored encrypted in `business_wise_configs.encrypted_token` 
 Mirror the shape of `src/lib/up-api.ts`:
 
 - `createWiseApiClient(token, environment)` — base URL = `https://api.wise.com` or `https://api.wise-sandbox.com`.
-- `ping()`, `getProfiles()`, `getBalances(profileId)`, `getStatement(profileId, balanceId, params)`, `getActivity(profileId, params)`, `registerWebhook(profileId, payload)`, `deleteWebhook(profileId, subscriptionId)`.
+- `ping()`, `getProfiles()`, `getBalances(profileId)`, `getStatementPage(...)`, `registerWebhook(profileId, payload)`, `deleteWebhook(profileId, subscriptionId)`.
+
+**Statement endpoint path** (verified live, supersedes any prior reference in this spec): `GET /v1/profiles/{profileId}/balance-statements/{balanceId}/statement.json?currency=...&intervalStart=...&intervalEnd=...&type=FLAT`. The `borderless-accounts/{balanceId}/...` variant in earlier Wise docs returns 404 against the current live API. Activity endpoint (`/v1/profiles/{profileId}/activities`) returns display-formatted amount strings, not structured `{value, currency}` — unsuitable for ledger ingest, so we use statement.
+
+**Pagination:** Wise's statement endpoint does NOT return `nextCursor`. The sync worker iterates by date-window chunking (max 469 days per call per Wise's documented limit). `MAX_PAGES = 500` is retained as a defensive cap for any future cursor path; on the statement path it is unused.
 - `getAllPages<T>(initialResponse, fetchPage)` — cursor pagination via Wise's `nextCursor`. **`MAX_PAGES = 500`**.
 
 Exact endpoint paths and param shapes verified during implementation against the live Wise API reference — captured as a step in the plan.
@@ -503,6 +515,7 @@ Create explicitly in the migration (don't wait for query performance to discover
 - `business_transactions (user_id, currency_code, reporting_date)`
 - `business_transactions (user_id, fx_status) WHERE fx_status != 'resolved'`
 - `business_transactions (user_id, coa_id) WHERE coa_id IS NULL` — uncategorised hot path
+- `business_transactions (user_id, reference_number) WHERE reference_number IS NOT NULL` — "show all legs of this Wise reference" queries
 - `business_expense_claims (user_id, reporting_date_snapshot DESC)`
 - `business_expense_claims (user_id, reimbursement_status, reporting_date_snapshot DESC)`
 - `business_categorisation_rules (user_id, is_active, priority)`
