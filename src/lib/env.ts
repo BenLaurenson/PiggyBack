@@ -10,6 +10,8 @@ const envSchema = z.object({
     .regex(/^[0-9a-f]+$/i, "Must be a 64-character hex string")
     .optional(),
   CRON_SECRET: z.string().min(1).optional(),
+  WISE_PUBLIC_KEY_LIVE: z.string().min(1).optional(),
+  WISE_PUBLIC_KEY_SANDBOX: z.string().min(1).optional(),
 });
 
 export function validateEnv() {
