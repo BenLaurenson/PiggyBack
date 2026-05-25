@@ -1,6 +1,6 @@
 # Wise Business Accounting Module — Design
 
-**Status:** Draft — pending user review
+**Status:** Draft — pending user review (revision 2)
 **Date:** 2026-05-25
 **Supersedes:** `piggyback-business-accounting-spec.md` (kept at repo root for reference until merged)
 
@@ -19,21 +19,27 @@ Same Supabase instance, same auth, completely separate schema namespace (`busine
 - Two-way sync between personal and business (claims are a one-way pointer)
 - Receipts / attachments storage (Phase 2)
 - Contacts / suppliers table (Phase 2)
+- **Partial expense claims** — one Up transaction is either claimed in full or not at all in v1 (see §10)
 
 ## 3. Architecture decision
 
 All business data lives in tables prefixed `business_`. These tables are **never** joined into personal budget, FIRE, goals, analysis, or activity views. No `source` column on the existing `transactions` table. Strict isolation.
 
-The link from business to personal is one direction only: `business_expense_claims.up_transaction_id` is a uuid FK referencing `transactions.id`. The personal `transactions` row is never mutated. Claimed Up transactions continue to appear unchanged in personal budget/FIRE/analysis views.
+**Cross-domain rules:**
+- The only allowed cross-domain pointer is `business_expense_claims.up_transaction_uuid → transactions(id)`, read-only from the business side.
+- Business code may not import from `src/lib/budget-*`, `src/lib/fire-*`, `src/lib/expense-*`, `src/lib/match-expense-transactions.ts`, or any personal-finance-specific helper unless that helper is first extracted to a domain-agnostic location (e.g. `src/lib/shared/` for things like money formatting).
+- The link from business to personal is one direction only. The personal `transactions` row is never mutated. Claimed Up transactions continue to appear unchanged in personal budget/FIRE/analysis views.
 
 ## 4. Conventions (align with existing PiggyBack)
 
-- **Money: bigint cents.** All amount/balance columns are `bigint *_cents`, never `numeric`. Matches `transactions.amount_cents`, `accounts.balance_cents`, `goals.current_amount_cents`. All formatting helpers in the app already expect cents.
+- **Money: bigint cents.** All amount/balance columns are `bigint *_cents`. Matches `transactions.amount_cents`, `accounts.balance_cents`. All formatting helpers in the app already expect cents.
+- **Enums: CHECK constraints.** Every text column that represents a finite enum has a Postgres `CHECK` constraint enumerating the legal values. No relying on TypeScript or the UI as the only guard. Listed inline in §5.
 - **Timestamps:** every table has both `created_at` and `updated_at` (timestamptz, default `timezone('utc'::text, now())`).
 - **Soft delete:** every table that represents a connection/account/config has `is_active boolean DEFAULT true`.
 - **RLS:** every table has RLS enabled with `user_id = auth.uid()` policies — same shape as existing PiggyBack tables.
 - **Webhook runtime:** any route that does crypto signature verification uses `runtime = "nodejs"`.
 - **Demo mode:** all business write actions respect `demo-guard.ts` and are no-ops in demo mode.
+- **Timezone:** per-user `reporting_timezone` on `business_wise_configs`, default `Australia/Sydney`. All `*_date` columns are derived from `*_at` timestamps using this timezone, never from server local time.
 
 ## 5. Database schema
 
@@ -41,24 +47,22 @@ All tables: `user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE`.
 
 ### 5.1 `business_wise_configs`
 
-Stores the Wise API token, profile selection, and webhook handle. One row per user.
+Stores the Wise API token, profile selection, webhook handle, and reporting timezone. One row per user.
 
 | Column | Type | Notes |
 |---|---|---|
 | `id` | uuid PK | |
 | `user_id` | uuid | unique |
-| `encrypted_token` | text | AES-256-GCM via existing `src/lib/token-encryption.ts` |
-| `wise_profile_id` | text | The selected Business profile ID |
-| `wise_profile_name` | text | Display label, e.g. "MyCo Pty Ltd" |
-| `wise_environment` | text | `'live'` or `'sandbox'` |
-| `webhook_id` | text | Subscription ID returned by Wise on register |
+| `encrypted_token` | text | AES-256-GCM via `src/lib/token-encryption.ts` |
+| `wise_profile_id` | text | the selected Business profile ID |
+| `wise_profile_name` | text | display label |
+| `wise_environment` | text | CHECK in (`'live'`, `'sandbox'`) |
+| `reporting_timezone` | text | IANA tz string, default `'Australia/Sydney'` |
+| `webhook_id` | text | subscription ID returned by Wise on register, nullable |
 | `webhook_delivery_id` | text | nullable; secondary handle if needed |
 | `is_active` | boolean | default true |
 | `last_synced_at` | timestamptz | |
-| `created_at` | timestamptz | |
-| `updated_at` | timestamptz | |
-
-Same encryption pattern as `up_api_configs`. Token decrypted on demand via `getPlaintextToken()`.
+| `created_at` / `updated_at` | timestamptz | |
 
 ### 5.2 `business_accounts`
 
@@ -68,7 +72,7 @@ One row per **Wise balance** (one balance per currency in the profile).
 |---|---|---|
 | `id` | uuid PK | |
 | `user_id` | uuid | |
-| `wise_balance_id` | text | Wise's balance ID, unique within profile |
+| `wise_balance_id` | text | Wise's balance ID |
 | `display_name` | text | e.g. "AUD Balance", "USD Balance" |
 | `currency_code` | text | ISO 4217 |
 | `balance_cents` | bigint | in native currency |
@@ -85,53 +89,62 @@ Unique: `(user_id, wise_balance_id)`.
 | `id` | uuid PK | |
 | `user_id` | uuid | |
 | `business_account_id` | uuid FK → `business_accounts(id) ON DELETE CASCADE` | |
-| `wise_transaction_id` | text | unique with user_id, idempotency key |
-| `occurred_at` | timestamptz | transaction timestamp |
-| `date` | date | local-date convenience (Australia/Sydney) for reporting |
+| `wise_transaction_id` | text | nullable (null for CSV without one); idempotency key when present |
+| `import_fingerprint` | text | computed dedupe key for CSV rows (see §6.5); null for API rows |
+| `occurred_at` | timestamptz | **canonical** transaction timestamp from Wise |
+| `reporting_date` | date | derived from `occurred_at` at the user's `reporting_timezone`; the column reports run on |
 | `description` | text | |
 | `amount_cents` | bigint | native currency; negative = debit, positive = credit |
 | `currency_code` | text | matches the balance's currency |
+| `direction` | text | CHECK in (`'credit'`, `'debit'`); derived from sign on ingest |
 | `exchange_rate` | numeric(18, 8) | nullable; AUD per 1 unit of `currency_code` |
-| `exchange_rate_source` | text | `'wise'` \| `'spot_feed'` \| `'manual'` \| null |
+| `exchange_rate_source` | text | CHECK in (`'wise'`, `'spot_feed'`, `'manual'`); nullable |
 | `exchange_rate_fetched_at` | timestamptz | nullable |
-| `amount_aud_cents` | bigint | nullable until FX known; always populated for AUD-currency rows |
-| `direction` | text | `'credit'` \| `'debit'` (derived from sign on ingest) |
-| `wise_category` | text | nullable; raw Wise category if any |
+| `amount_aud_cents` | bigint | nullable until FX resolved |
+| `fx_status` | text | CHECK in (`'resolved'`, `'missing'`, `'manual'`); default `'resolved'` for AUD-currency rows |
+| `wise_category` | text | raw Wise category if any |
 | `coa_id` | uuid FK → `chart_of_accounts(id)` | nullable |
-| `gst_code` | text | `G1` \| `G10` \| `G11` \| `N-T` \| `INP`, nullable |
+| `gst_code` | text | CHECK in (`'G1'`, `'G10'`, `'G11'`, `'N-T'`, `'INP'`); nullable |
 | `gst_amount_aud_cents` | bigint | nullable; computed on COA/code assignment |
 | `is_reconciled` | boolean | default false |
 | `notes` | text | nullable |
-| `source` | text | `'wise_api'` \| `'csv_import'` |
+| `source` | text | CHECK in (`'wise_api'`, `'csv_import'`) |
 | `raw_payload` | jsonb | original Wise response, nullable for CSV |
 | `created_at` / `updated_at` | timestamptz | |
 
-Unique: `(user_id, wise_transaction_id)`. Indexes on `(user_id, date)`, `(user_id, coa_id)`, `(user_id, is_reconciled)`.
+**Uniqueness:**
+- Unique `(user_id, wise_transaction_id)` WHERE `wise_transaction_id IS NOT NULL` — Wise API idempotency.
+- Unique `(user_id, import_fingerprint)` WHERE `import_fingerprint IS NOT NULL` — CSV idempotency.
+
+**Indexes:** see §16.
 
 ### 5.4 `business_expense_claims`
 
-Personal Up Bank transactions declared as business expenses. Pointer table.
+Personal Up Bank transactions declared as business expenses. Pointer table with **snapshot fields** so claims remain reportable even if the personal side later evolves (soft-delete, hidden state, schema changes).
 
 | Column | Type | Notes |
 |---|---|---|
 | `id` | uuid PK | |
 | `user_id` | uuid | |
 | `up_transaction_uuid` | uuid FK → `transactions(id) ON DELETE RESTRICT` | the personal transaction |
-| `amount_aud_cents` | bigint | snapshot at claim time |
-| `date` | date | snapshot |
-| `description` | text | snapshot |
+| `description_snapshot` | text | merchant/description at claim time |
+| `amount_aud_cents_snapshot` | bigint | amount at claim time (always AUD; Up is AUD-only) |
+| `occurred_at_snapshot` | timestamptz | canonical timestamp at claim time |
+| `reporting_date_snapshot` | date | derived in user's `reporting_timezone` at claim time |
+| `up_account_id_snapshot` | text | the Up account the personal txn was on |
+| `personal_transaction_status_snapshot` | text | `transactions.status` value at claim time |
 | `coa_id` | uuid FK → `chart_of_accounts(id)` | required |
-| `gst_code` | text | required (often G11) |
+| `gst_code` | text | CHECK in (`'G1'`, `'G10'`, `'G11'`, `'N-T'`, `'INP'`); required (typically `G11`) |
 | `gst_amount_aud_cents` | bigint | computed |
-| `reimbursement_status` | text | `'owner_absorbed'` \| `'pending'` \| `'reimbursed'` |
+| `reimbursement_status` | text | CHECK in (`'owner_absorbed'`, `'pending'`, `'reimbursed'`) |
 | `notes` | text | nullable |
 | `created_at` / `updated_at` | timestamptz | |
 
-Unique: `(user_id, up_transaction_uuid)` — a single Up transaction can only be claimed once.
+Unique: `(user_id, up_transaction_uuid)` — at most one claim per personal transaction. Partial claims are out of scope for v1 (see §10).
 
-**Cross-table RLS check:** on insert, server-side check that the referenced `transactions.id` belongs to a row whose `account_id` resolves to an `accounts.user_id = auth.uid()`. Enforced in the server action, not at the DB layer (DB-level cross-table RLS is awkward).
+**ON DELETE RESTRICT** preserves referential integrity but reporting code reads snapshot fields, not the joined personal row. The FK exists for the audit/traceability link and to prevent silent orphaning — not as the primary data source for reports.
 
-`ON DELETE RESTRICT` on the FK: if a personal transaction is being deleted (e.g. webhook TRANSACTION_DELETED) while it has an active claim, the delete fails loudly. The Up webhook handler should be extended to detect this and either soft-delete the personal row (already does this — sets `status='DELETED'`) which keeps the FK intact, or surface a warning.
+**Cross-table ownership check** (server-action only, not DB): on insert, verify `transactions.id` → `accounts.user_id = auth.uid()` before writing.
 
 ### 5.5 `chart_of_accounts`
 
@@ -141,13 +154,16 @@ Unique: `(user_id, up_transaction_uuid)` — a single Up transaction can only be
 | `user_id` | uuid | |
 | `code` | text | e.g. `4000`, `6100` |
 | `name` | text | |
-| `type` | text | `'revenue'` \| `'cogs'` \| `'expense'` \| `'asset'` \| `'liability'` \| `'equity'` |
-| `default_gst_code` | text | |
-| `is_system` | boolean | true for seeded; user cannot delete |
+| `type` | text | CHECK in (`'revenue'`, `'cogs'`, `'expense'`, `'asset'`, `'liability'`, `'equity'`) |
+| `default_gst_code` | text | CHECK in (`'G1'`, `'G10'`, `'G11'`, `'N-T'`, `'INP'`) |
+| `is_system` | boolean | true for seeded rows |
+| `seed_version` | int | nullable; identifies which seed version inserted this row, null for user-created |
 | `is_active` | boolean | default true; system rows can be deactivated, not deleted |
 | `created_at` / `updated_at` | timestamptz | |
 
 Unique: `(user_id, code)`.
+
+**Seed policy** (see §13): system rows are inserted by a versioned seed function. `code` and `type` are immutable for system rows (enforced in server actions, not DB — UI prevents editing). `name` and `default_gst_code` of a system row may only be updated by a seed-migration function, never by user-facing actions. User-created rows are fully editable and deletable.
 
 ### 5.6 `business_categorisation_rules`
 
@@ -155,16 +171,14 @@ Unique: `(user_id, code)`.
 |---|---|---|
 | `id` | uuid PK | |
 | `user_id` | uuid | |
-| `match_field` | text | `'description'` \| `'wise_category'` |
-| `match_type` | text | `'contains'` \| `'exact'` \| `'starts_with'` |
+| `match_field` | text | CHECK in (`'description'`, `'wise_category'`) |
+| `match_type` | text | CHECK in (`'contains'`, `'exact'`, `'starts_with'`) |
 | `match_value` | text | |
 | `coa_id` | uuid FK → `chart_of_accounts(id)` | |
-| `gst_code_override` | text | nullable |
+| `gst_code_override` | text | CHECK in (`'G1'`, `'G10'`, `'G11'`, `'N-T'`, `'INP'`); nullable |
 | `priority` | int | lower = higher |
 | `is_active` | boolean | default true |
 | `created_at` / `updated_at` | timestamptz | |
-
-Functionally similar to `merchant_category_rules` for personal data — kept entirely separate by design (isolation > DRY).
 
 ### 5.7 `business_periods`
 
@@ -173,210 +187,271 @@ Functionally similar to `merchant_category_rules` for personal data — kept ent
 | `id` | uuid PK | |
 | `user_id` | uuid | |
 | `label` | text | e.g. `Q3 FY2026 BAS` |
-| `period_type` | text | `'monthly'` \| `'quarterly'` \| `'fy'` |
+| `period_type` | text | CHECK in (`'monthly'`, `'quarterly'`, `'fy'`, `'custom'`) |
 | `start_date` | date | |
 | `end_date` | date | |
 | `is_bas_period` | boolean | |
 | `created_at` / `updated_at` | timestamptz | |
 
-User-curated only — never auto-generated. Used as a named-date-range registry surfaced in dropdowns on `/business`, `/business/pl`, `/business/bas`.
+User-curated only — never auto-generated.
+
+### 5.8 `business_sync_jobs`
+
+Persisted sync-state for long-running historical imports and manual sync runs. UI polls this row instead of relying on SSE — simpler, retry-safe.
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | uuid PK | |
+| `user_id` | uuid | |
+| `kind` | text | CHECK in (`'initial'`, `'manual'`, `'webhook_replay'`, `'csv_import'`) |
+| `status` | text | CHECK in (`'queued'`, `'running'`, `'completed'`, `'failed'`, `'cancelled'`) |
+| `stage` | text | free-text, human-readable current stage |
+| `processed_count` | int | default 0 |
+| `total_estimate` | int | nullable; best-effort denominator for progress |
+| `error_message` | text | nullable |
+| `started_at` / `finished_at` | timestamptz | nullable |
+| `created_at` / `updated_at` | timestamptz | |
+
+Index `(user_id, status, created_at DESC)` to surface the latest active job.
+
+### 5.9 `business_webhook_events`
+
+Audit log for incoming Wise webhook deliveries. Helps with idempotency reasoning, debugging out-of-order delivery, and replay.
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | uuid PK | |
+| `user_id` | uuid | nullable until we resolve the user from `webhook_id` |
+| `wise_subscription_id` | text | from payload |
+| `wise_event_id` | text | from payload |
+| `event_name` | text | e.g. `balances#credit` |
+| `signature_valid` | boolean | |
+| `delivery_id` | text | Wise's delivery identifier if present |
+| `payload` | jsonb | full raw body |
+| `processed_at` | timestamptz | nullable until handler completes |
+| `outcome` | text | CHECK in (`'pending'`, `'processed'`, `'duplicate'`, `'invalid_signature'`, `'error'`); nullable |
+| `error_message` | text | nullable |
+| `created_at` | timestamptz | |
+
+Unique `(wise_subscription_id, wise_event_id)` — gives free idempotency on Wise's duplicate deliveries.
 
 ## 6. Wise integration
 
 ### 6.1 Authentication
 
-Personal API token (same shape as Up Bank). Token generated by user in Wise Business Settings → API tokens. Stored encrypted in `business_wise_configs.encrypted_token` via the existing `src/lib/token-encryption.ts` AES-256-GCM helper. Decrypted on demand.
+Personal API token. Stored encrypted in `business_wise_configs.encrypted_token` via the existing `src/lib/token-encryption.ts` AES-256-GCM helper. Decrypted on demand.
 
 ### 6.2 API client (`src/lib/wise-api.ts`)
 
 Mirror the shape of `src/lib/up-api.ts`:
 
-- `createWiseApiClient(token, environment)` returns a `WiseApiClient` with bound base URL (`https://api.wise.com` or `https://api.wise-sandbox.com`).
-- `ping()` — `GET /v1/me` to validate token.
-- `getProfiles()` — `GET /v2/profiles`. Returns both personal + business; the connection flow filters to business.
-- `getBalances(profileId)` — `GET /v4/profiles/{profileId}/balances?types=STANDARD`. One row per currency.
-- `getStatement(profileId, balanceId, params)` — `GET /v1/profiles/{profileId}/borderless-accounts/{balanceId}/statement.json` with `intervalStart`, `intervalEnd`, optional `nextCursor`.
-- `getActivity(profileId, params)` — `GET /v1/profiles/{profileId}/activities` (newer endpoint, may be preferred if it supports cursor pagination cleanly).
-- `registerWebhook(profileId, payload)` — `POST /v3/profiles/{profileId}/subscriptions`.
-- `deleteWebhook(profileId, subscriptionId)` — `DELETE` on the same path.
-- `getAllPages<T>(initialResponse, fetchPage)` — generic cursor pagination helper. **`MAX_PAGES = 500`** safety cap (vs Up's 100, because we're pulling all history). Same pattern as Up's `getAllPages`.
+- `createWiseApiClient(token, environment)` — base URL = `https://api.wise.com` or `https://api.wise-sandbox.com`.
+- `ping()`, `getProfiles()`, `getBalances(profileId)`, `getStatement(profileId, balanceId, params)`, `getActivity(profileId, params)`, `registerWebhook(profileId, payload)`, `deleteWebhook(profileId, subscriptionId)`.
+- `getAllPages<T>(initialResponse, fetchPage)` — cursor pagination via Wise's `nextCursor`. **`MAX_PAGES = 500`**.
 
-Exported types: `WiseProfile`, `WiseBalance`, `WiseTransaction`, `WiseStatement`, `WiseSubscription`, `WiseApiError`, `WiseApiClient`.
-
-Endpoint URLs and exact param shapes should be re-verified against the live Wise API reference during implementation — the plan will include this as a step.
+Exact endpoint paths and param shapes verified during implementation against the live Wise API reference — captured as a step in the plan.
 
 ### 6.3 Webhook handler (`src/app/api/business/wise/webhook/route.ts`)
 
-`runtime = "nodejs"`. Receives Wise webhook events; uses service-role client to bypass RLS (events arrive without a user session).
+`runtime = "nodejs"`. Treats webhooks as **hints, not truth** — every event triggers an authoritative refetch from the Wise API.
 
-**Signature verification — different from Up:**
+**Pipeline:**
 
-- Up uses HMAC-SHA256 with a per-webhook shared secret. **Do NOT copy the Up verification code.**
-- Wise signs with **RSA-SHA256** (newer subscriptions: RSA-SHA512). Wise publishes a public key per environment.
-- Verification: `X-Signature-SHA256` header is a base64 RSA signature over the raw request body. Verify against Wise's published public key using Node's `crypto.verify('RSA-SHA256', body, publicKey, signatureBuf)`.
-- Wise's public keys (live + sandbox) are bundled into the repo or loaded from env. Document this in the connection setup README.
+1. Read raw body and headers.
+2. **Persist immediately** into `business_webhook_events` with `outcome = 'pending'`, `signature_valid = false` initially. This guarantees we have a record even if downstream processing crashes.
+3. **Verify RSA signature** — `X-Signature-SHA256` is base64 RSA signature over the raw body. Verify against Wise's published public key (live or sandbox depending on the matched config). Update `signature_valid` accordingly. Reject (200 to avoid retries on garbage; log) if invalid.
+4. **Idempotency** — if `(wise_subscription_id, wise_event_id)` already exists with `outcome = 'processed'`, mark this delivery `'duplicate'` and return 200.
+5. **Resolve user** — look up `business_wise_configs` by `webhook_id`. Update the event row with `user_id`.
+6. **Refetch canonical state** — decrypt token, instantiate `WiseApiClient`, fetch the affected statement/balance window. Never trust amounts or IDs from the webhook payload as the source of truth.
+7. **Process** — call `processWiseTransaction(client, txn)` for each transaction in the refetched window. Upsert on `(user_id, wise_transaction_id)`.
+8. **Refresh balance** — refetch and update the affected `business_accounts.balance_cents`.
+9. **Revalidate paths** — `/business`, `/business/transactions`, `/business/pl`, `/business/bas`.
+10. **Mark processed** — update the event row `outcome = 'processed'`, `processed_at = now()`.
 
-**Events we subscribe to** (per Wise docs — to be confirmed during implementation):
+**Out-of-order tolerance:** because step 6 always refetches and step 7 upserts, late or duplicate deliveries converge to the same state.
 
-- `balances#credit` — incoming transaction
-- `balances#update` — balance changed
-- Optionally `transfers#state-change` for outbound transfer events.
-
-**Payload is thin.** Like Up Bank, Wise webhook events deliver an event id + resource id, not the full transaction. The handler:
-
-1. Verify RSA signature; reject if invalid.
-2. Look up `business_wise_configs` by `webhook_id` to identify the user.
-3. Decrypt the user's token and instantiate a `WiseApiClient`.
-4. Fetch the canonical transaction(s) via `getStatement` or `getActivity` for the affected balance/time window.
-5. Call `processWiseTransaction(client, payload)` for each new/updated transaction.
-6. Revalidate paths: `/business`, `/business/transactions`, `/business/pl`, `/business/bas`.
-
-**Idempotency:** upsert on `(user_id, wise_transaction_id)`. Duplicate webhook deliveries are no-ops.
+**Signature scheme is RSA-SHA256, not HMAC.** Do not copy code from `src/app/api/upbank/webhook/route.ts` for verification — that uses HMAC with a shared secret, which is wrong for Wise.
 
 ### 6.4 Transaction processing pipeline (`processWiseTransaction`)
 
 1. **Account lookup** — find `business_accounts` row by `(user_id, wise_balance_id)`.
-2. **FX resolution** — if `currency_code = 'AUD'`, `amount_aud_cents = amount_cents` and `exchange_rate`, `exchange_rate_source`, `exchange_rate_fetched_at` are all null. Otherwise:
-   - If the Wise payload provides a rate (transfers/conversions), use it (`exchange_rate_source = 'wise'`).
-   - Else fetch a spot rate from a free feed (default: **Frankfurter** — `https://api.frankfurter.app`, ECB-backed, no API key). `exchange_rate_source = 'spot_feed'`.
-   - If the feed call fails: store the transaction with `amount_aud_cents = NULL`, `exchange_rate = NULL`, and surface in the uncategorised UI with an "FX missing" badge for manual entry.
-3. **Categorisation engine** — run `business_categorisation_rules` in `priority` order (ascending). First match sets `coa_id`, and `gst_code = rule.gst_code_override ?? coa.default_gst_code`. No rule match: `coa_id = NULL`, `gst_code = NULL`, surface as uncategorised.
-4. **GST amount** — if `gst_code IN ('G1','G10','G11')`: compute in TypeScript (not in SQL — Postgres integer division truncates toward zero, which is wrong for negative debits). `gst_amount_aud_cents = Math.round(Math.abs(amount_aud_cents) / 11) * Math.sign(amount_aud_cents)`. Else 0. Wrap in a helper in `src/lib/business-gst.ts` so the rounding rule is testable.
-5. **Reconciled flag** — always starts `false`.
+2. **Date derivation** — `occurred_at` from Wise; `reporting_date = (occurred_at AT TIME ZONE config.reporting_timezone)::date`.
+3. **FX resolution:**
+   - If `currency_code = 'AUD'`: `amount_aud_cents = amount_cents`, `exchange_rate = NULL`, `exchange_rate_source = NULL`, `exchange_rate_fetched_at = NULL`, `fx_status = 'resolved'`.
+   - Else if Wise payload provides a rate: use it. `exchange_rate_source = 'wise'`, `fx_status = 'resolved'`.
+   - Else fetch from Frankfurter (`https://api.frankfurter.app`). `exchange_rate_source = 'spot_feed'`, `fx_status = 'resolved'`.
+   - If the feed call fails: `amount_aud_cents = NULL`, `exchange_rate = NULL`, `fx_status = 'missing'`. Surfaced in UI for manual entry.
+4. **Categorisation engine** — iterate `business_categorisation_rules` in `priority` ASC. First match sets `coa_id`; `gst_code = rule.gst_code_override ?? coa.default_gst_code`. No match: `coa_id = NULL`, `gst_code = NULL`.
+5. **GST amount** — computed in TypeScript via `src/lib/business-gst.ts` (Postgres integer division truncates toward zero, wrong for negative debits). For codes in `('G1','G10','G11')`: `gst_amount_aud_cents = sign(amount_aud_cents) * Math.round(Math.abs(amount_aud_cents) / 11)`. Otherwise 0. Null if `amount_aud_cents` is null.
 6. **Upsert** to `business_transactions` on conflict `(user_id, wise_transaction_id)`.
-7. **Balance refresh** — refetch the balance via `getBalances()` and update `business_accounts.balance_cents` for the affected balance.
 
 ### 6.5 Manual sync + CSV import (fallback paths)
 
-- **Manual sync button** on `/business/settings/wise-connection` — runs a batch `getStatement` for each active balance, ingesting any transactions not already present. Same `processWiseTransaction` pipeline.
-- **CSV import** at `/business/settings/import-csv` — accepts Wise's exported CSV. Map columns → `business_transactions` (`source = 'csv_import'`). Dedupe on `wise_transaction_id` if present in CSV, else composite `(user_id, date, description, amount_cents)`. CSV-only rows still run through the categorisation engine.
+- **Manual sync button** — creates a `business_sync_jobs` row with `kind = 'manual'`; same processing pipeline.
+- **CSV import** at `/business/settings/import-csv` — accepts Wise's exported CSV. Map columns → `business_transactions` (`source = 'csv_import'`).
 
-## 7. Server actions
+**CSV idempotency via `import_fingerprint`** — computed at import time as a normalised composite:
 
-`src/app/actions/business.ts` — new file.
+```
+import_fingerprint = sha1(
+  normalize(date) + '|' +
+  normalize_description(description) + '|' +  // collapse whitespace, lowercase
+  amount_cents.toString() + '|' +
+  currency_code + '|' +
+  (reference ?? '') + '|' +
+  (balance_name ?? '')
+)
+```
 
-- `connectWise(plaintextToken, environment)` — validates via `ping()`, then `getProfiles()`, stores encrypted token + `wise_profile_id` (auto-pick the only business profile, or surface a selector if multiple).
-- `selectWiseProfile(profileId)` — sets the active business profile.
-- `registerWiseWebhook()` — registers subscription against Wise, stores `webhook_id`.
-- `deleteWiseWebhook()` — deletes the subscription and clears the handle.
-- `disconnectWise()` — deletes webhook + clears `business_wise_configs` for this user (does not delete historical transactions).
-- `runInitialSync()` — fetches all profiles → balances → all statement history (paginated), populates `business_accounts` + `business_transactions`. Reports progress via Server-Sent Events or a `business_sync_status` row (TBD during implementation; default: progress row).
-- `importWiseCsv(file)` — CSV import action.
-- `claimUpTransactionAsBusinessExpense(upTransactionId, coaId, gstCode, reimbursementStatus, notes?)` — server-side ownership check, then insert into `business_expense_claims`.
-- `updateBusinessTransaction(id, { coa_id?, gst_code?, notes?, is_reconciled? })`.
-- `bulkUpdateBusinessTransactions(ids, patch)`.
+Stored on the row, with a partial unique index. Re-imports of the same CSV are no-ops. If a CSV row also includes Wise's transaction ID, use that as the primary idempotency key and set `import_fingerprint = NULL`.
+
+## 7. Reporting library boundary
+
+All BAS/P&L/GST math lives in dedicated library files. Page components and route handlers consume pre-aggregated typed report objects — **never** assemble tax logic inline.
+
+**Files:**
+
+- `src/lib/business-gst.ts` — `computeGstAmountCents(amountAudCents, gstCode)`; `isGstApplicable(gstCode)`; rounding helpers; unit-tested.
+- `src/lib/business-pl.ts` — `buildPlReport(userId, { startDate, endDate, timezone })`: returns a typed object with revenue / COGS / gross profit / operating expenses / net profit, each broken down by COA and by **source** (`'wise'` | `'claim'` | `'csv'`).
+- `src/lib/business-bas.ts` — `buildBasReport(userId, { startDate, endDate, timezone })`: returns `{ line1A, line1B, netGstPayable, contributingTransactions: [{ source, ... }] }`. Source-tagged so the UI can show which line came from Wise vs personal claim.
+
+**Reporting contract** — every aggregate exposes a `bySource` breakdown alongside the unified total. The default UI shows totals, but the user can split by source on demand. Wise transactions vs owner-funded claims must never be silently combined without an opt-in.
+
+## 8. Server actions
+
+`src/app/actions/business.ts`:
+
+- `connectWise(plaintextToken, environment)` — validates via `ping()`, calls `getProfiles()`, stores encrypted token + `wise_profile_id`. Auto-picks the only business profile or surfaces a selector if multiple.
+- `selectWiseProfile(profileId)`.
+- `registerWiseWebhook()`, `deleteWiseWebhook()`, `disconnectWise()` (clears config; does not delete historical data).
+- `enqueueInitialSync()` — inserts a `business_sync_jobs` row, kicks off the worker.
+- `runManualSync()` — same shape, `kind = 'manual'`.
+- `importWiseCsv(file)` — `kind = 'csv_import'`.
+- `claimUpTransactionAsBusinessExpense(upTransactionId, coaId, gstCode, reimbursementStatus, notes?)` — server-side ownership check (`transactions.id → accounts.user_id = auth.uid()`), reads the live values from `transactions` to populate snapshot fields, inserts the claim. Rejects if a claim already exists for this `up_transaction_uuid`.
+- `updateBusinessTransaction(id, patch)`, `bulkUpdateBusinessTransactions(ids, patch)`.
+- `setBusinessTransactionFxManual(id, rateAudPerUnit)` — sets `exchange_rate`, recomputes `amount_aud_cents`, sets `exchange_rate_source = 'manual'`, `fx_status = 'manual'`.
 - `createCategorisationRule`, `updateCategorisationRule`, `deleteCategorisationRule`, `reorderCategorisationRules`.
-- `createCoaLine`, `updateCoaLine`, `deactivateCoaLine` (no hard delete on system rows).
-- `savePeriod({ label, period_type, start_date, end_date, is_bas_period })`.
-- `deletePeriod(id)`.
+- `createCoaLine`, `updateCoaLine`, `deactivateCoaLine`, `deleteCoaLine` (only if `is_system = false`).
+- `savePeriod`, `deletePeriod`.
 
-All actions wrap with `demo-guard.ts` to no-op in demo mode.
+All actions wrap with `demo-guard.ts`.
 
-## 8. Routes & pages
+## 9. Routes & pages
 
-All under `src/app/(app)/business/`. The nav item is hidden until `business_wise_configs.is_active = true` OR `business_accounts` count > 0.
+All under `src/app/(app)/business/`. The nav item is hidden until the user has an active `business_wise_configs` row OR at least one `business_accounts` row OR at least one `business_transactions` row.
 
-### 8.1 `/business` — dashboard
+### 9.1 `/business` — dashboard
 
-- **Empty state (no Wise connection yet):** real onboarding moment, not a generic "nothing here." Matches the visual treatment of existing onboarding wizards in `src/app/(onboarding)/`. Content:
-  - Short explanation of what the business module does (BAS-friendly P&L, expense tracking, Wise + Up claim support).
-  - Primary CTA button: "Connect Wise Business" → `/business/settings/wise-connection`.
+- **Empty state** (no Wise connection, no business data): full onboarding moment, not a generic empty screen. Matches the visual treatment of existing onboarding wizards in `src/app/(onboarding)/`.
+  - Short explanation of the business module (BAS-friendly P&L, expense tracking, Wise + Up claim support).
+  - Primary CTA: "Connect Wise Business" → `/business/settings/wise-connection`.
   - Secondary link: "Import CSV instead" → `/business/settings/import-csv`.
 - **Connected state:**
   - Period selector (this month / last month / this quarter / last quarter / this FY / custom / saved periods dropdown).
-  - P&L summary card: Revenue | Expenses | Net Profit | GST Payable.
-  - Uncategorised transactions count with CTA → `/business/transactions?filter=uncategorised`.
+  - P&L summary card from `buildPlReport`: Revenue | Expenses | Net Profit | GST Payable. Toggle to split by source.
+  - Uncategorised transaction count with CTA → `/business/transactions?filter=uncategorised`.
+  - FX-missing count CTA if any.
   - Recent transactions list (Wise + claims, visually distinguished).
-  - Initial sync progress banner if a sync is in progress.
+  - Active sync banner driven by latest `business_sync_jobs` row.
 
-### 8.2 `/business/transactions`
+### 9.2 `/business/transactions`
 
 - Combined view of `business_transactions` + `business_expense_claims`.
 - Claims rendered with a **"Personal claim"** badge.
-- Filters: source (Wise / claim / CSV), date range, direction, COA, GST code, reconciled status, balance (account), reimbursement status, "FX missing".
+- Filters: source (Wise / claim / CSV), date range, direction, COA, GST code, reconciled status, balance, reimbursement status, **fx_status**, currency.
 - Bulk actions: assign COA, assign GST code, mark reconciled.
-- Inline edit: COA, GST code, notes.
-- "Claim personal expense" button → modal (see §9).
+- Inline edit: COA, GST code, notes; manual FX entry button when `fx_status != 'resolved'`.
+- "Claim personal expense" button → modal (see §10).
 
-### 8.3 `/business/claims`
+### 9.3 `/business/claims`
 
-Secondary entry point for claims, grouped by `reimbursement_status`. Same claim modal.
+Secondary entry point for claims, grouped by `reimbursement_status`.
 
-### 8.4 `/business/pl` — P&L report
+### 9.4 `/business/pl`
 
-- Revenue by COA → Gross profit → COGS → Operating expenses by COA → Net profit.
-- Combines `business_transactions` debits + `business_expense_claims`.
+- Renders `buildPlReport` output.
+- Toggle: combined view vs source-split view (Wise + CSV + Claims).
 - Period comparison toggle (this vs prior).
 - Export to CSV.
 
-### 8.5 `/business/bas` — BAS summary
-
-Read-only, not lodgement.
+### 9.5 `/business/bas`
 
 - Quarter selector aligned to Australian BAS quarters (Q1 Jul–Sep, Q2 Oct–Dec, Q3 Jan–Mar, Q4 Apr–Jun).
-- **1A** (GST collected) = `SUM(gst_amount_aud_cents)` from `business_transactions` WHERE `direction='credit'` AND `gst_code='G1'`.
-- **1B** (GST credits) = `SUM(gst_amount_aud_cents)` from `business_transactions` (debits, `gst_code IN ('G10','G11')`) **+** `business_expense_claims` (same GST codes).
-- **Net GST payable** = 1A − 1B.
-- Per-row breakdown with source indicator (Wise / Claim).
+- Renders `buildBasReport` output: 1A, 1B, net GST payable.
+- Per-row breakdown showing the **source** (Wise / Claim / CSV) of each contributing transaction.
+- **Spot-feed provenance warning** — if any contributing transaction has `exchange_rate_source = 'spot_feed'`, surface a clear banner noting that BAS values incorporate non-authoritative FX rates that may differ from the rate used by your tax agent. Recommend manual FX entry for material transactions.
 - "Copy to clipboard" formatted for manual BAS entry.
-- **"Save as period"** action persists current range to `business_periods` with `is_bas_period = true`.
+- "Save as period" — persists current range to `business_periods` with `is_bas_period = true`.
 
-### 8.6 `/business/settings` — settings index
+### 9.6 `/business/settings` — settings index
 
-`/business/settings` itself is a thin index page that links to the five sub-pages below. Mirrors the existing `/settings` page pattern (which has tile-like links to `/settings/profile`, `/settings/up-connection`, etc.). Each setting is its own route, not a tab inside one page.
+Thin index page linking to:
 
-- `/business/settings/wise-connection` — token input, environment toggle (sandbox/live), profile picker if multiple businesses, webhook status, manual sync button, disconnect.
+- `/business/settings/wise-connection` — token input, environment toggle, profile picker, reporting timezone, webhook status, manual sync, disconnect.
 - `/business/settings/import-csv` — uploader.
 - `/business/settings/coa` — view system COA, add custom lines.
-- `/business/settings/rules` — create/edit/delete/reorder categorisation rules.
-- `/business/settings/periods` — manage saved periods.
+- `/business/settings/rules` — categorisation rules.
+- `/business/settings/periods` — saved periods.
 
-## 9. Personal expense claims flow (Up → Business)
+## 10. Personal expense claims flow (Up → Business)
 
-Claimed Up transactions are personal purchases made on behalf of the business. They appear in P&L, BAS, and `/business/transactions` alongside Wise transactions, distinguished with a **"Personal claim"** badge.
+**Policy: full claims only in v1.** One Up transaction is either claimed in full or not at all. Partial claims (claiming $40 of an $85 transaction as business) are explicitly out of scope. The modal copy must state this clearly so users with mixed-use purchases know to split at point-of-sale or absorb the mismatch.
 
 **Flow:**
 
 1. User clicks "Claim personal expense" on `/business/transactions` or `/business/claims`.
-2. Modal opens with searchable list of Up transactions (searchable by date, description, amount).
-3. **Search excludes already-claimed transactions** via `LEFT JOIN business_expense_claims … WHERE bec.up_transaction_uuid IS NULL`. Already-claimed rows never appear in the picker — duplicate claims are prevented at the UI layer, not via runtime unique-constraint errors.
+2. Modal opens with searchable list of Up transactions (by date, description, amount).
+3. **Excludes already-claimed transactions** via `LEFT JOIN business_expense_claims … WHERE bec.up_transaction_uuid IS NULL`. Already-claimed rows never appear.
 4. User picks a transaction.
 5. User assigns a COA. `gst_code` auto-populates from `coa.default_gst_code`; override allowed.
-6. User sets `reimbursement_status`:
-   - `owner_absorbed` (default for sole traders) — no cash movement, just a business cost.
-   - `pending` — business owes the owner, not yet repaid.
-   - `reimbursed` — owner has been repaid (record only).
-7. Server action `claimUpTransactionAsBusinessExpense` performs the ownership check (the Up transaction's account belongs to this user) and inserts the row.
-8. Claim immediately contributes to P&L and BAS for the relevant period.
+6. User sets `reimbursement_status`: `owner_absorbed` (default for sole traders) | `pending` | `reimbursed`.
+7. Server action `claimUpTransactionAsBusinessExpense`:
+   - Validates ownership.
+   - Snapshots `description`, `amount_aud_cents`, `occurred_at`, `reporting_date`, `up_account_id`, `status` from the personal transaction.
+   - Computes `gst_amount_aud_cents`.
+   - Inserts the claim.
+8. Claim immediately contributes to P&L and BAS for the relevant period via the snapshot fields.
 
-**Strict isolation rules:**
+**Snapshot rationale** — claims read from snapshot fields, not from the joined personal row. This means a personal transaction being soft-deleted, hidden, recategorised, or restructured later does not change the historical claim. The FK + `ON DELETE RESTRICT` exists for audit/traceability, not as the data path for reports.
 
-- Do NOT modify the personal `transactions` table.
-- Do NOT include claimed Up transactions in personal budget / FIRE / analysis (they remain visible in personal activity unchanged — that's intentional, the user still spent that money personally).
+**Strict isolation:**
+- Personal `transactions` table is never mutated.
+- Claimed Up transactions remain visible in personal activity unchanged — that's intentional, the user still spent that money personally.
 - Link is read-only from the personal side.
-- One Up transaction → at most one claim (unique constraint).
-- Deleting a personal transaction with an active claim: blocked by `ON DELETE RESTRICT`. Webhook `TRANSACTION_DELETED` soft-deletes (sets `status='DELETED'`), which doesn't trigger the FK, so this is a non-issue under the current Up webhook flow.
 
-## 10. Multi-currency reporting
+## 11. Multi-currency reporting
 
 - Store native `amount_cents` + `currency_code` always.
-- `amount_aud_cents` always populated for AUD-currency rows; for non-AUD rows, populated via Wise-provided rate or Frankfurter spot rate at ingest. Null only if both fail — surfaced in UI for manual entry.
-- All reports (P&L, BAS) operate on `amount_aud_cents`.
-- Transaction list UI shows: native amount (currency code) → AUD equivalent inline.
+- `amount_aud_cents` populated when `fx_status = 'resolved'` or `'manual'`. Null when `fx_status = 'missing'`.
+- All reports operate on `amount_aud_cents`. Missing-FX rows are excluded from totals **and surfaced as a separate count** so the user knows reports are incomplete.
+- Transaction list UI shows native amount (currency) → AUD inline; spot-feed-sourced rates carry a small badge so provenance is visible.
 
-## 11. Categorisation engine — summary
+## 12. Categorisation engine
 
-Wise/CSV ingest:
+Wise/CSV ingest only:
 
-1. Iterate `business_categorisation_rules` in `priority` order (lower = higher priority).
-2. First match sets `coa_id`. `gst_code = rule.gst_code_override ?? coa.default_gst_code`. Calculate `gst_amount_aud_cents`.
-3. No match: `coa_id = NULL`, `gst_code = NULL`. Surfaced as uncategorised.
+1. Iterate `business_categorisation_rules` WHERE `is_active = true` ORDER BY `priority` ASC.
+2. First match sets `coa_id`. `gst_code = rule.gst_code_override ?? coa.default_gst_code`.
+3. Compute `gst_amount_aud_cents` via `business-gst.ts`.
+4. No match: `coa_id = NULL`, `gst_code = NULL`, surfaced as uncategorised.
 
-Claims **do not** run through the rule engine — categorisation is always explicit at claim time.
+Claims do **not** run through the rule engine — categorisation is always explicit at claim time.
 
-## 12. Chart of accounts seed
+## 13. Chart of accounts seed + versioning
 
-Inserted on first connection (per-user, `is_system = true`):
+**Seed function** — `seed_business_coa(user_id, target_version)` is a Postgres function (or TypeScript helper called from server action). Inserts/updates the rows below for the target user.
+
+**Versioning model:**
+
+- Each seed row has a `seed_version` int.
+- On first connection, the latest version is applied. New users always get the newest seed set.
+- For existing users when a new version ships, a migration step calls `seed_business_coa(user_id, latest)`. The seed function:
+  - **Inserts** any rows whose `(user_id, code)` doesn't exist, marked `is_system = true`.
+  - **Never updates** existing rows' `name`, `type`, or `default_gst_code` — preserves user customisations and avoids surprising live BAS reports.
+  - **Never deletes** rows.
+- Deprecated system rows are deactivated via a separate one-off migration only when there's a strong reason — never silently.
+
+**Initial seed (seed_version = 1):**
 
 | Code | Name | Type | Default GST |
 |---|---|---|---|
@@ -398,54 +473,100 @@ Inserted on first connection (per-user, `is_system = true`):
 | 8000 | Owner's Draw | equity | N-T |
 | 8100 | Tax Payments | equity | N-T |
 
-System rows can be deactivated but not deleted (UI prevents). Custom rows can be deleted.
+## 14. Navigation
 
-## 13. Navigation
+Add `Business` item to `src/components/navigation/sidebar.tsx` and `bottom-nav.tsx`. Icon: `Briefcase` (Lucide). Position: below `Plan`.
 
-Add `Business` item to the main sidebar (`src/components/navigation/sidebar.tsx`) and bottom nav. Icon: `Briefcase` (Lucide, already in the dep tree). Position: below `Plan`.
+Visibility: render only if there's an active `business_wise_configs` row OR ≥1 `business_accounts` OR ≥1 `business_transactions`. Otherwise hidden — but `/business` is still routable and renders the onboarding empty state.
 
-Visibility rule: only render if the user has an active `business_wise_configs` row OR at least one `business_accounts` row OR at least one `business_transactions` row (handles the CSV-first path). Otherwise hidden from nav — but `/business` is still routable and shows the onboarding empty state for users who type the URL.
+## 15. RLS policies
 
-## 14. RLS policies
+All `business_*` tables: `user_id = auth.uid()` for SELECT/INSERT/UPDATE/DELETE (one policy, four operations).
 
-All `business_*` tables: `user_id = auth.uid()` for SELECT/INSERT/UPDATE/DELETE (single policy, four operations).
+`business_expense_claims` additionally enforces ownership of the referenced Up transaction at the server-action layer.
 
-`business_expense_claims` additionally enforces ownership of the referenced Up transaction at the server-action layer (not DB) — checked by joining `transactions` → `accounts` and verifying `accounts.user_id = auth.uid()` before insert.
+No partnership scoping.
 
-No partnership scoping anywhere — business data is strictly per-user.
+## 16. Indexes
 
-## 15. Files to create/modify
+Create explicitly in the migration (don't wait for query performance to discover them):
+
+- `business_transactions (user_id, reporting_date DESC)`
+- `business_transactions (user_id, source, reporting_date DESC)`
+- `business_transactions (user_id, gst_code, reporting_date)` WHERE `gst_code IS NOT NULL`
+- `business_transactions (user_id, currency_code, reporting_date)`
+- `business_transactions (user_id, fx_status) WHERE fx_status != 'resolved'`
+- `business_transactions (user_id, coa_id) WHERE coa_id IS NULL` — uncategorised hot path
+- `business_expense_claims (user_id, reporting_date_snapshot DESC)`
+- `business_expense_claims (user_id, reimbursement_status, reporting_date_snapshot DESC)`
+- `business_categorisation_rules (user_id, is_active, priority)`
+- `chart_of_accounts (user_id, type, is_active)`
+- `business_sync_jobs (user_id, status, created_at DESC)`
+- `business_webhook_events (wise_subscription_id, wise_event_id)` — unique
+- `business_webhook_events (user_id, created_at DESC)` — debugging hot path
+
+## 17. Views and materialisation
+
+**Not in v1.** Start with straightforward typed query functions in `business-pl.ts` / `business-bas.ts` running against the indexes above. If a real performance issue emerges, introduce a SQL view or materialised view deliberately — don't pre-optimise.
+
+## 18. Files to create/modify
 
 **New:**
 
-- `supabase/migrations/<next-timestamp>_business_accounting_schema.sql` — all tables, RLS, COA seed function.
-- `src/lib/wise-api.ts` — Wise API client.
-- `src/lib/wise-fx.ts` — Frankfurter spot-rate helper with caching.
-- `src/lib/business-categorise.ts` — rule engine.
-- `src/lib/business-gst.ts` — GST code → amount helpers, BAS aggregation.
-- `src/app/actions/business.ts` — all server actions.
-- `src/app/api/business/wise/webhook/route.ts` — webhook handler.
-- `src/app/(app)/business/` — all pages (`page.tsx`, `transactions/`, `claims/`, `pl/`, `bas/`, `settings/wise-connection/`, `settings/import-csv/`, `settings/coa/`, `settings/rules/`, `settings/periods/`).
-- `documentation/features/business-accounting.md` — feature doc.
-- `documentation/wise-api/README.md` — API reference notes (auth, environments, signature verification, endpoints used).
+- `supabase/migrations/<next-timestamp>_business_accounting_schema.sql` — tables, constraints, indexes, RLS, COA seed function.
+- `src/lib/wise-api.ts`, `src/lib/wise-fx.ts`, `src/lib/business-categorise.ts`, `src/lib/business-gst.ts`, `src/lib/business-pl.ts`, `src/lib/business-bas.ts`.
+- `src/app/actions/business.ts`.
+- `src/app/api/business/wise/webhook/route.ts`.
+- `src/app/(app)/business/` (all pages and sub-routes).
+- `documentation/features/business-accounting.md`.
+- `documentation/wise-api/README.md`.
 
 **Modified:**
 
-- `src/components/navigation/sidebar.tsx` — add `Business` nav item with visibility gate.
-- `src/components/navigation/bottom-nav.tsx` — same.
-- `src/lib/env.ts` — add `WISE_PUBLIC_KEY_LIVE`, `WISE_PUBLIC_KEY_SANDBOX` (or bundle keys into repo if Wise publishes them as constants).
+- `src/components/navigation/sidebar.tsx`, `bottom-nav.tsx` — add Business nav.
+- `src/lib/env.ts` — `WISE_PUBLIC_KEY_LIVE`, `WISE_PUBLIC_KEY_SANDBOX`.
 
-## 16. Open questions deferred to implementation
+## 19. Implementation order (phasing)
 
-- Confirm exact Wise endpoint paths and pagination shape against the live API reference (drift is common between LLM training data and current Wise docs).
-- Pick Server-Sent Events vs a `business_sync_status` polling row for the initial sync progress indicator.
-- Confirm Wise's currently-supported webhook event names (`balances#credit` vs newer naming).
+This spec is one cohesive module but ships in two phases to let the data model prove itself before edge cases pile on.
 
-## 17. Phase 2 (explicitly out of this spec)
+**Phase 1A — minimum viable business module:**
+
+1. Schema migration (all tables, constraints, indexes, RLS).
+2. COA seed function + initial seed_version = 1.
+3. Wise API client (`wise-api.ts`).
+4. `/business/settings/wise-connection` — token entry, profile pick, manual sync.
+5. Initial sync via `business_sync_jobs` polling.
+6. `/business/transactions` — list, filter, inline edit, categorisation, manual FX.
+7. Categorisation rules + `/business/settings/rules`.
+8. Personal expense claim flow + `/business/claims`.
+9. `business-pl.ts` + `/business/pl` — basic P&L report.
+10. `/business` dashboard (empty state + connected state).
+11. Sidebar/bottom-nav integration.
+
+**Phase 1B — BAS, CSV, automation:**
+
+12. `business-bas.ts` + `/business/bas` — BAS summary, period saving.
+13. CSV import + `import_fingerprint` dedupe.
+14. Bulk actions on transaction list.
+15. Wise webhook automation — RSA verification, `business_webhook_events`, refetch-on-event pipeline.
+16. Spot-feed FX integration (Frankfurter) + `fx_status = 'missing'` recovery UI.
+
+Phase 1A delivers a useful module without webhooks (manual sync covers the gap). Phase 1B adds automation and BAS once the ingestion model is proven.
+
+## 20. Open questions deferred to implementation
+
+- Confirm exact Wise endpoint paths and cursor-pagination shape against the live API reference.
+- Confirm Wise webhook event names — `balances#credit` vs newer naming.
+- Confirm Wise's published public-key delivery format (env vars vs pinned constants).
+- Decide whether the spot-feed warning in §9.5 should also block "Copy to clipboard" or just badge it.
+
+## 21. Phase 2 (explicitly out of scope here)
 
 - Receipts / attachments storage.
 - Contacts / suppliers table.
 - BAS lodgement integration with ATO.
 - Invoicing.
-- Bank-to-COA learning via LLM (parallel to existing `ai-categorize.ts` for personal).
+- LLM categorisation parallel to `ai-categorize.ts`.
 - Accountant share / read-only multi-user.
+- Partial expense claims.
