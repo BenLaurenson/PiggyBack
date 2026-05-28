@@ -17,7 +17,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { inferCategoryId } from "./infer-category";
-import type { UpTransaction } from "./up-types";
+import type { AccountTypeEnum, UpTransaction } from "./up-types";
 import {
   findDefaultRuleForDescription,
   loadMerchantDefaultRules,
@@ -44,6 +44,12 @@ export interface BatchResolverContext {
   merchantRulesByDesc: Map<string, { id: string; category_id: string; parent_category_id: string | null }>;
   /** Map: up_account_id → PiggyBack accounts.id, for transfer-account resolution. */
   upAccountIdToDbId: Map<string, string>;
+  /**
+   * Map: up_account_id → account_type. Lets inference disambiguate
+   * HOME_LOAN-specific transaction types (Drawdown, Interest charged) from
+   * the same types on TRANSACTIONAL/SAVER accounts.
+   */
+  upAccountIdToAccountType: Map<string, AccountTypeEnum>;
   /** Pre-loaded global default rules (from merchant_default_rules). */
   defaultRulesByPattern: Map<string, MerchantDefaultRule>;
 }
@@ -116,6 +122,11 @@ export function resolveCategoryBatch(
     ? ctx.upAccountIdToDbId.get(txn.relationships.transferAccount.data.id) ?? null
     : null;
 
+  const sourceUpAccountId = txn.relationships.account?.data?.id ?? null;
+  const accountType = sourceUpAccountId
+    ? ctx.upAccountIdToAccountType.get(sourceUpAccountId) ?? null
+    : null;
+
   const inferred = inferCategoryId({
     upCategoryId: null,
     transferAccountId,
@@ -123,6 +134,7 @@ export function resolveCategoryBatch(
     transactionType: txn.attributes.transactionType,
     description: txn.attributes.description,
     amountCents: txn.attributes.amount.valueInBaseUnits,
+    accountType,
   });
 
   return {
@@ -150,6 +162,9 @@ export async function resolveCategorySingle(
     transferAccountId: string | null;
     /** Existing PiggyBack transactions.id for this Up transaction, if it's a re-sync. */
     existingTxnId: string | null;
+    /** Source account's type (TRANSACTIONAL/SAVER/HOME_LOAN). Optional, but
+     *  enables HOME_LOAN-aware inference (Drawdown, interest-charged). */
+    accountType?: AccountTypeEnum | null;
   }
 ): Promise<CategoryResolution> {
   // Tier 1: user override (highest priority)
@@ -220,6 +235,7 @@ export async function resolveCategorySingle(
     transactionType: txn.attributes.transactionType,
     description: txn.attributes.description,
     amountCents: txn.attributes.amount.valueInBaseUnits,
+    accountType: ctx.accountType ?? null,
   });
 
   return {

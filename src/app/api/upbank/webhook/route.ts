@@ -311,7 +311,7 @@ async function processTransaction(
   // needed since service role bypasses RLS and up_account_id is unique.
   const { data: account, error: accountError } = await supabase
     .from("accounts")
-    .select("id, ownership_type")
+    .select("id, ownership_type, account_type")
     .eq("up_account_id", txn.relationships.account.data.id)
     .limit(1)
     .maybeSingle();
@@ -372,6 +372,7 @@ async function processTransaction(
     supabase,
     transferAccountId,
     existingTxnId: existingTxn?.id ?? null,
+    accountType: account.account_type,
   });
 
   const { data: savedTransaction, error: txnError } = await supabase

@@ -50,6 +50,7 @@ const emptyCtx = (): BatchResolverContext => ({
   overridesByTxnId: new Map(),
   merchantRulesByDesc: new Map(),
   upAccountIdToDbId: new Map(),
+  upAccountIdToAccountType: new Map(),
   defaultRulesByPattern: new Map(),
 });
 
@@ -197,6 +198,121 @@ describe("resolveCategoryBatch precedence", () => {
 
     expect(resolveCategoryBatch(txn, ctx, null)).toEqual({
       categoryId: "good-life",
+      parentCategoryId: null,
+      appliedUserRuleId: null,
+      appliedDefaultRuleId: null,
+    });
+  });
+});
+
+describe("resolveCategoryBatch HOME_LOAN-aware inference", () => {
+  // HOME_LOAN accounts produce transactions Up Bank doesn't categorize:
+  //   - Drawdown: bank advances funds to settle the property purchase.
+  //     Balance-sheet movement, not cash flow. Must be treated as a transfer.
+  //   - Interest: charged monthly. Negative amount on the loan account. Should
+  //     be a real housing expense, not "Interest Earned".
+  //   - Repayment: arrives as a Scheduled Transfer with transferAccount set →
+  //     already handled by the existing internal-transfer path.
+  // Pre-fix, drawdowns fell through to the genuine-uncategorized branch and
+  // appeared as massive negative "spending", and interest charges were
+  // classified as "interest" (the Interest Earned category).
+
+  it("HOME_LOAN drawdown becomes external-transfer (excluded from spending)", () => {
+    const txn = baseTxn({
+      description: "Drawdown",
+      transactionType: "Drawdown",
+      amount: { currencyCode: "AUD", value: "-439453.54", valueInBaseUnits: -43945354 },
+    });
+    txn.relationships.account.data = { type: "accounts", id: "up-acc-loan" };
+    const ctx = emptyCtx();
+    ctx.upAccountIdToAccountType.set("up-acc-loan", "HOME_LOAN");
+
+    expect(resolveCategoryBatch(txn, ctx, null)).toEqual({
+      categoryId: "external-transfer",
+      parentCategoryId: null,
+      appliedUserRuleId: null,
+      appliedDefaultRuleId: null,
+    });
+  });
+
+  it("HOME_LOAN interest charge maps to rent-and-mortgage (Housing & Utilities)", () => {
+    const txn = baseTxn({
+      description: "Interest",
+      transactionType: "Interest",
+      amount: { currencyCode: "AUD", value: "-1716.18", valueInBaseUnits: -171618 },
+    });
+    txn.relationships.account.data = { type: "accounts", id: "up-acc-loan" };
+    const ctx = emptyCtx();
+    ctx.upAccountIdToAccountType.set("up-acc-loan", "HOME_LOAN");
+
+    expect(resolveCategoryBatch(txn, ctx, null)).toEqual({
+      categoryId: "rent-and-mortgage",
+      parentCategoryId: null,
+      appliedUserRuleId: null,
+      appliedDefaultRuleId: null,
+    });
+  });
+
+  it("SAVER interest credit still maps to Interest Earned", () => {
+    const txn = baseTxn({
+      description: "Interest",
+      transactionType: "Interest",
+      amount: { currencyCode: "AUD", value: "8.32", valueInBaseUnits: 832 },
+    });
+    txn.relationships.account.data = { type: "accounts", id: "up-acc-saver" };
+    const ctx = emptyCtx();
+    ctx.upAccountIdToAccountType.set("up-acc-saver", "SAVER");
+
+    expect(resolveCategoryBatch(txn, ctx, null)).toEqual({
+      categoryId: "interest",
+      parentCategoryId: null,
+      appliedUserRuleId: null,
+      appliedDefaultRuleId: null,
+    });
+  });
+
+  it("Drawdown on a non-HOME_LOAN account does not get the special treatment", () => {
+    // Defensive: only HOME_LOAN drawdowns should become external-transfer.
+    // A Drawdown-typed transaction on a TRANSACTIONAL account is unusual but
+    // should fall through to the genuine-uncategorized branch (null) rather
+    // than masquerade as a transfer.
+    const txn = baseTxn({
+      description: "Drawdown",
+      transactionType: "Drawdown",
+      amount: { currencyCode: "AUD", value: "-100.00", valueInBaseUnits: -10000 },
+    });
+    txn.relationships.account.data = { type: "accounts", id: "up-acc-txn" };
+    const ctx = emptyCtx();
+    ctx.upAccountIdToAccountType.set("up-acc-txn", "TRANSACTIONAL");
+
+    expect(resolveCategoryBatch(txn, ctx, null)).toEqual({
+      categoryId: null,
+      parentCategoryId: null,
+      appliedUserRuleId: null,
+      appliedDefaultRuleId: null,
+    });
+  });
+
+  it("HOME_LOAN repayment (Scheduled Transfer with transferAccount) still routes to internal-transfer", () => {
+    // Repayments coming FROM a TRANSACTIONAL account already have the
+    // transferAccount relationship populated by Up. That path takes
+    // precedence over any HOME_LOAN-specific logic.
+    const txn = baseTxn({
+      description: "Repayment from 2Up Spending",
+      transactionType: "Scheduled Transfer",
+      amount: { currencyCode: "AUD", value: "2417.00", valueInBaseUnits: 241700 },
+    });
+    txn.relationships.account.data = { type: "accounts", id: "up-acc-loan" };
+    txn.relationships.transferAccount = {
+      data: { type: "accounts", id: "up-acc-txn" },
+      links: { related: "" },
+    };
+    const ctx = emptyCtx();
+    ctx.upAccountIdToAccountType.set("up-acc-loan", "HOME_LOAN");
+    ctx.upAccountIdToDbId.set("up-acc-txn", "local-txn-acc");
+
+    expect(resolveCategoryBatch(txn, ctx, null)).toEqual({
+      categoryId: "internal-transfer",
       parentCategoryId: null,
       appliedUserRuleId: null,
       appliedDefaultRuleId: null,

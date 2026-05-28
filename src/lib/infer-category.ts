@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import type { AccountTypeEnum } from "@/lib/up-types";
 
 /**
  * Categories that inferCategoryId can return. These don't come from Up Bank's
@@ -35,6 +36,10 @@ export async function ensureInferredCategories(supabase: SupabaseClient) {
  * Infers a category_id for transactions that Up Bank doesn't categorize.
  * This handles internal transfers, round-ups, salary, interest, etc.
  * that Up sends with category_id = null.
+ *
+ * `accountType` is optional but recommended: it lets HOME_LOAN-specific
+ * transactions (Drawdown, Interest charged) be classified correctly instead
+ * of bleeding into spending/income aggregations.
  */
 export function inferCategoryId({
   upCategoryId,
@@ -43,6 +48,7 @@ export function inferCategoryId({
   transactionType,
   description,
   amountCents,
+  accountType,
 }: {
   upCategoryId: string | null;
   transferAccountId: string | null;
@@ -50,6 +56,7 @@ export function inferCategoryId({
   transactionType: string | null;
   description: string;
   amountCents: number;
+  accountType?: AccountTypeEnum | null;
 }): string | null {
   // If Up Bank provided a category, use it
   if (upCategoryId) return upCategoryId;
@@ -64,8 +71,23 @@ export function inferCategoryId({
   // Salary
   if (transactionType === "Salary") return "salary-income";
 
-  // Interest
-  if (transactionType === "Interest") return "interest";
+  // HOME_LOAN settlement / drawdown — bank advances funds to settle the
+  // purchase. It's a balance-sheet movement (debt created in exchange for
+  // an asset), NOT cash flow. Classify as external-transfer so spending
+  // queries exclude it.
+  if (transactionType === "Drawdown" && accountType === "HOME_LOAN") {
+    return "external-transfer";
+  }
+
+  // Interest. On a SAVER (positive amount) it's income — "Interest Earned".
+  // On a HOME_LOAN (negative amount) it's interest CHARGED, a real housing
+  // expense. Route it to Up's "Rent & Mortgage" category so it lands under
+  // "Housing & Utilities" in spending analysis (and counts as essential in
+  // the FIRE classifier).
+  if (transactionType === "Interest") {
+    const isCharged = accountType === "HOME_LOAN" || amountCents < 0;
+    return isCharged ? "rent-and-mortgage" : "interest";
+  }
 
   // Investment platforms
   const descLower = description.toLowerCase();

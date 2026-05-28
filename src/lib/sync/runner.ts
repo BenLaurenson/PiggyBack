@@ -210,7 +210,7 @@ export async function runSyncForUser(
       id: string;
       attributes: {
         displayName: string;
-        accountType: string;
+        accountType: "SAVER" | "TRANSACTIONAL" | "HOME_LOAN";
         ownershipType: string;
         balance: { valueInBaseUnits: number; currencyCode: string };
       };
@@ -244,6 +244,10 @@ export async function runSyncForUser(
     }
 
     const upAccountIdToDbId = new Map<string, string>();
+    const upAccountIdToAccountType = new Map<
+      string,
+      "SAVER" | "TRANSACTIONAL" | "HOME_LOAN"
+    >();
 
     for (const account of upAccounts) {
       const { data: savedAccount, error: accountError } = await supabase
@@ -278,6 +282,7 @@ export async function runSyncForUser(
         continue;
       }
       upAccountIdToDbId.set(account.id, savedAccount.id);
+      upAccountIdToAccountType.set(account.id, account.attributes.accountType);
     }
 
     // Pre-load overrides + merchant rules for category resolution.
@@ -441,6 +446,7 @@ export async function runSyncForUser(
             transactionType: txn.attributes.transactionType || null,
             description: txn.attributes.description,
             amountCents: txn.attributes.amount.valueInBaseUnits,
+            accountType: upAccountIdToAccountType.get(account.id) ?? null,
           });
           let finalParentCategoryId =
             txn.relationships.parentCategory.data?.id || null;
