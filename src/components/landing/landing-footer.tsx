@@ -42,6 +42,12 @@ export function LandingFooter() {
             >
               About
             </Link>
+            <Link
+              href="/friends"
+              className="font-[family-name:var(--font-dm-sans)] text-sm text-text-secondary hover:text-text-dark transition-colors duration-200 cursor-pointer"
+            >
+              Friends
+            </Link>
             <a
               href="https://buymeacoffee.com/benlaurenson"
               target="_blank"
@@ -69,7 +75,7 @@ export function LandingFooter() {
               Made with <Heart className="w-3.5 h-3.5 text-brand-coral fill-brand-coral" /> in Perth
             </p>
             <p className="font-[family-name:var(--font-dm-sans)] text-xs text-text-tertiary">
-              AI powered by{" "}
+              Friends:{" "}
               <a
                 href="https://verticalai.com.au"
                 target="_blank"
