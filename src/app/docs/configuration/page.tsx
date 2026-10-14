@@ -11,6 +11,7 @@ import { CodeBlock } from "../_components/code-block";
 import { InfoBox } from "../_components/info-box";
 
 export const metadata = {
+  alternates: { canonical: "/docs/configuration" },
   title: "Configuration - PiggyBack Documentation",
   description:
     "Environment variables, cron jobs, AI assistant, webhooks, and custom domain configuration for PiggyBack.",

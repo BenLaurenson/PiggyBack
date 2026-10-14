@@ -16,7 +16,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "PiggyBack",
+  metadataBase: new URL("https://piggyback.finance"),
+  title: "PiggyBack | Budgeting app for Up Bank",
   description:
     "Your finances on autopilot with Up Bank. Auto-syncing transactions, budgets, savings goals, and a 25-tool AI assistant. Self-hosted on Vercel + Supabase. MIT licensed.",
   keywords: [
@@ -33,7 +34,7 @@ export const metadata: Metadata = {
   ],
   authors: [{ name: "Ben Laurenson" }],
   openGraph: {
-    title: "PiggyBack",
+    title: "PiggyBack | Budgeting app for Up Bank",
     description:
       "Your finances on autopilot with Up Bank. Auto-syncing transactions, budgets, savings goals, and a 25-tool AI assistant. Self-hosted on Vercel + Supabase.",
     type: "website",
@@ -45,8 +46,8 @@ export const metadata: Metadata = {
     apple: "/apple-touch-icon.png",
   },
   twitter: {
-    card: "summary_large_image",
-    title: "PiggyBack",
+    card: "summary",
+    title: "PiggyBack | Budgeting app for Up Bank",
     description:
       "Your finances on autopilot with Up Bank. Auto-syncing transactions, budgets, savings goals, and a 25-tool AI assistant. MIT licensed.",
     images: ["/PiggyBackIcon.png"],

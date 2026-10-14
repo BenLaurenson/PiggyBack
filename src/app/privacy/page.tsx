@@ -19,6 +19,7 @@ const dmSans = DM_Sans({
 });
 
 export const metadata: Metadata = {
+  alternates: { canonical: "/privacy" },
   title: "Privacy - PiggyBack",
   description:
     "Privacy notice for PiggyBack, a self-hosted finance app. Your data stays on your own infrastructure.",

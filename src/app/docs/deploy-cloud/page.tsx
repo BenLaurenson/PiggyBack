@@ -22,6 +22,7 @@ import { InfoBox } from "../_components/info-box";
 const GITHUB_URL = "https://github.com/BenLaurenson/PiggyBack";
 
 export const metadata = {
+  alternates: { canonical: "/docs/deploy-cloud" },
   title: "Cloud Hosting - PiggyBack Documentation",
   description:
     "Deploy PiggyBack to the cloud using Vercel and Supabase. Free tier, zero maintenance.",

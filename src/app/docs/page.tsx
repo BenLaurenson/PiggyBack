@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 
 export const metadata = {
+  alternates: { canonical: "/docs" },
   title: "Documentation - PiggyBack",
   description:
     "Everything you need to deploy, configure, and contribute to PiggyBack — your personal finance autopilot for Up Bank.",

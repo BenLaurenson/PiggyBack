@@ -27,6 +27,7 @@ const dmSans = DM_Sans({
 });
 
 export const metadata: Metadata = {
+  alternates: { canonical: "/about" },
   title: "About - PiggyBack",
   description:
     "The story behind PiggyBack. Your finances on autopilot with Up Bank.",

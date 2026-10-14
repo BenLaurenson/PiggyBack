@@ -19,6 +19,7 @@ const dmSans = DM_Sans({
 });
 
 export const metadata: Metadata = {
+  alternates: { canonical: "/terms" },
   title: "Terms - PiggyBack",
   description:
     "Terms of use for PiggyBack. Your finances on autopilot with Up Bank. MIT licensed.",

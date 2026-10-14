@@ -16,6 +16,7 @@ import { CodeBlock } from "../_components/code-block";
 import { InfoBox } from "../_components/info-box";
 
 export const metadata = {
+  alternates: { canonical: "/docs/contributing" },
   title: "Contributing - PiggyBack Documentation",
   description:
     "How to set up your development environment and contribute to PiggyBack.",
