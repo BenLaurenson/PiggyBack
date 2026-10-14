@@ -69,7 +69,7 @@ export function LandingFooter() {
               Made with <Heart className="w-3.5 h-3.5 text-brand-coral fill-brand-coral" /> in Perth
             </p>
             <p className="font-[family-name:var(--font-dm-sans)] text-xs text-text-tertiary">
-              Built by Ben Laurenson at{" "}
+              AI powered by{" "}
               <a
                 href="https://verticalai.com.au"
                 target="_blank"
