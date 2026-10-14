@@ -21,6 +21,7 @@ import { InfoBox } from "../_components/info-box";
 import { OptionCard } from "../_components/option-card";
 
 export const metadata = {
+  alternates: { canonical: "/docs/deploy-local" },
   title: "Local Hosting - PiggyBack Documentation",
   description:
     "Run PiggyBack on your own machine or VPS using Docker. Full data sovereignty.",

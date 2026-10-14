@@ -13,6 +13,7 @@ import {
 import { InfoBox } from "../_components/info-box";
 
 export const metadata = {
+  alternates: { canonical: "/docs/security" },
   title: "Security - PiggyBack Documentation",
   description:
     "Security measures, vulnerability reporting, and responsible disclosure for PiggyBack.",

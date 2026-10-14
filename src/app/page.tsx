@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import Image from "next/image";
 import { Nunito, DM_Sans } from "next/font/google";
@@ -32,9 +33,33 @@ const dmSans = DM_Sans({
 
 const GITHUB_URL = "https://github.com/BenLaurenson/PiggyBack";
 
+export const metadata: Metadata = {
+  alternates: { canonical: "/" },
+};
+
+const SOFTWARE_JSON_LD = {
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  name: "PiggyBack",
+  url: "https://piggyback.finance",
+  image: "https://piggyback.finance/PiggyBackIcon.png",
+  description:
+    "Budgeting app for Up Bank. Auto-syncing transactions, budgets, savings goals and an AI assistant. Self-hosted on Vercel and Supabase. MIT licensed.",
+  applicationCategory: "FinanceApplication",
+  operatingSystem: "Web",
+  offers: { "@type": "Offer", price: "0", priceCurrency: "AUD" },
+  license: "https://opensource.org/licenses/MIT",
+  author: { "@type": "Person", name: "Ben Laurenson", url: "https://github.com/BenLaurenson" },
+};
+
 export default function LandingPage() {
   return (
     <div className={`mint min-h-screen ${nunito.variable} ${dmSans.variable}`}>
+      {/* JSON-LD is a data block, not executed, so the CSP nonce does not apply. */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(SOFTWARE_JSON_LD) }}
+      />
       {/* ===================== HEADER ===================== */}
       <LandingHeader />
 
