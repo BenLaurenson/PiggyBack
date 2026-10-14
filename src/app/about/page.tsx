@@ -108,7 +108,16 @@ export default function AboutPage() {
                   Ben Laurenson
                 </h3>
                 <p className="font-[family-name:var(--font-dm-sans)] text-sm text-pastel-lavender-dark font-medium mb-4">
-                  AI Engineer · Perth, Australia
+                  AI Engineer at{" "}
+                  <a
+                    href="https://verticalai.com.au"
+                    target="_blank"
+                    rel="noopener"
+                    className="underline underline-offset-2 hover:text-text-dark transition-colors duration-200"
+                  >
+                    VerticalAI
+                  </a>{" "}
+                  · Perth, Australia
                 </p>
                 <div className="space-y-3 font-[family-name:var(--font-dm-sans)] text-text-secondary leading-relaxed mb-6">
                   <p>
